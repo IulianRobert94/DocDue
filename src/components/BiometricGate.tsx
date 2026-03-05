@@ -1,0 +1,176 @@
+/**
+ * BiometricGate — Full-screen lock overlay
+ *
+ * When biometric lock is enabled in settings:
+ * - Shows lock screen on app open
+ * - Re-locks when app returns from background (after 5s away)
+ * - Uses Face ID / Touch ID / fingerprint via expo-local-authentication
+ *
+ * NOTE: Face ID only works in production/dev builds.
+ * In Expo Go, falls back to device passcode.
+ */
+
+import React, { useEffect, useRef, useState, useCallback } from "react";
+import { View, Text, StyleSheet, AppState, Platform } from "react-native";
+import * as LocalAuthentication from "expo-local-authentication";
+import { Ionicons } from "@expo/vector-icons";
+
+import { useSettingsStore, useTheme } from "../stores/useSettingsStore";
+import { t } from "../core/i18n";
+import { AnimatedPressable } from "./AnimatedUI";
+
+export function BiometricGate({ children }: { children: React.ReactNode }) {
+  const biometricEnabled = useSettingsStore((s) => s.settings.biometricEnabled);
+  const language = useSettingsStore((s) => s.settings.language);
+  const theme = useTheme();
+  const [locked, setLocked] = useState(biometricEnabled);
+  const [failed, setFailed] = useState(false);
+  const backgroundTime = useRef<number>(0);
+  const appState = useRef(AppState.currentState);
+
+  const authenticate = useCallback(async () => {
+    setFailed(false);
+    try {
+      // Check what biometric types are available
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: t(language, "biometric_unlock"),
+        fallbackLabel: t(language, "biometric_retry"),
+        cancelLabel: t(language, "confirm_cancel"),
+        // On iOS, allow device passcode as fallback if biometric fails
+        disableDeviceFallback: false,
+      });
+      if (result.success) {
+        setLocked(false);
+        setFailed(false);
+      } else {
+        setFailed(true);
+      }
+    } catch {
+      setFailed(true);
+    }
+  }, [language]);
+
+  // Auto-authenticate on mount if locked
+  useEffect(() => {
+    if (locked) {
+      // Small delay to let the UI render before showing the biometric prompt
+      const timer = setTimeout(() => authenticate(), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [locked, authenticate]);
+
+  // Re-lock on background → foreground (after 5 seconds away)
+  useEffect(() => {
+    if (!biometricEnabled) return;
+
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      if (appState.current === "active" && nextState.match(/inactive|background/)) {
+        backgroundTime.current = Date.now();
+      }
+      if (appState.current.match(/inactive|background/) && nextState === "active") {
+        const elapsed = Date.now() - backgroundTime.current;
+        if (elapsed > 5000) {
+          setLocked(true);
+        }
+      }
+      appState.current = nextState;
+    });
+
+    return () => subscription.remove();
+  }, [biometricEnabled]);
+
+  // Sync lock state when setting changes (including post-hydration)
+  useEffect(() => {
+    if (!biometricEnabled) {
+      setLocked(false);
+    } else {
+      setLocked(true);
+    }
+  }, [biometricEnabled]);
+
+  if (!locked) {
+    return <>{children}</>;
+  }
+
+  return (
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <View style={styles.content}>
+        <View style={[styles.iconCircle, { backgroundColor: "rgba(0,122,255,0.15)" }]}>
+          <Ionicons name="lock-closed" size={44} color="#007AFF" />
+        </View>
+        <Text style={[styles.title, { color: theme.text }]}>
+          DocDue
+        </Text>
+        <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
+          {t(language, "biometric_unlock")}
+        </Text>
+        {failed && (
+          <Text style={styles.failedText}>
+            {t(language, "biometric_failed")}
+          </Text>
+        )}
+        <AnimatedPressable
+          style={styles.retryBtn}
+          onPress={authenticate}
+          hapticStyle="medium"
+          accessibilityLabel={t(language, "biometric_retry")}
+        >
+          <Ionicons
+            name={Platform.OS === "ios" ? "scan" : "finger-print"}
+            size={20}
+            color="#FFF"
+            style={{ marginRight: 8 }}
+          />
+          <Text style={styles.retryText}>{t(language, "biometric_retry")}</Text>
+        </AnimatedPressable>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  content: {
+    alignItems: "center",
+    paddingHorizontal: 32,
+  },
+  iconCircle: {
+    width: 96,
+    height: 96,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 24,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 17,
+    marginBottom: 32,
+  },
+  failedText: {
+    fontSize: 15,
+    color: "#FF3B30",
+    marginBottom: 16,
+  },
+  retryBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#007AFF",
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 22,
+  },
+  retryText: {
+    color: "#FFF",
+    fontSize: 17,
+    fontWeight: "600",
+  },
+});

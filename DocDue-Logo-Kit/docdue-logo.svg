@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80" width="1280" height="320">
+  <rect width="320" height="80" fill="#0A0A0A"/>
+  <defs>
+    <linearGradient id="sk5" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7B61FF"/>
+      <stop offset="100%" stop-color="#00D09C"/>
+    </linearGradient>
+  </defs>
+  <!-- Document -->
+  <rect x="16" y="10" width="38" height="50" rx="4" fill="none" stroke="#3A3A3C" stroke-width="2"/>
+  <path d="M42 10 L54 22 L42 22 Z" fill="#3A3A3C" opacity="0.5"/>
+  <line x1="24" y1="30" x2="46" y2="30" stroke="#3A3A3C" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="24" y1="38" x2="40" y2="38" stroke="#3A3A3C" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="24" y1="46" x2="43" y2="46" stroke="#3A3A3C" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- Clock badge -->
+  <circle cx="52" cy="16" r="12" fill="#0A0A0A"/>
+  <circle cx="52" cy="16" r="10" fill="url(#sk5)"/>
+  <line x1="52" y1="10" x2="52" y2="16" stroke="#0A0A0A" stroke-width="2" stroke-linecap="round"/>
+  <line x1="52" y1="16" x2="57" y2="13" stroke="#0A0A0A" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="52" cy="16" r="1.5" fill="#0A0A0A"/>
+  <!-- Text -->
+  <text x="78" y="48" font-family="-apple-system, 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif" font-weight="700" font-size="38" fill="#FFFFFF" letter-spacing="-2">Doc</text>
+  <text x="174" y="48" font-family="-apple-system, 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif" font-weight="700" font-size="38" fill="url(#sk5)" letter-spacing="-2">Due</text>
+</svg>

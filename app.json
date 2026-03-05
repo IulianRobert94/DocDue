@@ -1,0 +1,113 @@
+{
+  "expo": {
+    "name": "DocDue",
+    "slug": "docdue",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "docdue",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0A0E17"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.docdueapp",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSDocumentsFolderUsageDescription": "DocDue needs access to import Excel files with your documents.",
+        "NSFaceIDUsageDescription": "DocDue uses Face ID to protect your documents.",
+        "NSPhotoLibraryUsageDescription": "DocDue needs access to your photos to attach them to documents.",
+        "NSCameraUsageDescription": "DocDue needs access to the camera to take photos for documents.",
+        "NSCalendarsFullAccessUsageDescription": "DocDue can add document due dates to your calendar.",
+        "NSCalendarsWriteOnlyAccessUsageDescription": "DocDue can add document due dates to your calendar."
+      },
+      "privacyManifests": {
+        "NSPrivacyAccessedAPITypes": [
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+            "NSPrivacyAccessedAPITypeReasons": [
+              "CA92.1"
+            ]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryFileTimestamp",
+            "NSPrivacyAccessedAPITypeReasons": [
+              "C617.1"
+            ]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryDiskSpace",
+            "NSPrivacyAccessedAPITypeReasons": [
+              "E174.1"
+            ]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategorySystemBootTime",
+            "NSPrivacyAccessedAPITypeReasons": [
+              "35F9.1"
+            ]
+          }
+        ]
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0A0E17"
+      },
+      "package": "com.docdueapp",
+      "versionCode": 1,
+      "permissions": [
+        "CAMERA",
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT",
+        "SCHEDULE_EXACT_ALARM"
+      ]
+    },
+    "experiments": {
+      "typedRoutes": true
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-document-picker",
+      "expo-local-authentication",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "DocDue needs access to your photos to attach them to documents.",
+          "cameraPermission": "DocDue needs access to the camera to take photos for documents."
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "backgroundColor": "#0A0E17",
+          "imageWidth": 200
+        }
+      ],
+      "@react-native-community/datetimepicker",
+      "expo-calendar",
+      "expo-notifications",
+      [
+        "expo-widgets",
+        {
+          "groupIdentifier": "group.com.docdueapp",
+          "widgets": [
+            {
+              "name": "DocDueWidget",
+              "displayName": "DocDue",
+              "description": "Shows urgent documents and upcoming deadlines",
+              "supportedFamilies": ["systemSmall", "systemMedium"]
+            }
+          ]
+        }
+      ]
+    ]
+  }
+}
