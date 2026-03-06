@@ -19,10 +19,10 @@ import Purchases, {
 import { Platform } from "react-native";
 
 // ─── Configuration ───────────────────────────────────────
-// Replace these with your real RevenueCat API keys after setup
+// Set real keys in .env file (never commit .env to git)
 
-const REVENUECAT_IOS_KEY = "YOUR_REVENUECAT_IOS_API_KEY";
-const REVENUECAT_ANDROID_KEY = "YOUR_REVENUECAT_ANDROID_API_KEY";
+const REVENUECAT_IOS_KEY = process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY ?? "YOUR_REVENUECAT_IOS_API_KEY";
+const REVENUECAT_ANDROID_KEY = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY ?? "YOUR_REVENUECAT_ANDROID_API_KEY";
 
 // Entitlement ID configured in RevenueCat dashboard
 const PRO_ENTITLEMENT = "pro";

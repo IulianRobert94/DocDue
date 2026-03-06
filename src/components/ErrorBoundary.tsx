@@ -11,7 +11,7 @@ import {
   Text,
   Pressable,
   StyleSheet,
-  Platform,
+  StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { t } from '../core/i18n';
@@ -58,7 +58,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
       const lang = getLanguage();
       const theme = createTheme();
       return (
-        <View style={[s.container, { paddingTop: Platform.OS === 'ios' ? 60 : 40, backgroundColor: theme.background }]}>
+        <View style={[s.container, { paddingTop: (StatusBar.currentHeight || 44) + 16, backgroundColor: theme.background }]}>
           <Ionicons name="warning" size={48} color="#FF9500" style={{ marginBottom: 16 }} />
           <Text style={[s.title, { color: theme.text }]}>
             {t(lang, 'error_title')}

@@ -213,7 +213,7 @@ export default function FormScreen() {
       <View style={[s.container, { backgroundColor: theme.background }]}>
           <ScrollView
             style={{ flex: 1 }}
-            contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: 100 }}
+            contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: 160 }}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
             automaticallyAdjustKeyboardInsets

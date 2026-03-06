@@ -378,7 +378,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     privacy_deletion_title: "Ștergerea datelor",
     privacy_deletion_body: "Poți șterge toate datele oricând din Setări → Șterge tot. Dezinstalarea aplicației elimină automat toate datele stocate.",
     privacy_contact_title: "Contact",
-    privacy_contact_body: "Pentru întrebări legate de confidențialitate, contactează-ne la: docdueapp@gmail.com",
+    privacy_contact_body: "Pentru întrebări legate de confidențialitate, contactează-ne la: andreiiulianrobert@gmail.com",
 
     // Onboarding slides
     onboarding_slide1_title: "Toate documentele\nîntr-un singur loc",
@@ -737,7 +737,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     privacy_deletion_title: "Data deletion",
     privacy_deletion_body: "You can delete all data at any time from Settings → Clear all. Uninstalling the app automatically removes all stored data.",
     privacy_contact_title: "Contact",
-    privacy_contact_body: "For privacy-related questions, contact us at: docdueapp@gmail.com",
+    privacy_contact_body: "For privacy-related questions, contact us at: andreiiulianrobert@gmail.com",
 
     // Onboarding slides
     onboarding_slide1_title: "All your documents\nin one place",

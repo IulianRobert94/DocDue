@@ -1,0 +1,23 @@
+REVIEW NOTES FOR APP STORE REVIEW TEAM:
+
+DocDue is a fully offline document expiration tracker. Key points for review:
+
+1. NO LOGIN REQUIRED - The app has no accounts, no sign-up, no server. All data is stored locally on the device using AsyncStorage.
+
+2. NO NETWORK REQUESTS - The app makes zero network calls for core functionality. OCR uses on-device ML Kit (no cloud). The only optional network call is RevenueCat for in-app purchases.
+
+3. BIOMETRIC LOCK - The app includes optional Face ID/Touch ID lock (Settings > Biometric Lock). This is user-enabled and uses expo-local-authentication with device passcode fallback.
+
+4. IN-APP PURCHASES - PRO upgrade removes the 5-document limit and unlocks analytics, backup/restore, and Excel export. Managed through RevenueCat.
+
+5. NOTIFICATIONS - Local push notifications only (no remote/server push). Scheduled for document reminders at 9:00 AM, morning digest, and weekly summary.
+
+6. OCR - Camera access is used to scan documents and auto-fill form fields. Processing is done entirely on-device using ML Kit text recognition. No images are uploaded.
+
+7. CALENDAR - Optional calendar integration adds document due dates to the device calendar. Requires user permission.
+
+8. LANGUAGES - Romanian and English. User can switch in Settings.
+
+9. PRIVACY - No data collection, no analytics, no tracking, no third-party data sharing. Privacy policy available in-app (Settings > Privacy Policy).
+
+CONTACT: andreiiulianrobert@gmail.com

@@ -1,0 +1,41 @@
+NUME APP: DocDue - Documente & Termene
+
+SUBTITLU (30 chars max):
+Urmareste Termene. Fii Pregatit.
+
+DESCRIERE SCURTA (Google Play, 80 chars):
+Urmareste termenele documentelor. Nu rata niciodata o scadenta.
+
+DESCRIERE LUNGA:
+
+Nu mai rata niciun termen. DocDue iti organizeaza toate datele de expirare ale documentelor importante intr-un singur loc — asigurari, acte de identitate, permise, facturi, contracte si multe altele.
+
+FUNCTII PRINCIPALE
+
+- Alerte Inteligente: Primesti notificari cu zile inainte de expirarea oricarui document. Rezumat zilnic si saptamanal.
+- Patru Categorii: Organizeaza documentele pe Vehicule, Casa, Personal si Financiar — fiecare cu zeci de subtipuri predefinite.
+- Adaugare Rapida cu OCR: Fotografiezi documentul si DocDue completeaza automat data, suma si tipul folosind recunoastere text pe dispozitiv.
+- Urmarire Plati: Marcheaza documentele ca platite, urmareste istoricul platilor si vezi analize lunare.
+- Documente Recurente: Seteaza recurenta anuala, lunara sau saptamanala. Cand platesti, data scadenta avanseaza automat.
+- Scor Sanatate: Vezi starea generala a documentelor dintr-o privire — stii instant daca ceva necesita atentie.
+- Integrare Calendar: Adauga termenele direct in calendarul telefonului cu un singur tap.
+- Bilingv: Suport complet romana si engleza. Schimba oricand din setari.
+- Blocare Biometrica: Protejeaza documentele cu Face ID, Touch ID sau amprenta.
+- Backup & Restaurare: Exporta datele ca fisier backup. Importa pe orice dispozitiv.
+- Widget Ecran Principal: Vezi termenele apropiate fara sa deschizi aplicatia.
+- Design Dark: Interfata eleganta dark inspirata de aplicatii fintech moderne.
+
+CONFIDENTIALITATE
+
+DocDue stocheaza totul pe dispozitivul tau. Fara conturi, fara cloud, fara urmarire, fara reclame. Datele tale nu parasesc niciodata telefonul.
+
+Gratuit cu pana la 5 documente. Treci la PRO pentru documente nelimitate, analize, backup/restaurare si export Excel.
+
+---
+
+CUVINTE CHEIE:
+documente,termene,expirare,notificari,asigurare,scadenta,facturi,acte,pasaport,reinnoire
+
+CATEGORIE: Utilitare
+
+RATING VARSTA: 4+ (fara continut inadecvat)

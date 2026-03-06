@@ -98,10 +98,13 @@ Secondary: Utilities
 ---
 
 ## Privacy URL
-(needs user's privacy policy URL)
+https://iulianrobert94.github.io/DocDue/privacy
 
 ## Support URL
-docdueapp@gmail.com
+https://iulianrobert94.github.io/DocDue/support
+
+## Contact
+andreiiulianrobert@gmail.com
 
 ---
 

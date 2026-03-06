@@ -4,7 +4,8 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { View, ActivityIndicator } from "react-native";
+import { View, ActivityIndicator, Platform, StatusBar as RNStatusBar } from "react-native";
+import * as NavigationBar from "expo-navigation-bar";
 import { Stack, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
@@ -33,6 +34,14 @@ import { t } from "../src/core/i18n";
 
 SplashScreen.preventAutoHideAsync();
 
+// Force dark system bars on Android immediately (before component renders)
+if (Platform.OS === "android") {
+  RNStatusBar.setBackgroundColor("#0A0E17", false);
+  RNStatusBar.setBarStyle("light-content", false);
+  NavigationBar.setBackgroundColorAsync("#0A0E17").catch(() => {});
+  NavigationBar.setButtonStyleAsync("light").catch(() => {});
+}
+
 // Configure notification behavior before component renders
 configureNotifications();
 
@@ -42,6 +51,14 @@ export default function RootLayout() {
   const [ready, setReady] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const responseListener = useRef<Notifications.EventSubscription>(null);
+
+  // Retry setting Android navigation bar after mount (module-level call may be too early in Expo Go)
+  useEffect(() => {
+    if (Platform.OS === "android") {
+      NavigationBar.setBackgroundColorAsync("#0A0E17").catch(() => {});
+      NavigationBar.setButtonStyleAsync("light").catch(() => {});
+    }
+  }, []);
 
   useEffect(() => {
     async function init() {
@@ -178,6 +195,7 @@ export default function RootLayout() {
   if (!ready) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#0A0E17" }}>
+        <StatusBar style="light" />
         <ActivityIndicator size="large" color="#007AFF" />
       </View>
     );
@@ -187,8 +205,8 @@ export default function RootLayout() {
     <ErrorBoundary>
       <GestureHandlerRootView style={{ flex: 1, backgroundColor: theme.background }}>
         <BiometricGate>
-          <SafeAreaProvider>
-            <StatusBar style="light" />
+          <SafeAreaProvider style={{ backgroundColor: theme.background }}>
+            <StatusBar style="light" backgroundColor="#0A0E17" />
             <Stack
               screenOptions={{ headerShown: false }}
               initialRouteName={showOnboarding ? "onboarding" : "(tabs)"}

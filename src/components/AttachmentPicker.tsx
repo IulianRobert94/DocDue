@@ -96,8 +96,16 @@ export function AttachmentPicker({
         }
       );
     } else {
-      // Android: just open gallery (camera requires more permissions)
-      pickFromGallery();
+      // Android: use Alert.alert for camera/gallery choice
+      Alert.alert(
+        t(language, "add_photo"),
+        undefined,
+        [
+          { text: t(language, "confirm_cancel"), style: "cancel" },
+          { text: t(language, "from_camera"), onPress: pickFromCamera },
+          { text: t(language, "from_gallery"), onPress: pickFromGallery },
+        ]
+      );
     }
   };
 

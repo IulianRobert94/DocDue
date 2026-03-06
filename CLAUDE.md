@@ -15,7 +15,7 @@ npx jest --testPathPattern=core  # Run specific test file
 
 ## Architecture
 
-**DocDue** — Expo Router + React Native app for tracking document expiration dates (insurance, IDs, bills, contracts). Bilingual (Romanian/English). Dark-only design inspired by Revolut Business fintech aesthetic. Bundle ID: `com.docdueapp`. Contact: docdueapp@gmail.com.
+**DocDue** — Expo Router + React Native app for tracking document expiration dates (insurance, IDs, bills, contracts). Bilingual (Romanian/English). Dark-only design inspired by Revolut Business fintech aesthetic. Bundle ID: `com.docdueapp`. Contact: andreiiulianrobert@gmail.com.
 
 ### Data Flow
 

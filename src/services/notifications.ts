@@ -44,6 +44,8 @@ export function configureNotifications(): void {
       vibrationPattern: [0, 250, 250, 250],
       lightColor: "#007AFF",
       sound: "default",
+    }).catch(() => {
+      // Channel setup may fail in Expo Go
     });
   }
 }
@@ -155,27 +157,32 @@ export async function rescheduleAllNotifications(
   entries.sort((a, b) => a.fireDate.getTime() - b.fireDate.getTime());
   const toSchedule = entries.slice(0, MAX_SCHEDULED);
 
-  // 6. Schedule each
+  // 6. Schedule each (wrap individually — exact alarms may fail on some Android versions)
   for (const entry of toSchedule) {
     const { title, body } = buildContent(entry, language);
 
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title,
-        body,
-        sound: "default",
-        categoryIdentifier: NOTIFICATION_CATEGORY,
-        data: {
-          documentId: entry.docId,
-          type: "document_reminder",
+    try {
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title,
+          body,
+          sound: "default",
+          categoryIdentifier: NOTIFICATION_CATEGORY,
+          data: {
+            documentId: entry.docId,
+            type: "document_reminder",
+          },
+          ...(Platform.OS === "android" && { channelId: CHANNEL_ID }),
         },
-        ...(Platform.OS === "android" && { channelId: CHANNEL_ID }),
-      },
-      trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.DATE,
-        date: entry.fireDate,
-      },
-    });
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date: entry.fireDate,
+        },
+      });
+    } catch {
+      // Exact alarm scheduling may fail on Android without SCHEDULE_EXACT_ALARM permission
+      break;
+    }
   }
 }
 
@@ -253,20 +260,24 @@ export async function snoozeNotification(
   tomorrow.setDate(tomorrow.getDate() + 1);
   tomorrow.setHours(FIRE_HOUR, 0, 0, 0);
 
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      title,
-      body,
-      sound: "default",
-      categoryIdentifier: NOTIFICATION_CATEGORY,
-      data: { documentId: docId, type: "document_reminder" },
-      ...(Platform.OS === "android" && { channelId: CHANNEL_ID }),
-    },
-    trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.DATE,
-      date: tomorrow,
-    },
-  });
+  try {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title,
+        body,
+        sound: "default",
+        categoryIdentifier: NOTIFICATION_CATEGORY,
+        data: { documentId: docId, type: "document_reminder" },
+        ...(Platform.OS === "android" && { channelId: CHANNEL_ID }),
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: tomorrow,
+      },
+    });
+  } catch {
+    // Exact alarm scheduling may fail on Android
+  }
 }
 
 // ─── Morning Digest ─────────────────────────────────────
@@ -312,19 +323,23 @@ export async function scheduleMorningDigest(
   tomorrow.setDate(tomorrow.getDate() + 1);
   tomorrow.setHours(FIRE_HOUR, 0, 0, 0);
 
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      title: t(language, "notif_digest_title"),
-      body,
-      sound: "default",
-      data: { type: "morning_digest" },
-      ...(Platform.OS === "android" && { channelId: CHANNEL_ID }),
-    },
-    trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.DATE,
-      date: tomorrow,
-    },
-  });
+  try {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: t(language, "notif_digest_title"),
+        body,
+        sound: "default",
+        data: { type: "morning_digest" },
+        ...(Platform.OS === "android" && { channelId: CHANNEL_ID }),
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: tomorrow,
+      },
+    });
+  } catch {
+    // Exact alarm scheduling may fail on Android
+  }
 }
 
 // ─── Weekly Summary ──────────────────────────────────────
@@ -371,19 +386,23 @@ export async function scheduleWeeklySummary(
   nextMonday.setDate(nextMonday.getDate() + daysUntilMon);
   nextMonday.setHours(FIRE_HOUR, 0, 0, 0);
 
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      title: t(language, "notif_weekly_title"),
-      body,
-      sound: "default",
-      data: { type: "weekly_summary" },
-      ...(Platform.OS === "android" && { channelId: CHANNEL_ID }),
-    },
-    trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.DATE,
-      date: nextMonday,
-    },
-  });
+  try {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: t(language, "notif_weekly_title"),
+        body,
+        sound: "default",
+        data: { type: "weekly_summary" },
+        ...(Platform.OS === "android" && { channelId: CHANNEL_ID }),
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: nextMonday,
+      },
+    });
+  } catch {
+    // Exact alarm scheduling may fail on Android
+  }
 }
 
 // ─── Deep link helper ───────────────────────────────────

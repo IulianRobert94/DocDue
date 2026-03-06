@@ -1,0 +1,50 @@
+APP NAME: DocDue - Document Tracker
+
+SUBTITLE (30 chars max):
+Track Deadlines. Stay Ahead.
+
+SHORT DESCRIPTION (Google Play, 80 chars):
+Track document expiration dates. Never miss a deadline for insurance, IDs, bills.
+
+LONG DESCRIPTION:
+
+Never miss a deadline again. DocDue keeps track of all your important document expiration dates in one place — insurance policies, IDs, driver's licenses, utility bills, contracts, and more.
+
+KEY FEATURES
+
+- Smart Reminders: Get notified days before any document expires. Morning digest and weekly summaries keep you informed.
+- Four Categories: Organize documents by Vehicle, Home, Personal, and Financial — each with dozens of preset subtypes.
+- Quick Add with OCR: Snap a photo and DocDue auto-fills the date, amount, and document type using on-device text recognition.
+- Payment Tracking: Mark documents as paid, track payment history, and see monthly spending analytics.
+- Recurring Documents: Set up annual, monthly, or weekly recurrence. When you pay, the due date automatically advances.
+- Health Score: See your overall document health at a glance — know instantly if anything needs attention.
+- Calendar Integration: Add due dates directly to your device calendar with one tap.
+- Bilingual: Full Romanian and English support. Switch anytime in settings.
+- Biometric Lock: Protect your documents with Face ID, Touch ID, or fingerprint.
+- Backup & Restore: Export your data as a backup file. Import it on any device.
+- Home Screen Widget: See upcoming deadlines without opening the app.
+- Dark Design: Beautiful dark interface inspired by modern fintech apps.
+
+PRIVACY FIRST
+
+DocDue stores everything on your device. No accounts, no cloud, no tracking, no ads. Your data never leaves your phone.
+
+Free with up to 5 documents. Upgrade to PRO for unlimited documents, analytics, backup/restore, and Excel export.
+
+---
+
+WHAT'S NEW (v1.0.0):
+Initial release.
+
+KEYWORDS (100 chars max):
+document,tracker,expiration,reminder,insurance,deadline,bills,IDs,passport,renewal
+
+CATEGORY: Utilities
+
+AGE RATING: 4+ (no objectionable content)
+
+COPYRIGHT: 2026 DocDue
+
+SUPPORT URL: https://iulianrobert94.github.io/DocDue/support
+
+PRIVACY POLICY URL: https://iulianrobert94.github.io/DocDue/privacy
