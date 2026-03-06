@@ -62,10 +62,13 @@
       "package": "com.docdueapp",
       "versionCode": 1,
       "permissions": [
-        "CAMERA",
-        "USE_BIOMETRIC",
-        "USE_FINGERPRINT",
-        "SCHEDULE_EXACT_ALARM"
+        "android.permission.CAMERA",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_CALENDAR",
+        "android.permission.WRITE_CALENDAR"
       ],
       "navigationBarColor": "#0A0E17",
       "navigationBarStyle": "dark"
@@ -105,11 +108,38 @@
               "name": "DocDueWidget",
               "displayName": "DocDue",
               "description": "Shows urgent documents and upcoming deadlines",
-              "supportedFamilies": ["systemSmall", "systemMedium"]
+              "supportedFamilies": [
+                "systemSmall",
+                "systemMedium"
+              ]
             }
           ]
         }
       ]
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "build": {
+          "experimental": {
+            "ios": {
+              "appExtensions": [
+                {
+                  "targetName": "ExpoWidgetsTarget",
+                  "bundleIdentifier": "com.docdueapp.ExpoWidgetsTarget",
+                  "entitlements": {
+                    "com.apple.security.application-groups": [
+                      "group.com.docdueapp"
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "projectId": "033e3e3b-42eb-4150-8c0a-22345bd353ab"
+      }
+    },
+    "owner": "iulianrobert94"
   }
 }
