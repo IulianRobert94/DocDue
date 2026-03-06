@@ -21,7 +21,7 @@ npx jest --testPathPattern=core  # Run specific test file
 
 ```
 RawDocument (AsyncStorage, "dt12_docs")
-  → enrichDocument(doc, warningDays)
+  → enrichDocument(doc)
   → EnrichedDocument { ...doc, _daysUntil, _status }
   → screens consume via useEnrichedDocuments() hook
 ```
@@ -34,8 +34,8 @@ Documents also support `paymentHistory: PaymentRecord[]` — snapshots of past p
 
 Two stores, both hydrated in `app/_layout.tsx` on launch:
 
-- **useDocumentStore** (`src/stores/useDocumentStore.ts`): CRUD for documents. Exports memoized selectors: `useEnrichedDocuments(warningDays)`, `useGlobalStats(warningDays)`, `useCategoryStats(warningDays)`. Every mutation auto-persists to AsyncStorage and reschedules notifications + widget data.
-- **useSettingsStore** (`src/stores/useSettingsStore.ts`): User preferences (language, currency, warning thresholds, per-category overrides). Exports derived hooks: `useTheme()`, `useLanguage()`, `useCurrency()`. Auto-persists on every `updateSetting()` call. New settings fields auto-migrate via `{ ...DEFAULT_SETTINGS, ...parsed }` spread on hydration.
+- **useDocumentStore** (`src/stores/useDocumentStore.ts`): CRUD for documents. Exports memoized selectors: `useEnrichedDocuments()`, `useGlobalStats()`, `useCategoryStats()`. Every mutation auto-persists to AsyncStorage and reschedules notifications + widget data.
+- **useSettingsStore** (`src/stores/useSettingsStore.ts`): User preferences (language, currency, notifications, biometric). Exports derived hooks: `useTheme()`, `useLanguage()`, `useCurrency()`. Auto-persists on every `updateSetting()` call. New settings fields auto-migrate via `{ ...DEFAULT_SETTINGS, ...parsed }` spread on hydration.
 
 ### Routing — File-Based (Expo Router)
 
@@ -46,7 +46,7 @@ Two stores, both hydrated in `app/_layout.tsx` on launch:
 - `app/onboarding.tsx` — 4-slide first-run experience (requests notification permission on slide 3)
 - `app/analytics.tsx` — Financial analytics (PRO-gated)
 - `app/premium.tsx` — Premium upsell screen
-- `app/privacy.tsx` — Privacy policy viewer (renders `assets/legal/privacy-policy.html`)
+- `app/privacy.tsx` — Privacy policy viewer (renders bilingual sections from i18n)
 - `app/_layout.tsx` — Root: hydrates stores, handles onboarding check, notification deep links, quick actions, morning digest scheduling, review prompt
 
 ### Premium / PRO Gating
@@ -73,7 +73,7 @@ Custom implementation in `src/core/i18n.ts`. No library — just a dictionary + 
 
 ### Date Handling
 
-**Critical**: Never use `new Date("YYYY-MM-DD")` — it parses as UTC midnight, which shifts to the previous day in UTC+2 (Romania). Always use `parseLocalDate()` from `src/core/dateUtils.ts` which constructs dates via `new Date(year, month-1, day)`. Note: `analytics.tsx` currently does manual `new Date(y, m-1, d)` parsing instead of calling `parseLocalDate()` — functionally equivalent but breaks this convention.
+**Critical**: Never use `new Date("YYYY-MM-DD")` — it parses as UTC midnight, which shifts to the previous day in UTC+2 (Romania). Always use `parseLocalDate()` from `src/core/dateUtils.ts` which constructs dates via `new Date(year, month-1, day)`.
 
 ### Core Modules
 
@@ -100,8 +100,9 @@ Custom implementation in `src/core/i18n.ts`. No library — just a dictionary + 
 
 - `AnimatedUI.tsx` — `AnimatedPressable` (scale + haptic), `FadeInView`, `AnimatedSection`
 - `BiometricGate.tsx` — Face ID / Touch ID wrapper (controlled by `biometricEnabled` setting)
-- `Toast.tsx` — Toast notification system
+- `SwipeableRow.tsx` — Swipe-to-delete with animated action buttons (ReanimatedSwipeable)
 - `ErrorBoundary.tsx` — Crash fallback UI
+- `confirmActions.ts` (`src/core/`) — Shared mark-as-paid confirmation dialog builder used by alerts, search, and category screens
 
 ## Key Conventions
 
@@ -110,7 +111,7 @@ Custom implementation in `src/core/i18n.ts`. No library — just a dictionary + 
 - Styles: React Native `StyleSheet.create()`, no CSS/Tailwind. Theme via `useTheme()` hook + inline style merging: `style={[s.card, { backgroundColor: theme.card }]}`
 - Animations: React Native Reanimated via reusable wrappers in `AnimatedUI.tsx`
 - Settings UI: iOS grouped table view pattern with `SegmentedControl` for few options, chip rows for many options
-- Warning threshold: global `warningDays` + per-category `categoryWarningDays` overrides (null = use global). `useEnrichedDocuments` reads both internally — callers don't need to pass category overrides
+- Warning threshold: auto-computed from document recurrence via `getWarningDaysForRecurrence()` (weekly=3d, monthly=7d, annual/none=30d). No user-facing setting — this is intentional for simpler UX
 - Status colors are semantic and constant: `#FF3B30` (expired/red), `#FF9500` (warning/orange), `#34C759` (ok/green). Never change these
 - Category colors are brand identity: `#007AFF`, `#AF52DE`, `#34C759`, `#FF9500`. Never change these
 - Store mutations have side effects: auto-persist to AsyncStorage → reschedule notifications → update widget data. No manual persistence needed

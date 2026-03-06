@@ -185,7 +185,8 @@ export default function FormScreen() {
     savingRef.current = true;
     setSaving(true);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    const finalType = type === 'Altele' ? (customType.trim() || 'Altele') : (type || subtypes[0] || '');
+    const sanitizedCustomType = customType.trim().replace(/[^\p{L}\p{N}\s\-.,()]/gu, '').trim();
+    const finalType = type === 'Altele' ? (sanitizedCustomType || 'Altele') : (type || subtypes[0] || '');
     const docData: Omit<RawDocument, 'id'> = {
       cat, type: finalType, title: title.trim(),
       asset: asset.trim() || undefined, due,

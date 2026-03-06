@@ -19,12 +19,15 @@ import { useSettingsStore, useTheme } from "../stores/useSettingsStore";
 import { t } from "../core/i18n";
 import { AnimatedPressable } from "./AnimatedUI";
 
+const MAX_ATTEMPTS = 5;
+
 export function BiometricGate({ children }: { children: React.ReactNode }) {
   const biometricEnabled = useSettingsStore((s) => s.settings.biometricEnabled);
   const language = useSettingsStore((s) => s.settings.language);
   const theme = useTheme();
   const [locked, setLocked] = useState(biometricEnabled);
   const [failed, setFailed] = useState(false);
+  const [failCount, setFailCount] = useState(0);
   const backgroundTime = useRef<number>(0);
   const appState = useRef(AppState.currentState);
 
@@ -42,11 +45,14 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
       if (result.success) {
         setLocked(false);
         setFailed(false);
+        setFailCount(0);
       } else {
         setFailed(true);
+        setFailCount((c) => c + 1);
       }
     } catch {
       setFailed(true);
+      setFailCount((c) => c + 1);
     }
   }, [language]);
 
@@ -88,6 +94,14 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
     }
   }, [biometricEnabled]);
 
+  // Auto-reset lockout after 30 seconds
+  useEffect(() => {
+    if (failCount >= MAX_ATTEMPTS) {
+      const timer = setTimeout(() => setFailCount(0), 30_000);
+      return () => clearTimeout(timer);
+    }
+  }, [failCount]);
+
   if (!locked) {
     return <>{children}</>;
   }
@@ -104,25 +118,31 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
         <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
           {t(language, "biometric_unlock")}
         </Text>
-        {failed && (
+        {failed && failCount < MAX_ATTEMPTS && (
           <Text style={styles.failedText}>
             {t(language, "biometric_failed")}
           </Text>
         )}
-        <AnimatedPressable
-          style={styles.retryBtn}
-          onPress={authenticate}
-          hapticStyle="medium"
-          accessibilityLabel={t(language, "biometric_retry")}
-        >
-          <Ionicons
-            name={Platform.OS === "ios" ? "scan" : "finger-print"}
-            size={20}
-            color="#FFF"
-            style={{ marginRight: 8 }}
-          />
-          <Text style={styles.retryText}>{t(language, "biometric_retry")}</Text>
-        </AnimatedPressable>
+        {failCount >= MAX_ATTEMPTS ? (
+          <Text style={styles.failedText}>
+            {t(language, "biometric_locked_out")}
+          </Text>
+        ) : (
+          <AnimatedPressable
+            style={styles.retryBtn}
+            onPress={authenticate}
+            hapticStyle="medium"
+            accessibilityLabel={t(language, "biometric_retry")}
+          >
+            <Ionicons
+              name={Platform.OS === "ios" ? "scan" : "finger-print"}
+              size={20}
+              color="#FFF"
+              style={{ marginRight: 8 }}
+            />
+            <Text style={styles.retryText}>{t(language, "biometric_retry")}</Text>
+          </AnimatedPressable>
+        )}
       </View>
     </View>
   );

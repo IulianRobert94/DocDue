@@ -148,6 +148,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
 
     // Alert titles
     alert_success: "Succes",
+    alert_error: "Eroare",
     alert_notice: "Atenție",
 
     // Missing keys
@@ -208,6 +209,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     biometric_failed: "Autentificare eșuată",
     biometric_not_available: "Biometria nu e disponibilă pe acest dispozitiv",
     biometric_section: "Securitate",
+    biometric_locked_out: "Prea multe încercări. Încearcă din nou în 30 de secunde.",
 
     // Attachments
     attachments: "Atașamente",
@@ -507,6 +509,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     btn_close: "Close",
     btn_back: "Back",
     alert_success: "Success",
+    alert_error: "Error",
     alert_notice: "Notice",
     alerts_empty: "No alerts! All documents are up to date.",
     no_documents: "No documents in this category",
@@ -565,6 +568,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     biometric_failed: "Authentication failed",
     biometric_not_available: "Biometrics not available on this device",
     biometric_section: "Security",
+    biometric_locked_out: "Too many attempts. Try again in 30 seconds.",
 
     // Attachments
     attachments: "Attachments",

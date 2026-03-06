@@ -115,7 +115,8 @@ export function BackupRestoreSection({
         for (const att of doc.attachments) {
           const key = `${doc.id}_${att.id}`;
           const base64 = attachmentsData[key];
-          if (base64 && att.uri && att.uri.startsWith('file://')) {
+          const MAX_ATTACHMENT_SIZE = 20 * 1024 * 1024; // 20MB base64 limit
+          if (base64 && base64.length < MAX_ATTACHMENT_SIZE && att.uri && att.uri.startsWith('file://')) {
             try {
               await FileSystem.writeAsStringAsync(att.uri, base64, { encoding: FileSystem.EncodingType.Base64 });
             } catch {
@@ -149,7 +150,23 @@ export function BackupRestoreSection({
         return;
       }
 
-      const backupDocs = backup.documents;
+      // Validate each document has required fields
+      const backupDocs = backup.documents.filter((d: any): d is RawDocument =>
+        d && typeof d === 'object' &&
+        typeof d.id === 'string' &&
+        typeof d.title === 'string' &&
+        typeof d.due === 'string' &&
+        typeof d.cat === 'string' &&
+        typeof d.type === 'string' &&
+        ['vehicule', 'casa', 'personal', 'financiar'].includes(d.cat) &&
+        /^\d{4}-\d{2}-\d{2}$/.test(d.due) &&
+        ['none', 'weekly', 'monthly', 'annual'].includes(d.rec || 'none')
+      );
+
+      if (backupDocs.length === 0) {
+        Alert.alert(t(language, 'restore_invalid'));
+        return;
+      }
       const docCount = backupDocs.length;
 
       Alert.alert(

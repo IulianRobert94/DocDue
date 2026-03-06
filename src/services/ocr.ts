@@ -24,7 +24,7 @@ export interface OcrResult {
 
 // ─── OCR Engine ─────────────────────────────────────────
 
-let MlkitOcr: any = null;
+let MlkitOcr: { detectFromUri: (uri: string) => Promise<Array<{ text: string }>> } | null = null;
 
 /**
  * Check if the native OCR module is available.
@@ -49,8 +49,8 @@ export async function scanDocument(imageUri: string): Promise<OcrResult> {
     throw new Error("OCR not available. Requires a dev build.");
   }
 
-  const blocks = await MlkitOcr.detectFromUri(imageUri);
-  const rawText = blocks.map((b: any) => b.text).join("\n");
+  const blocks = await MlkitOcr!.detectFromUri(imageUri);
+  const rawText = blocks.map((b) => b.text).join("\n");
 
   const date = extractDate(rawText);
   const amount = extractAmount(rawText);
@@ -66,7 +66,7 @@ export async function scanDocument(imageUri: string): Promise<OcrResult> {
  * Extract the most likely due/expiry date from OCR text.
  * Handles Romanian date formats: DD.MM.YYYY, DD/MM/YYYY, DD-MM-YYYY
  */
-function extractDate(text: string): string | null {
+export function extractDate(text: string): string | null {
   // Pattern: DD.MM.YYYY or DD/MM/YYYY or DD-MM-YYYY
   const dateRegex = /\b(\d{1,2})[./-](\d{1,2})[./-](\d{4})\b/g;
   const matches: { date: string; original: string }[] = [];
@@ -110,7 +110,7 @@ function extractDate(text: string): string | null {
  * Extract monetary amount from OCR text.
  * Looks for number patterns near currency indicators.
  */
-function extractAmount(text: string): number | null {
+export function extractAmount(text: string): number | null {
   // Patterns: 123.45, 1.234,56 (Romanian), 1,234.56 (English)
   // Near currency: RON, lei, EUR, €, USD, $
   const patterns = [
@@ -137,7 +137,7 @@ function extractAmount(text: string): number | null {
  * Parse a number string that might use Romanian format (1.234,56)
  * or English format (1,234.56).
  */
-function parseRomanianNumber(str: string): number | null {
+export function parseRomanianNumber(str: string): number | null {
   // Romanian: 1.234,56 → replace dots, then comma to dot
   if (str.includes(",") && str.indexOf(",") > str.lastIndexOf(".")) {
     const cleaned = str.replace(/\./g, "").replace(",", ".");
@@ -155,7 +155,7 @@ function parseRomanianNumber(str: string): number | null {
 /**
  * Match OCR text against known document categories and subtypes.
  */
-function matchDocumentType(text: string): { category: CategoryId | null; type: string | null } {
+export function matchDocumentType(text: string): { category: CategoryId | null; type: string | null } {
   const upperText = text.toUpperCase();
 
   // Build a flat list of keywords → (category, subtype)
@@ -215,7 +215,7 @@ function matchDocumentType(text: string): { category: CategoryId | null; type: s
  * Extract a reasonable title from OCR text.
  * Uses the document type and the first meaningful line.
  */
-function extractTitle(text: string, detectedType: string | null): string | null {
+export function extractTitle(text: string, detectedType: string | null): string | null {
   const lines = text.split("\n").map((l) => l.trim()).filter((l) => l.length > 3 && l.length < 80);
 
   if (lines.length === 0) return detectedType || null;

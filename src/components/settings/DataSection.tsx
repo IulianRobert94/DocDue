@@ -110,10 +110,10 @@ export function DataSection({
       const wb = XLSX.read(fileContent, { type: 'base64', cellDates: true });
       const ws = wb.Sheets[wb.SheetNames[0]];
       if (!ws) { Alert.alert(t(language, 'settings_import_no_data')); return; }
-      const rows: any[] = XLSX.utils.sheet_to_json(ws);
+      const rows: Record<string, unknown>[] = XLSX.utils.sheet_to_json(ws);
       if (rows.length === 0) { Alert.alert(t(language, 'settings_import_no_data')); return; }
 
-      const parseDateValue = (raw: any): string => {
+      const parseDateValue = (raw: unknown): string => {
         if (raw instanceof Date && !isNaN(raw.getTime())) {
           const y = raw.getFullYear();
           const m = String(raw.getMonth() + 1).padStart(2, '0');

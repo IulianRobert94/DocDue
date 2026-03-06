@@ -38,8 +38,8 @@ export function validateDocument(doc: Partial<RawDocument>, lang: LanguageCode =
     }
   }
 
-  // Amount validation — convert empty string to null at boundary
-  const amtValue = doc.amt === ("" as any) ? null : doc.amt;
+  // Amount validation — convert empty string to null at boundary (form may pass "" before conversion)
+  const amtValue = doc.amt === (("" as unknown) as number) ? null : doc.amt;
   if (
     amtValue !== null &&
     amtValue !== undefined &&

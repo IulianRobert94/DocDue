@@ -48,9 +48,12 @@ async function copyToAttachments(sourceUri: string, fileName: string): Promise<s
 }
 
 /** Get file extension from URI or name */
+const ALLOWED_EXTENSIONS = new Set(["jpg", "jpeg", "png", "gif", "heic", "heif", "webp", "bmp", "pdf"]);
+
 function getExtension(name: string): string {
   const parts = name.split(".");
-  return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : "";
+  const ext = parts.length > 1 ? parts[parts.length - 1].toLowerCase() : "";
+  return ALLOWED_EXTENSIONS.has(ext) ? ext : "";
 }
 
 /** Determine attachment type from extension */
