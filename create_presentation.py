@@ -652,7 +652,7 @@ add_gradient_bar(slide, Inches(0.8), Inches(1.2), Inches(2.4), Inches(0.05), ORA
 # Free vs Premium comparison
 for i, (tier, color, features) in enumerate([
     ("Free Tier", LIGHT_GRAY, [
-        "Up to 5 documents",
+        "Up to 10 documents",
         "All 4 categories",
         "Basic status tracking",
         "Search & filter",

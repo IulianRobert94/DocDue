@@ -239,6 +239,7 @@ export const STATUS_DISPLAY: Record<DocumentStatus, StatusDisplayConfig> = {
 // ─── Default Settings ───────────────────────────────────
 
 export const FREE_DOCUMENT_LIMIT = 10;
+export const MAX_IMPORT_LIMIT = 5000;
 
 export const DEFAULT_SETTINGS: AppSettings = {
   theme: "dark",

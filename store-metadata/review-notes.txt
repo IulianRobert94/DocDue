@@ -8,7 +8,7 @@ DocDue is a fully offline document expiration tracker. Key points for review:
 
 3. BIOMETRIC LOCK - The app includes optional Face ID/Touch ID lock (Settings > Biometric Lock). This is user-enabled and uses expo-local-authentication with device passcode fallback.
 
-4. IN-APP PURCHASES - PRO upgrade removes the 5-document limit and unlocks analytics, backup/restore, and Excel export. Managed through RevenueCat.
+4. IN-APP PURCHASES - PRO upgrade (one-time purchase, non-consumable) removes the 10-document limit and unlocks analytics, backup/restore, and Excel export. Managed through RevenueCat.
 
 5. NOTIFICATIONS - Local push notifications only (no remote/server push). Scheduled for document reminders at 9:00 AM, morning digest, and weekly summary.
 

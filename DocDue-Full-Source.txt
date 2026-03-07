@@ -1,7 +1,7 @@
 ╔══════════════════════════════════════════════════════════════╗
 ║             DocDue v1.0.0 — Complete Source Code           ║
 ║     React Native / Expo Router / TypeScript / Zustand     ║
-║     Generated: 2026-03-06 01:16                            ║
+║     Generated: 2026-03-07 21:12                            ║
 ╚══════════════════════════════════════════════════════════════╝
 
 Files included: 54
@@ -78,7 +78,6 @@ Files included: 54
     "test": "jest"
   },
   "dependencies": {
-    "@expo/ui": "^55.0.1",
     "@expo/vector-icons": "^15.0.3",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/datetimepicker": "8.4.4",
@@ -88,6 +87,7 @@ Files included: 54
     "expo-asset": "~12.0.0",
     "expo-calendar": "~15.0.8",
     "expo-constants": "~18.0.0",
+    "expo-dev-client": "~6.0.20",
     "expo-document-picker": "~14.0.8",
     "expo-file-system": "~19.0.21",
     "expo-font": "~14.0.0",
@@ -95,14 +95,14 @@ Files included: 54
     "expo-image-picker": "~17.0.10",
     "expo-linking": "~8.0.0",
     "expo-local-authentication": "~17.0.8",
+    "expo-navigation-bar": "~5.0.10",
     "expo-notifications": "~0.32.16",
     "expo-quick-actions": "^6.0.1",
     "expo-router": "~6.0.0",
     "expo-sharing": "~14.0.8",
     "expo-splash-screen": "~31.0.13",
     "expo-status-bar": "~3.0.0",
-    "expo-store-review": "^55.0.8",
-    "expo-widgets": "^55.0.2",
+    "expo-store-review": "~9.0.9",
     "react": "19.1.0",
     "react-native": "0.81.5",
     "react-native-gesture-handler": "~2.28.0",
@@ -125,7 +125,14 @@ Files included: 54
     "ts-jest": "^29.4.6",
     "typescript": "^5.9.2"
   },
-  "private": true
+  "private": true,
+  "expo": {
+    "doctor": {
+      "reactNativeDirectoryCheck": {
+        "exclude": ["react-native-mlkit-ocr"]
+      }
+    }
+  }
 }
 
 
@@ -149,6 +156,9 @@ Files included: 54
     "**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
+  ],
+  "exclude": [
+    "src/widgets/**"
   ]
 }
 
@@ -185,6 +195,8 @@ Files included: 54
         "NSCalendarsWriteOnlyAccessUsageDescription": "DocDue can add document due dates to your calendar."
       },
       "privacyManifests": {
+        "NSPrivacyTracking": false,
+        "NSPrivacyCollectedDataTypes": [],
         "NSPrivacyAccessedAPITypes": [
           {
             "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
@@ -221,10 +233,12 @@ Files included: 54
       "package": "com.docdueapp",
       "versionCode": 1,
       "permissions": [
-        "CAMERA",
-        "USE_BIOMETRIC",
-        "USE_FINGERPRINT",
-        "SCHEDULE_EXACT_ALARM"
+        "android.permission.CAMERA",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.READ_CALENDAR",
+        "android.permission.WRITE_CALENDAR"
       ]
     },
     "experiments": {
@@ -252,22 +266,32 @@ Files included: 54
       ],
       "@react-native-community/datetimepicker",
       "expo-calendar",
-      "expo-notifications",
-      [
-        "expo-widgets",
-        {
-          "groupIdentifier": "group.com.docdueapp",
-          "widgets": [
-            {
-              "name": "DocDueWidget",
-              "displayName": "DocDue",
-              "description": "Shows urgent documents and upcoming deadlines",
-              "supportedFamilies": ["systemSmall", "systemMedium"]
+      "expo-notifications"
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "build": {
+          "experimental": {
+            "ios": {
+              "appExtensions": [
+                {
+                  "targetName": "ExpoWidgetsTarget",
+                  "bundleIdentifier": "com.docdueapp.ExpoWidgetsTarget",
+                  "entitlements": {
+                    "com.apple.security.application-groups": [
+                      "group.com.docdueapp"
+                    ]
+                  }
+                }
+              ]
             }
-          ]
-        }
-      ]
-    ]
+          }
+        },
+        "projectId": "033e3e3b-42eb-4150-8c0a-22345bd353ab"
+      }
+    },
+    "owner": "iulianrobert94"
   }
 }
 
@@ -589,7 +613,8 @@ export const STATUS_DISPLAY: Record<DocumentStatus, StatusDisplayConfig> = {
 
 // ─── Default Settings ───────────────────────────────────
 
-export const FREE_DOCUMENT_LIMIT = 5;
+export const FREE_DOCUMENT_LIMIT = 10;
+export const MAX_IMPORT_LIMIT = 5000;
 
 export const DEFAULT_SETTINGS: AppSettings = {
   theme: "dark",
@@ -1269,6 +1294,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
 
     // Alert titles
     alert_success: "Succes",
+    alert_error: "Eroare",
     alert_notice: "Atenție",
 
     // Missing keys
@@ -1281,7 +1307,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     settings_privacy_footer: "DocDue nu colectează date personale. Toate datele rămân pe dispozitivul tău.",
 
     // IAP & Premium
-    premium_subscribe: "Abonează-te",
+    premium_subscribe: "Cumpără Pro",
     iap_restore_ok: "Achiziția a fost restaurată cu succes!",
     iap_restore_none: "Nu s-au găsit achiziții anterioare.",
     purchase_error: "Achiziția a eșuat. Încearcă din nou.",
@@ -1329,6 +1355,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     biometric_failed: "Autentificare eșuată",
     biometric_not_available: "Biometria nu e disponibilă pe acest dispozitiv",
     biometric_section: "Securitate",
+    biometric_locked_out: "Prea multe încercări. Încearcă din nou în 30 de secunde.",
 
     // Attachments
     attachments: "Atașamente",
@@ -1409,9 +1436,9 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     premium_upgrade: "Upgrade la Pro",
     premium_restore: "Restaurare achiziție",
     premium_limit_title: "Limită atinsă",
-    premium_limit_msg: "Versiunea gratuită permite maxim {n} documente. Faceți upgrade la Pro pentru documente nelimitate.",
+    premium_limit_msg: "Versiunea gratuită permite maxim {n} documente. Cumpără Pro (plată unică) pentru documente nelimitate.",
     premium_active: "Pro activ",
-    premium_section: "Abonament",
+    premium_section: "DocDue Pro",
     premium_free_count: "{n} din {max} documente",
     premium_required: "Funcție Pro",
 
@@ -1473,6 +1500,14 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     premium_early_access_note: "Toate funcțiile sunt gratuite în perioada de early access.",
     premium_unlock_free: "Activează gratuit",
 
+    // Purchase terms
+    premium_terms: "Plata se va debita din contul Apple ID sau Google Play. Achiziție unică — fără abonament, fără plăți recurente.",
+    premium_terms_of_use: "Termenii de utilizare",
+    premium_privacy_link: "Politica de confidențialitate",
+
+    // Import limit
+    import_too_large: "Fișierul conține prea multe înregistrări (max {max}).",
+
     // Form date placeholder
     form_date_placeholder: "ZZ.LL.AAAA",
 
@@ -1497,7 +1532,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     privacy_deletion_title: "Ștergerea datelor",
     privacy_deletion_body: "Poți șterge toate datele oricând din Setări → Șterge tot. Dezinstalarea aplicației elimină automat toate datele stocate.",
     privacy_contact_title: "Contact",
-    privacy_contact_body: "Pentru întrebări legate de confidențialitate, contactează-ne la: docdueapp@gmail.com",
+    privacy_contact_body: "Pentru întrebări legate de confidențialitate, contactează-ne la: andreiiulianrobert@gmail.com",
 
     // Onboarding slides
     onboarding_slide1_title: "Toate documentele\nîntr-un singur loc",
@@ -1628,6 +1663,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     btn_close: "Close",
     btn_back: "Back",
     alert_success: "Success",
+    alert_error: "Error",
     alert_notice: "Notice",
     alerts_empty: "No alerts! All documents are up to date.",
     no_documents: "No documents in this category",
@@ -1638,7 +1674,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     settings_privacy_footer: "DocDue does not collect personal data. All data stays on your device.",
 
     // IAP & Premium
-    premium_subscribe: "Subscribe",
+    premium_subscribe: "Get Pro",
     iap_restore_ok: "Purchase restored successfully!",
     iap_restore_none: "No previous purchases found.",
     purchase_error: "Purchase failed. Please try again.",
@@ -1686,6 +1722,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     biometric_failed: "Authentication failed",
     biometric_not_available: "Biometrics not available on this device",
     biometric_section: "Security",
+    biometric_locked_out: "Too many attempts. Try again in 30 seconds.",
 
     // Attachments
     attachments: "Attachments",
@@ -1766,9 +1803,9 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     premium_upgrade: "Upgrade to Pro",
     premium_restore: "Restore purchase",
     premium_limit_title: "Limit reached",
-    premium_limit_msg: "The free version allows up to {n} documents. Upgrade to Pro for unlimited documents.",
+    premium_limit_msg: "The free version allows up to {n} documents. Get Pro (one-time purchase) for unlimited documents.",
     premium_active: "Pro active",
-    premium_section: "Subscription",
+    premium_section: "DocDue Pro",
     premium_free_count: "{n} of {max} documents",
     premium_required: "Pro feature",
 
@@ -1830,6 +1867,14 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     premium_early_access_note: "All features are free during early access.",
     premium_unlock_free: "Unlock for free",
 
+    // Purchase terms
+    premium_terms: "Payment will be charged to your Apple ID or Google Play account. One-time purchase — no subscription, no recurring charges.",
+    premium_terms_of_use: "Terms of Use",
+    premium_privacy_link: "Privacy Policy",
+
+    // Import limit
+    import_too_large: "File contains too many records (max {max}).",
+
     // Form date placeholder
     form_date_placeholder: "YYYY-MM-DD",
 
@@ -1854,7 +1899,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     privacy_deletion_title: "Data deletion",
     privacy_deletion_body: "You can delete all data at any time from Settings → Clear all. Uninstalling the app automatically removes all stored data.",
     privacy_contact_title: "Contact",
-    privacy_contact_body: "For privacy-related questions, contact us at: docdueapp@gmail.com",
+    privacy_contact_body: "For privacy-related questions, contact us at: andreiiulianrobert@gmail.com",
 
     // Onboarding slides
     onboarding_slide1_title: "All your documents\nin one place",
@@ -2134,8 +2179,8 @@ export function validateDocument(doc: Partial<RawDocument>, lang: LanguageCode =
     }
   }
 
-  // Amount validation — convert empty string to null at boundary
-  const amtValue = doc.amt === ("" as any) ? null : doc.amt;
+  // Amount validation — convert empty string to null at boundary (form may pass "" before conversion)
+  const amtValue = doc.amt === (("" as unknown) as number) ? null : doc.amt;
   if (
     amtValue !== null &&
     amtValue !== undefined &&
@@ -2666,6 +2711,8 @@ export function configureNotifications(): void {
       vibrationPattern: [0, 250, 250, 250],
       lightColor: "#007AFF",
       sound: "default",
+    }).catch(() => {
+      // Channel setup may fail in Expo Go
     });
   }
 }
@@ -2777,27 +2824,32 @@ export async function rescheduleAllNotifications(
   entries.sort((a, b) => a.fireDate.getTime() - b.fireDate.getTime());
   const toSchedule = entries.slice(0, MAX_SCHEDULED);
 
-  // 6. Schedule each
+  // 6. Schedule each (wrap individually — exact alarms may fail on some Android versions)
   for (const entry of toSchedule) {
     const { title, body } = buildContent(entry, language);
 
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title,
-        body,
-        sound: "default",
-        categoryIdentifier: NOTIFICATION_CATEGORY,
-        data: {
-          documentId: entry.docId,
-          type: "document_reminder",
+    try {
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title,
+          body,
+          sound: "default",
+          categoryIdentifier: NOTIFICATION_CATEGORY,
+          data: {
+            documentId: entry.docId,
+            type: "document_reminder",
+          },
+          ...(Platform.OS === "android" && { channelId: CHANNEL_ID }),
         },
-        ...(Platform.OS === "android" && { channelId: CHANNEL_ID }),
-      },
-      trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.DATE,
-        date: entry.fireDate,
-      },
-    });
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date: entry.fireDate,
+        },
+      });
+    } catch {
+      // Exact alarm scheduling may fail on Android without SCHEDULE_EXACT_ALARM permission
+      break;
+    }
   }
 }
 
@@ -2875,20 +2927,24 @@ export async function snoozeNotification(
   tomorrow.setDate(tomorrow.getDate() + 1);
   tomorrow.setHours(FIRE_HOUR, 0, 0, 0);
 
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      title,
-      body,
-      sound: "default",
-      categoryIdentifier: NOTIFICATION_CATEGORY,
-      data: { documentId: docId, type: "document_reminder" },
-      ...(Platform.OS === "android" && { channelId: CHANNEL_ID }),
-    },
-    trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.DATE,
-      date: tomorrow,
-    },
-  });
+  try {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title,
+        body,
+        sound: "default",
+        categoryIdentifier: NOTIFICATION_CATEGORY,
+        data: { documentId: docId, type: "document_reminder" },
+        ...(Platform.OS === "android" && { channelId: CHANNEL_ID }),
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: tomorrow,
+      },
+    });
+  } catch {
+    // Exact alarm scheduling may fail on Android
+  }
 }
 
 // ─── Morning Digest ─────────────────────────────────────
@@ -2934,19 +2990,23 @@ export async function scheduleMorningDigest(
   tomorrow.setDate(tomorrow.getDate() + 1);
   tomorrow.setHours(FIRE_HOUR, 0, 0, 0);
 
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      title: t(language, "notif_digest_title"),
-      body,
-      sound: "default",
-      data: { type: "morning_digest" },
-      ...(Platform.OS === "android" && { channelId: CHANNEL_ID }),
-    },
-    trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.DATE,
-      date: tomorrow,
-    },
-  });
+  try {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: t(language, "notif_digest_title"),
+        body,
+        sound: "default",
+        data: { type: "morning_digest" },
+        ...(Platform.OS === "android" && { channelId: CHANNEL_ID }),
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: tomorrow,
+      },
+    });
+  } catch {
+    // Exact alarm scheduling may fail on Android
+  }
 }
 
 // ─── Weekly Summary ──────────────────────────────────────
@@ -2993,19 +3053,23 @@ export async function scheduleWeeklySummary(
   nextMonday.setDate(nextMonday.getDate() + daysUntilMon);
   nextMonday.setHours(FIRE_HOUR, 0, 0, 0);
 
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      title: t(language, "notif_weekly_title"),
-      body,
-      sound: "default",
-      data: { type: "weekly_summary" },
-      ...(Platform.OS === "android" && { channelId: CHANNEL_ID }),
-    },
-    trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.DATE,
-      date: nextMonday,
-    },
-  });
+  try {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: t(language, "notif_weekly_title"),
+        body,
+        sound: "default",
+        data: { type: "weekly_summary" },
+        ...(Platform.OS === "android" && { channelId: CHANNEL_ID }),
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: nextMonday,
+      },
+    });
+  } catch {
+    // Exact alarm scheduling may fail on Android
+  }
 }
 
 // ─── Deep link helper ───────────────────────────────────
@@ -3149,7 +3213,7 @@ export interface OcrResult {
 
 // ─── OCR Engine ─────────────────────────────────────────
 
-let MlkitOcr: any = null;
+let MlkitOcr: { detectFromUri: (uri: string) => Promise<Array<{ text: string }>> } | null = null;
 
 /**
  * Check if the native OCR module is available.
@@ -3174,8 +3238,8 @@ export async function scanDocument(imageUri: string): Promise<OcrResult> {
     throw new Error("OCR not available. Requires a dev build.");
   }
 
-  const blocks = await MlkitOcr.detectFromUri(imageUri);
-  const rawText = blocks.map((b: any) => b.text).join("\n");
+  const blocks = await MlkitOcr!.detectFromUri(imageUri);
+  const rawText = blocks.map((b) => b.text).join("\n");
 
   const date = extractDate(rawText);
   const amount = extractAmount(rawText);
@@ -3191,7 +3255,7 @@ export async function scanDocument(imageUri: string): Promise<OcrResult> {
  * Extract the most likely due/expiry date from OCR text.
  * Handles Romanian date formats: DD.MM.YYYY, DD/MM/YYYY, DD-MM-YYYY
  */
-function extractDate(text: string): string | null {
+export function extractDate(text: string): string | null {
   // Pattern: DD.MM.YYYY or DD/MM/YYYY or DD-MM-YYYY
   const dateRegex = /\b(\d{1,2})[./-](\d{1,2})[./-](\d{4})\b/g;
   const matches: { date: string; original: string }[] = [];
@@ -3235,7 +3299,7 @@ function extractDate(text: string): string | null {
  * Extract monetary amount from OCR text.
  * Looks for number patterns near currency indicators.
  */
-function extractAmount(text: string): number | null {
+export function extractAmount(text: string): number | null {
   // Patterns: 123.45, 1.234,56 (Romanian), 1,234.56 (English)
   // Near currency: RON, lei, EUR, €, USD, $
   const patterns = [
@@ -3262,7 +3326,7 @@ function extractAmount(text: string): number | null {
  * Parse a number string that might use Romanian format (1.234,56)
  * or English format (1,234.56).
  */
-function parseRomanianNumber(str: string): number | null {
+export function parseRomanianNumber(str: string): number | null {
   // Romanian: 1.234,56 → replace dots, then comma to dot
   if (str.includes(",") && str.indexOf(",") > str.lastIndexOf(".")) {
     const cleaned = str.replace(/\./g, "").replace(",", ".");
@@ -3280,7 +3344,7 @@ function parseRomanianNumber(str: string): number | null {
 /**
  * Match OCR text against known document categories and subtypes.
  */
-function matchDocumentType(text: string): { category: CategoryId | null; type: string | null } {
+export function matchDocumentType(text: string): { category: CategoryId | null; type: string | null } {
   const upperText = text.toUpperCase();
 
   // Build a flat list of keywords → (category, subtype)
@@ -3340,7 +3404,7 @@ function matchDocumentType(text: string): { category: CategoryId | null; type: s
  * Extract a reasonable title from OCR text.
  * Uses the document type and the first meaningful line.
  */
-function extractTitle(text: string, detectedType: string | null): string | null {
+export function extractTitle(text: string, detectedType: string | null): string | null {
   const lines = text.split("\n").map((l) => l.trim()).filter((l) => l.length > 3 && l.length < 80);
 
   if (lines.length === 0) return detectedType || null;
@@ -3374,14 +3438,14 @@ function extractTitle(text: string, detectedType: string | null): string | null 
 /**
  * DocDue — In-App Purchase Service (RevenueCat)
  *
- * Manages premium subscriptions via RevenueCat.
+ * Manages one-time PRO purchase (non-consumable) via RevenueCat.
  * Call initializeIAP() on app launch.
  *
  * Setup:
  * 1. Create a RevenueCat account at https://app.revenuecat.com
- * 2. Add your iOS/Android app and create products
- * 3. Replace the API keys and product IDs below
- * 4. Configure offerings in the RevenueCat dashboard
+ * 2. Add your iOS/Android app and create a non-consumable product (lifetime)
+ * 3. Set real API keys in .env file
+ * 4. Configure a single offering with the lifetime product in RevenueCat dashboard
  */
 
 import Purchases, {
@@ -3392,10 +3456,10 @@ import Purchases, {
 import { Platform } from "react-native";
 
 // ─── Configuration ───────────────────────────────────────
-// Replace these with your real RevenueCat API keys after setup
+// Set real keys in .env file (never commit .env to git)
 
-const REVENUECAT_IOS_KEY = "YOUR_REVENUECAT_IOS_API_KEY";
-const REVENUECAT_ANDROID_KEY = "YOUR_REVENUECAT_ANDROID_API_KEY";
+const REVENUECAT_IOS_KEY = process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY ?? "YOUR_REVENUECAT_IOS_API_KEY";
+const REVENUECAT_ANDROID_KEY = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY ?? "YOUR_REVENUECAT_ANDROID_API_KEY";
 
 // Entitlement ID configured in RevenueCat dashboard
 const PRO_ENTITLEMENT = "pro";
@@ -3792,13 +3856,13 @@ export const AnimatedPressable = React.memo(function AnimatedPressable({
   const handlePress = useCallback(() => {
     if (haptic) {
       if (hapticStyle === "selection") {
-        Haptics.selectionAsync();
+        Haptics.selectionAsync().catch(() => {});
       } else {
         Haptics.impactAsync(
           hapticStyle === "medium"
             ? Haptics.ImpactFeedbackStyle.Medium
             : Haptics.ImpactFeedbackStyle.Light
-        );
+        ).catch(() => {});
       }
     }
     onPress?.();
@@ -3941,9 +4005,12 @@ async function copyToAttachments(sourceUri: string, fileName: string): Promise<s
 }
 
 /** Get file extension from URI or name */
+const ALLOWED_EXTENSIONS = new Set(["jpg", "jpeg", "png", "gif", "heic", "heif", "webp", "bmp", "pdf"]);
+
 function getExtension(name: string): string {
   const parts = name.split(".");
-  return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : "";
+  const ext = parts.length > 1 ? parts[parts.length - 1].toLowerCase() : "";
+  return ALLOWED_EXTENSIONS.has(ext) ? ext : "";
 }
 
 /** Determine attachment type from extension */
@@ -3986,8 +4053,16 @@ export function AttachmentPicker({
         }
       );
     } else {
-      // Android: just open gallery (camera requires more permissions)
-      pickFromGallery();
+      // Android: use Alert.alert for camera/gallery choice
+      Alert.alert(
+        t(language, "add_photo"),
+        undefined,
+        [
+          { text: t(language, "confirm_cancel"), style: "cancel" },
+          { text: t(language, "from_camera"), onPress: pickFromCamera },
+          { text: t(language, "from_gallery"), onPress: pickFromGallery },
+        ]
+      );
     }
   };
 
@@ -4242,12 +4317,15 @@ import { useSettingsStore, useTheme } from "../stores/useSettingsStore";
 import { t } from "../core/i18n";
 import { AnimatedPressable } from "./AnimatedUI";
 
+const MAX_ATTEMPTS = 5;
+
 export function BiometricGate({ children }: { children: React.ReactNode }) {
   const biometricEnabled = useSettingsStore((s) => s.settings.biometricEnabled);
   const language = useSettingsStore((s) => s.settings.language);
   const theme = useTheme();
   const [locked, setLocked] = useState(biometricEnabled);
   const [failed, setFailed] = useState(false);
+  const [failCount, setFailCount] = useState(0);
   const backgroundTime = useRef<number>(0);
   const appState = useRef(AppState.currentState);
 
@@ -4265,11 +4343,14 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
       if (result.success) {
         setLocked(false);
         setFailed(false);
+        setFailCount(0);
       } else {
         setFailed(true);
+        setFailCount((c) => c + 1);
       }
     } catch {
       setFailed(true);
+      setFailCount((c) => c + 1);
     }
   }, [language]);
 
@@ -4311,6 +4392,14 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
     }
   }, [biometricEnabled]);
 
+  // Auto-reset lockout after 30 seconds
+  useEffect(() => {
+    if (failCount >= MAX_ATTEMPTS) {
+      const timer = setTimeout(() => setFailCount(0), 30_000);
+      return () => clearTimeout(timer);
+    }
+  }, [failCount]);
+
   if (!locked) {
     return <>{children}</>;
   }
@@ -4327,25 +4416,31 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
         <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
           {t(language, "biometric_unlock")}
         </Text>
-        {failed && (
+        {failed && failCount < MAX_ATTEMPTS && (
           <Text style={styles.failedText}>
             {t(language, "biometric_failed")}
           </Text>
         )}
-        <AnimatedPressable
-          style={styles.retryBtn}
-          onPress={authenticate}
-          hapticStyle="medium"
-          accessibilityLabel={t(language, "biometric_retry")}
-        >
-          <Ionicons
-            name={Platform.OS === "ios" ? "scan" : "finger-print"}
-            size={20}
-            color="#FFF"
-            style={{ marginRight: 8 }}
-          />
-          <Text style={styles.retryText}>{t(language, "biometric_retry")}</Text>
-        </AnimatedPressable>
+        {failCount >= MAX_ATTEMPTS ? (
+          <Text style={styles.failedText}>
+            {t(language, "biometric_locked_out")}
+          </Text>
+        ) : (
+          <AnimatedPressable
+            style={styles.retryBtn}
+            onPress={authenticate}
+            hapticStyle="medium"
+            accessibilityLabel={t(language, "biometric_retry")}
+          >
+            <Ionicons
+              name={Platform.OS === "ios" ? "scan" : "finger-print"}
+              size={20}
+              color="#FFF"
+              style={{ marginRight: 8 }}
+            />
+            <Text style={styles.retryText}>{t(language, "biometric_retry")}</Text>
+          </AnimatedPressable>
+        )}
       </View>
     </View>
   );
@@ -4416,7 +4511,7 @@ import {
   Text,
   Pressable,
   StyleSheet,
-  Platform,
+  StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { t } from '../core/i18n';
@@ -4463,7 +4558,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
       const lang = getLanguage();
       const theme = createTheme();
       return (
-        <View style={[s.container, { paddingTop: Platform.OS === 'ios' ? 60 : 40, backgroundColor: theme.background }]}>
+        <View style={[s.container, { paddingTop: (StatusBar.currentHeight || 44) + 16, backgroundColor: theme.background }]}>
           <Ionicons name="warning" size={48} color="#FF9500" style={{ marginBottom: 16 }} />
           <Text style={[s.title, { color: theme.text }]}>
             {t(lang, 'error_title')}
@@ -4648,7 +4743,7 @@ export function ImageViewer({ visible, uri, onClose }: ImageViewerProps) {
     translateY.value = 0;
     savedTranslateX.value = 0;
     savedTranslateY.value = 0;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     onClose();
   };
 
@@ -4792,7 +4887,7 @@ export const SwipeableRow = React.memo(function SwipeableRow({
   const totalWidth = secondaryAction ? 160 : 80;
 
   const handleSwipeOpen = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     Alert.alert(confirmTitle, confirmMessage, [
       {
         text: confirmCancel,
@@ -4803,7 +4898,7 @@ export const SwipeableRow = React.memo(function SwipeableRow({
         text: confirmDelete,
         style: 'destructive',
         onPress: () => {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
           onDelete();
         },
       },
@@ -4969,7 +5064,7 @@ export const SegmentedControl = React.memo(function SegmentedControl({
                 elevation: 3,
               }],
             ]}
-            onPress={() => { Haptics.selectionAsync(); onSelect(opt.value); }}
+            onPress={() => { Haptics.selectionAsync().catch(() => {}); onSelect(opt.value); }}
             accessibilityRole="radio"
             accessibilityState={{ selected: isActive }}
             accessibilityLabel={opt.label}
@@ -5039,7 +5134,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as XLSX from 'xlsx';
 
 import { t, translateSubtype } from '../../core/i18n';
-import { CATEGORIES, FREE_DOCUMENT_LIMIT } from '../../core/constants';
+import { CATEGORIES, FREE_DOCUMENT_LIMIT, MAX_IMPORT_LIMIT } from '../../core/constants';
 import type { CategoryId, RecurrenceValue, RawDocument, AppSettings } from '../../core/constants';
 import type { AppTheme } from '../../theme/colors';
 import { AnimatedPressable } from '../AnimatedUI';
@@ -5137,10 +5232,14 @@ export function DataSection({
       const wb = XLSX.read(fileContent, { type: 'base64', cellDates: true });
       const ws = wb.Sheets[wb.SheetNames[0]];
       if (!ws) { Alert.alert(t(language, 'settings_import_no_data')); return; }
-      const rows: any[] = XLSX.utils.sheet_to_json(ws);
+      const rows: Record<string, unknown>[] = XLSX.utils.sheet_to_json(ws);
       if (rows.length === 0) { Alert.alert(t(language, 'settings_import_no_data')); return; }
+      if (rows.length > MAX_IMPORT_LIMIT) {
+        Alert.alert(t(language, 'alert_error'), t(language, 'import_too_large', { max: MAX_IMPORT_LIMIT }));
+        return;
+      }
 
-      const parseDateValue = (raw: any): string => {
+      const parseDateValue = (raw: unknown): string => {
         if (raw instanceof Date && !isNaN(raw.getTime())) {
           const y = raw.getFullYear();
           const m = String(raw.getMonth() + 1).padStart(2, '0');
@@ -5295,13 +5394,17 @@ export function DataSection({
           </Text>
         </AnimatedPressable>
         <RowDivider theme={theme} />
-        <AnimatedPressable style={styles.row} onPress={handleResetDemo} hapticStyle="light" accessibilityLabel={t(language, 'settings_reset_demo')}>
-          <Ionicons name="refresh-outline" size={18} color="#007AFF" style={{ marginRight: 8 }} />
-          <Text style={[styles.rowLabel, { color: '#007AFF' }]}>
-            {t(language, 'settings_reset_demo')}
-          </Text>
-        </AnimatedPressable>
-        <RowDivider theme={theme} />
+        {__DEV__ && (
+          <>
+            <AnimatedPressable style={styles.row} onPress={handleResetDemo} hapticStyle="light" accessibilityLabel={t(language, 'settings_reset_demo')}>
+              <Ionicons name="refresh-outline" size={18} color="#007AFF" style={{ marginRight: 8 }} />
+              <Text style={[styles.rowLabel, { color: '#007AFF' }]}>
+                {t(language, 'settings_reset_demo')}
+              </Text>
+            </AnimatedPressable>
+            <RowDivider theme={theme} />
+          </>
+        )}
         <AnimatedPressable style={styles.row} onPress={handleClearAll} hapticStyle="medium" accessibilityLabel={t(language, 'settings_clear_all')}>
           <Ionicons name="trash-outline" size={18} color="#FF3B30" style={{ marginRight: 8 }} />
           <Text style={[styles.rowLabel, { color: '#FF3B30' }]}>
@@ -5361,7 +5464,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import Constants from 'expo-constants';
 
 import { t } from '../../core/i18n';
-import { DATA_VERSION } from '../../core/constants';
+import { DATA_VERSION, MAX_IMPORT_LIMIT } from '../../core/constants';
 import type { RawDocument, AppSettings } from '../../core/constants';
 import type { AppTheme } from '../../theme/colors';
 import { AnimatedPressable } from '../AnimatedUI';
@@ -5464,7 +5567,9 @@ export function BackupRestoreSection({
         for (const att of doc.attachments) {
           const key = `${doc.id}_${att.id}`;
           const base64 = attachmentsData[key];
-          if (base64 && att.uri && att.uri.startsWith('file://')) {
+          const MAX_ATTACHMENT_SIZE = 20 * 1024 * 1024; // 20MB base64 limit
+          const isValidPath = att.uri && att.uri.startsWith('file://') && att.uri.includes('/attachments/') && !att.uri.includes('..');
+          if (base64 && base64.length < MAX_ATTACHMENT_SIZE && isValidPath) {
             try {
               await FileSystem.writeAsStringAsync(att.uri, base64, { encoding: FileSystem.EncodingType.Base64 });
             } catch {
@@ -5498,7 +5603,28 @@ export function BackupRestoreSection({
         return;
       }
 
-      const backupDocs = backup.documents;
+      if (backup.documents.length > MAX_IMPORT_LIMIT) {
+        Alert.alert(t(language, 'alert_error'), t(language, 'import_too_large', { max: MAX_IMPORT_LIMIT }));
+        return;
+      }
+
+      // Validate each document has required fields
+      const backupDocs = backup.documents.filter((d: any): d is RawDocument =>
+        d && typeof d === 'object' &&
+        typeof d.id === 'string' &&
+        typeof d.title === 'string' &&
+        typeof d.due === 'string' &&
+        typeof d.cat === 'string' &&
+        typeof d.type === 'string' &&
+        ['vehicule', 'casa', 'personal', 'financiar'].includes(d.cat) &&
+        /^\d{4}-\d{2}-\d{2}$/.test(d.due) &&
+        ['none', 'weekly', 'monthly', 'annual'].includes(d.rec || 'none')
+      );
+
+      if (backupDocs.length === 0) {
+        Alert.alert(t(language, 'restore_invalid'));
+        return;
+      }
       const docCount = backupDocs.length;
 
       Alert.alert(
@@ -5546,7 +5672,7 @@ export function BackupRestoreSection({
                 });
                 addDocuments(docsWithoutId);
                 if (backup.settings) {
-                  const { biometricEnabled, lastBackupDate, ...restoreSettings } = backup.settings;
+                  const { biometricEnabled, lastBackupDate, isPremium, ...restoreSettings } = backup.settings;
                   Object.entries(restoreSettings).forEach(([key, value]) => {
                     if (key in settings) {
                       updateSetting(key as keyof AppSettings, value as never);
@@ -5863,7 +5989,8 @@ export default DocDueWidget;
  */
 
 import { useEffect, useRef, useState } from "react";
-import { View, ActivityIndicator } from "react-native";
+import { View, ActivityIndicator, Platform, StatusBar as RNStatusBar } from "react-native";
+import * as NavigationBar from "expo-navigation-bar";
 import { Stack, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
@@ -5876,6 +6003,7 @@ import { useTheme, useSettingsStore } from "../src/stores/useSettingsStore";
 import { ErrorBoundary } from "../src/components/ErrorBoundary";
 import { BiometricGate } from "../src/components/BiometricGate";
 import * as QuickActions from "expo-quick-actions";
+import { FREE_DOCUMENT_LIMIT } from "../src/core/constants";
 import {
   configureNotifications,
   rescheduleAllNotifications,
@@ -5892,6 +6020,14 @@ import { t } from "../src/core/i18n";
 
 SplashScreen.preventAutoHideAsync();
 
+// Force dark system bars on Android immediately (before component renders)
+if (Platform.OS === "android") {
+  RNStatusBar.setBackgroundColor("#0A0E17", false);
+  RNStatusBar.setBarStyle("light-content", false);
+  NavigationBar.setBackgroundColorAsync("#0A0E17").catch(() => {});
+  NavigationBar.setButtonStyleAsync("light").catch(() => {});
+}
+
 // Configure notification behavior before component renders
 configureNotifications();
 
@@ -5901,6 +6037,14 @@ export default function RootLayout() {
   const [ready, setReady] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const responseListener = useRef<Notifications.EventSubscription>(null);
+
+  // Retry setting Android navigation bar after mount (module-level call may be too early in Expo Go)
+  useEffect(() => {
+    if (Platform.OS === "android") {
+      NavigationBar.setBackgroundColorAsync("#0A0E17").catch(() => {});
+      NavigationBar.setButtonStyleAsync("light").catch(() => {});
+    }
+  }, []);
 
   useEffect(() => {
     async function init() {
@@ -6016,7 +6160,7 @@ export default function RootLayout() {
           if (action.id === "add_document") {
             const settings = useSettingsStore.getState().settings;
             const docCount = useDocumentStore.getState().documents.length;
-            if (!settings.isPremium && docCount >= 5) {
+            if (!settings.isPremium && docCount >= FREE_DOCUMENT_LIMIT) {
               router.push("/premium");
             } else {
               router.push("/form");
@@ -6037,6 +6181,7 @@ export default function RootLayout() {
   if (!ready) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#0A0E17" }}>
+        <StatusBar style="light" />
         <ActivityIndicator size="large" color="#007AFF" />
       </View>
     );
@@ -6046,8 +6191,8 @@ export default function RootLayout() {
     <ErrorBoundary>
       <GestureHandlerRootView style={{ flex: 1, backgroundColor: theme.background }}>
         <BiometricGate>
-          <SafeAreaProvider>
-            <StatusBar style="light" />
+          <SafeAreaProvider style={{ backgroundColor: theme.background }}>
+            <StatusBar style="light" backgroundColor="#0A0E17" />
             <Stack
               screenOptions={{ headerShown: false }}
               initialRouteName={showOnboarding ? "onboarding" : "(tabs)"}
@@ -6116,7 +6261,7 @@ export default function TabLayout() {
     >
       <Tabs.Screen
         name="index"
-        listeners={{ tabPress: () => Haptics.selectionAsync() }}
+        listeners={{ tabPress: () => Haptics.selectionAsync().catch(() => {}) }}
         options={{
           title: t(lang, "nav_home"),
           tabBarIcon: ({ color, focused }) => (
@@ -6126,7 +6271,7 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="alerts"
-        listeners={{ tabPress: () => Haptics.selectionAsync() }}
+        listeners={{ tabPress: () => Haptics.selectionAsync().catch(() => {}) }}
         options={{
           title: t(lang, "nav_alerts"),
           tabBarBadge: stats.urgentCount > 0 ? stats.urgentCount : undefined,
@@ -6141,7 +6286,7 @@ export default function TabLayout() {
         listeners={{
           tabPress: (e) => {
             e.preventDefault();
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
             if (!isPremium && docCount >= FREE_DOCUMENT_LIMIT) {
               router.push('/premium');
             } else {
@@ -6161,7 +6306,7 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="search"
-        listeners={{ tabPress: () => Haptics.selectionAsync() }}
+        listeners={{ tabPress: () => Haptics.selectionAsync().catch(() => {}) }}
         options={{
           title: t(lang, "nav_search"),
           tabBarIcon: ({ color, focused }) => (
@@ -6171,7 +6316,7 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="settings"
-        listeners={{ tabPress: () => Haptics.selectionAsync() }}
+        listeners={{ tabPress: () => Haptics.selectionAsync().catch(() => {}) }}
         options={{
           title: t(lang, "nav_settings"),
           tabBarIcon: ({ color, focused }) => (
@@ -7086,6 +7231,9 @@ export default function SearchScreen() {
         contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: insets.bottom + 40 }}
         onScrollBeginDrag={Keyboard.dismiss}
         keyboardShouldPersistTaps="handled"
+        removeClippedSubviews
+        maxToRenderPerBatch={15}
+        windowSize={7}
         renderItem={({ item, index }) => {
           const isFirst = index === 0;
           const isLast = index === filteredDocs.length - 1;
@@ -7183,10 +7331,11 @@ const s = StyleSheet.create({
   scopeChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 18,
     gap: 5,
+    minHeight: 44,
   },
   scopeText: { fontSize: 13, fontWeight: '600' },
   hintText: { fontSize: 13, marginTop: 10 },
@@ -7466,6 +7615,7 @@ export default function SettingsScreen() {
                           paddingHorizontal: 16,
                           paddingVertical: 8,
                           borderRadius: 18,
+                          minHeight: 44,
                           backgroundColor: isSelected
                             ? '#007AFF'
                             : theme.inputFill,
@@ -7575,7 +7725,7 @@ export default function SettingsScreen() {
             style={s.row}
             onPress={() => {
               const url = Platform.OS === 'ios'
-                ? 'https://apps.apple.com/app/docdue/id0000000000'
+                ? 'https://iulianrobert94.github.io/DocDue/'
                 : 'https://play.google.com/store/apps/details?id=com.docdueapp';
               Share.share({
                 message: t(language, 'share_app_message') + '\n' + url,
@@ -7683,7 +7833,7 @@ const s = StyleSheet.create({
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TextInput, Alert,
-  Platform, Keyboard, InputAccessoryView,
+  Platform, Keyboard, InputAccessoryView, BackHandler,
   ActivityIndicator, Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7800,6 +7950,20 @@ export default function FormScreen() {
     }
   };
 
+  // Android back button: show unsaved data warning
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const onBack = () => {
+      if (hasUnsavedData) {
+        handleCancel();
+        return true; // prevent default back
+      }
+      return false; // allow default back
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBack);
+    return () => sub.remove();
+  }, [hasUnsavedData]);
+
   useEffect(() => {
     if (!isEdit && subtypes.length > 0 && !subtypes.includes(type)) {
       setType(subtypes[0]);
@@ -7849,7 +8013,7 @@ export default function FormScreen() {
     if (amt.trim() && (isNaN(Number(amt)) || Number(amt) < 0)) e.amt = t(language, 'val_amount_positive');
     setErrors(e);
     if (Object.keys(e).length > 0) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
       return false;
     }
     return true;
@@ -7860,8 +8024,9 @@ export default function FormScreen() {
     if (!validate()) return;
     savingRef.current = true;
     setSaving(true);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    const finalType = type === 'Altele' ? (customType.trim() || 'Altele') : (type || subtypes[0] || '');
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    const sanitizedCustomType = customType.trim().replace(/[^\p{L}\p{N}\s\-.,()]/gu, '').trim();
+    const finalType = type === 'Altele' ? (sanitizedCustomType || 'Altele') : (type || subtypes[0] || '');
     const docData: Omit<RawDocument, 'id'> = {
       cat, type: finalType, title: title.trim(),
       asset: asset.trim() || undefined, due,
@@ -7888,7 +8053,7 @@ export default function FormScreen() {
       <View style={[s.container, { backgroundColor: theme.background }]}>
           <ScrollView
             style={{ flex: 1 }}
-            contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: 100 }}
+            contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: 160 }}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
             automaticallyAdjustKeyboardInsets
@@ -8337,7 +8502,7 @@ export default function DocumentDetailScreen() {
   const statusConfig = STATUS_DISPLAY[doc._status] || { color: '#999', labelKey: 'status_ok' };
 
   const handleDelete = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
     Alert.alert(
       t(language, 'confirm_delete_title'),
       t(language, 'confirm_delete_msg', { title: doc.title }),
@@ -8358,7 +8523,7 @@ export default function DocumentDetailScreen() {
         {
           text: t(language, isRecurring ? 'confirm_paid_btn' : 'confirm_resolved_btn'),
           onPress: () => {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
             const result = markAsPaid(doc);
             if (result === 'paid_next') {
               playCongrats();
@@ -8558,7 +8723,7 @@ export default function DocumentDetailScreen() {
                     return;
                   }
                   await addDocumentToCalendar(doc, language);
-                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
                   Alert.alert(t(language, 'alert_success'), t(language, 'cal_added'));
                 } catch (e) {
                   Alert.alert(t(language, 'cal_error'));
@@ -8923,7 +9088,7 @@ const s = StyleSheet.create({
   backBtn: { flexDirection: 'row', alignItems: 'center', minWidth: 60, paddingLeft: 4 },
   navTitle: { fontSize: 17, fontWeight: '600' },
   sortRow: { paddingVertical: 12 },
-  sortChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 18 },
+  sortChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 18, minHeight: 44 },
   sortText: { fontSize: 13, fontWeight: '600' },
   countLabel: { fontSize: 13, paddingHorizontal: 20, paddingBottom: 4 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8, gap: 8 },
@@ -9522,12 +9687,11 @@ const s = StyleSheet.create({
  */
 
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, ScrollView, StyleSheet, Alert, ActivityIndicator, Animated } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Alert, ActivityIndicator, Animated, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-
 import { useTheme, useLanguage, useSettingsStore } from '../src/stores/useSettingsStore';
 import { t } from '../src/core/i18n';
 import { AnimatedPressable, FadeInView } from '../src/components/AnimatedUI';
@@ -9565,12 +9729,14 @@ export default function PremiumScreen() {
   const glowAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.loop(
+    const anim = Animated.loop(
       Animated.sequence([
         Animated.timing(glowAnim, { toValue: 1, duration: 2000, useNativeDriver: true }),
         Animated.timing(glowAnim, { toValue: 0, duration: 2000, useNativeDriver: true }),
       ])
-    ).start();
+    );
+    anim.start();
+    return () => anim.stop();
   }, []);
 
   // Load offerings from RevenueCat
@@ -9578,9 +9744,9 @@ export default function PremiumScreen() {
     if (isIAPConfigured() && !isPremium) {
       getOfferings().then((pkgs) => {
         setPackages(pkgs);
-        // Default-select annual (best value)
-        const annual = pkgs.find((p) => p.type === 'annual');
-        setSelectedPkg(annual || pkgs[0] || null);
+        // Default-select lifetime (one-time purchase)
+        const lifetime = pkgs.find((p) => p.type === 'lifetime');
+        setSelectedPkg(lifetime || pkgs[0] || null);
       });
     }
   }, [isPremium]);
@@ -9588,11 +9754,11 @@ export default function PremiumScreen() {
   const handlePurchase = async () => {
     if (!selectedPkg) return;
     setLoading(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     try {
       const result = await purchasePackage(selectedPkg.package);
       if (result.success) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
         updateSetting('isPremium', true);
         router.back();
       } else if (!result.cancelled) {
@@ -9608,7 +9774,7 @@ export default function PremiumScreen() {
     try {
       const restored = await restorePurchases();
       if (restored) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
         updateSetting('isPremium', true);
         Alert.alert(t(language, 'alert_success'), t(language, 'iap_restore_ok'));
         router.back();
@@ -9622,7 +9788,7 @@ export default function PremiumScreen() {
 
   // Early access mode (RevenueCat not yet configured)
   const handleUnlockEarlyAccess = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     updateSetting('isPremium', true);
     router.back();
   };
@@ -9753,6 +9919,26 @@ export default function PremiumScreen() {
                   <Text style={s.restoreText}>{t(language, 'premium_restore')}</Text>
                 )}
               </AnimatedPressable>
+
+              {/* Purchase terms — REQUIRED by Apple */}
+              <Text style={[s.termsText, { color: theme.textMuted }]}>
+                {t(language, 'premium_terms')}
+              </Text>
+              <Text style={[s.termsText, { color: theme.textMuted }]}>
+                <Text
+                  style={{ color: '#007AFF' }}
+                  onPress={() => Linking.openURL('https://iulianrobert94.github.io/DocDue/terms.html').catch(() => {})}
+                >
+                  {t(language, 'premium_terms_of_use')}
+                </Text>
+                {'  ·  '}
+                <Text
+                  style={{ color: '#007AFF' }}
+                  onPress={() => Linking.openURL('https://iulianrobert94.github.io/DocDue/privacy.html').catch(() => {})}
+                >
+                  {t(language, 'premium_privacy_link')}
+                </Text>
+              </Text>
             </>
           ) : (
             <>
@@ -9822,6 +10008,7 @@ const s = StyleSheet.create({
 
   restoreBtn: { alignItems: 'center', paddingVertical: 12 },
   restoreText: { color: '#007AFF', fontSize: 15 },
+  termsText: { fontSize: 11, textAlign: 'center', lineHeight: 16, marginTop: 4 },
 });
 
 
@@ -10246,6 +10433,13 @@ describe("getRecurrenceDays", () => {
 // ─── i18n Completeness ──────────────────────────────────
 
 import { t, translateSubtype } from "../core/i18n";
+import { getWarningDaysForRecurrence } from "../core/enrichment";
+
+// Mock react-native Alert for confirmActions tests
+jest.mock("react-native", () => ({
+  Alert: { alert: jest.fn() },
+}));
+import { buildMarkAsPaidAction } from "../core/confirmActions";
 
 describe("i18n completeness", () => {
   // Gather all keys used by t() in both languages
@@ -10683,6 +10877,787 @@ describe("i18n new keys (health, notifications, digest)", () => {
     expect(resultEn).toContain("4");
     expect(resultEn).toContain("75");
   });
+
+  it("alert_error key exists in both languages", () => {
+    expect(t("ro", "alert_error")).not.toBe("alert_error");
+    expect(t("en", "alert_error")).not.toBe("alert_error");
+  });
+});
+
+// ─── Warning Days by Recurrence ─────────────────────────
+
+describe("getWarningDaysForRecurrence", () => {
+  it("returns 3 for weekly", () => {
+    expect(getWarningDaysForRecurrence("weekly")).toBe(3);
+  });
+
+  it("returns 7 for monthly", () => {
+    expect(getWarningDaysForRecurrence("monthly")).toBe(7);
+  });
+
+  it("returns 30 for annual", () => {
+    expect(getWarningDaysForRecurrence("annual")).toBe(30);
+  });
+
+  it("returns 30 for none", () => {
+    expect(getWarningDaysForRecurrence("none")).toBe(30);
+  });
+});
+
+// ─── Enrichment with Different Recurrences ──────────────
+
+describe("enrichDocument recurrence-aware status", () => {
+  it("weekly doc with 5 days left is ok (threshold is 3)", () => {
+    const doc: RawDocument = {
+      id: "w1", cat: "casa", type: "Internet", title: "Weekly",
+      due: addDaysToDate(getTodayString(), 5), amt: null, rec: "weekly",
+    };
+    const enriched = enrichDocument(doc);
+    expect(enriched._status).toBe("ok");
+  });
+
+  it("weekly doc with 2 days left is warning (threshold is 3)", () => {
+    const doc: RawDocument = {
+      id: "w2", cat: "casa", type: "Internet", title: "Weekly",
+      due: addDaysToDate(getTodayString(), 2), amt: null, rec: "weekly",
+    };
+    const enriched = enrichDocument(doc);
+    expect(enriched._status).toBe("warning");
+  });
+
+  it("monthly doc with 10 days left is ok (threshold is 7)", () => {
+    const doc: RawDocument = {
+      id: "m1", cat: "casa", type: "Gaz", title: "Monthly",
+      due: addDaysToDate(getTodayString(), 10), amt: 100, rec: "monthly",
+    };
+    const enriched = enrichDocument(doc);
+    expect(enriched._status).toBe("ok");
+  });
+
+  it("monthly doc with 5 days left is warning (threshold is 7)", () => {
+    const doc: RawDocument = {
+      id: "m2", cat: "casa", type: "Gaz", title: "Monthly",
+      due: addDaysToDate(getTodayString(), 5), amt: 100, rec: "monthly",
+    };
+    const enriched = enrichDocument(doc);
+    expect(enriched._status).toBe("warning");
+  });
+
+  it("annual doc with 20 days left is warning (threshold is 30)", () => {
+    const doc: RawDocument = {
+      id: "a1", cat: "vehicule", type: "RCA", title: "Annual",
+      due: addDaysToDate(getTodayString(), 20), amt: 500, rec: "annual",
+    };
+    const enriched = enrichDocument(doc);
+    expect(enriched._status).toBe("warning");
+  });
+
+  it("annual doc with 50 days left is ok (threshold is 30)", () => {
+    const doc: RawDocument = {
+      id: "a2", cat: "vehicule", type: "RCA", title: "Annual",
+      due: addDaysToDate(getTodayString(), 50), amt: 500, rec: "annual",
+    };
+    const enriched = enrichDocument(doc);
+    expect(enriched._status).toBe("ok");
+  });
+
+  it("past-date doc is always expired regardless of recurrence", () => {
+    const doc: RawDocument = {
+      id: "e1", cat: "vehicule", type: "RCA", title: "Expired",
+      due: addDaysToDate(getTodayString(), -1), amt: 500, rec: "annual",
+    };
+    const enriched = enrichDocument(doc);
+    expect(enriched._status).toBe("expired");
+    expect(enriched._daysUntil).toBe(-1);
+  });
+});
+
+// ─── buildMarkAsPaidAction ──────────────────────────────
+
+describe("buildMarkAsPaidAction", () => {
+  const makeEnriched = (status: "expired" | "warning" | "ok", rec: "none" | "monthly" | "annual"): EnrichedDocument => ({
+    id: "bmp-1", cat: "vehicule", type: "RCA", title: "Test",
+    due: "2025-06-01", amt: 500, rec,
+    _daysUntil: status === "expired" ? -5 : status === "warning" ? 5 : 50,
+    _status: status,
+  });
+
+  it("returns undefined for ok status", () => {
+    const result = buildMarkAsPaidAction(makeEnriched("ok", "annual"), "ro", () => {});
+    expect(result).toBeUndefined();
+  });
+
+  it("returns action for expired status", () => {
+    const result = buildMarkAsPaidAction(makeEnriched("expired", "annual"), "ro", () => {});
+    expect(result).toBeDefined();
+    expect(result!.color).toBe("#34C759");
+    expect(typeof result!.onPress).toBe("function");
+  });
+
+  it("returns action for warning status", () => {
+    const result = buildMarkAsPaidAction(makeEnriched("warning", "monthly"), "en", () => {});
+    expect(result).toBeDefined();
+  });
+
+  it("uses 'paid' label for recurring documents", () => {
+    const result = buildMarkAsPaidAction(makeEnriched("expired", "annual"), "en", () => {});
+    expect(result!.label).toBe(t("en", "confirm_paid_btn"));
+    expect(result!.icon).toBe("checkmark-circle");
+  });
+
+  it("uses 'resolved' label for non-recurring documents", () => {
+    const result = buildMarkAsPaidAction(makeEnriched("expired", "none"), "en", () => {});
+    expect(result!.label).toBe(t("en", "confirm_resolved_btn"));
+    expect(result!.icon).toBe("checkmark-done");
+  });
+});
+
+// ─── Validation Edge Cases ──────────────────────────────
+
+describe("validateDocument edge cases", () => {
+  it("rejects whitespace-only title", () => {
+    const doc = { title: "   ", due: "2024-12-31", cat: "vehicule" as const };
+    const errors = validateDocument(doc);
+    expect(errors.length).toBeGreaterThan(0);
+  });
+
+  it("rejects invalid date format", () => {
+    const doc = { title: "Test", due: "not-a-date", cat: "vehicule" as const };
+    const errors = validateDocument(doc);
+    expect(errors.some((e) => e.length > 0)).toBe(true);
+  });
+
+  it("rejects unknown category", () => {
+    const doc = { title: "Test", due: "2024-12-31", cat: "unknown" as any };
+    const errors = validateDocument(doc);
+    expect(errors.length).toBeGreaterThan(0);
+  });
+
+  it("rejects missing category", () => {
+    const doc = { title: "Test", due: "2024-12-31" };
+    const errors = validateDocument(doc);
+    expect(errors.length).toBeGreaterThan(0);
+  });
+
+  it("accepts empty string amount as valid (converts to null)", () => {
+    const doc = { title: "Test", due: "2024-12-31", cat: "vehicule" as const, amt: "" as any };
+    const errors = validateDocument(doc);
+    expect(errors).toEqual([]);
+  });
+
+  it("rejects amount exceeding max (999999999)", () => {
+    const doc = { title: "Test", due: "2024-12-31", cat: "vehicule" as const, amt: 1_000_000_000 };
+    const errors = validateDocument(doc);
+    expect(errors.length).toBeGreaterThan(0);
+  });
+
+  it("accepts zero amount", () => {
+    const doc = { title: "Test", due: "2024-12-31", cat: "vehicule" as const, amt: 0 };
+    const errors = validateDocument(doc);
+    expect(errors).toEqual([]);
+  });
+});
+
+// ─── parseLocalDate Edge Cases ──────────────────────────
+
+describe("parseLocalDate edge cases", () => {
+  it("rejects Feb 30 (auto-correction detection)", () => {
+    const date = parseLocalDate("2024-02-30");
+    expect(isNaN(date.getTime())).toBe(true);
+  });
+
+  it("rejects Feb 29 in non-leap year", () => {
+    const date = parseLocalDate("2025-02-29");
+    expect(isNaN(date.getTime())).toBe(true);
+  });
+
+  it("accepts Feb 29 in leap year", () => {
+    const date = parseLocalDate("2024-02-29");
+    expect(isNaN(date.getTime())).toBe(false);
+    expect(date.getDate()).toBe(29);
+  });
+
+  it("rejects day 0", () => {
+    const date = parseLocalDate("2024-01-00");
+    expect(isNaN(date.getTime())).toBe(true);
+  });
+
+  it("rejects month 0", () => {
+    const date = parseLocalDate("2024-00-15");
+    expect(isNaN(date.getTime())).toBe(true);
+  });
+
+  it("rejects day 32", () => {
+    const date = parseLocalDate("2024-01-32");
+    expect(isNaN(date.getTime())).toBe(true);
+  });
+
+  it("handles single-segment string", () => {
+    const date = parseLocalDate("20240315");
+    expect(isNaN(date.getTime())).toBe(true);
+  });
+});
+
+// ─── addDaysToDate / addMonthsToDate Edge Cases ─────────
+
+describe("addDaysToDate edge cases", () => {
+  it("returns original string for invalid date", () => {
+    expect(addDaysToDate("not-a-date", 5)).toBe("not-a-date");
+  });
+
+  it("handles adding 0 days", () => {
+    expect(addDaysToDate("2024-06-15", 0)).toBe("2024-06-15");
+  });
+
+  it("handles leap year day addition", () => {
+    expect(addDaysToDate("2024-02-28", 1)).toBe("2024-02-29");
+  });
+});
+
+describe("addMonthsToDate edge cases", () => {
+  it("returns original string for invalid date", () => {
+    expect(addMonthsToDate("invalid", 1)).toBe("invalid");
+  });
+
+  it("clamps Jan 30 + 1 month to Feb 29 in leap year", () => {
+    expect(addMonthsToDate("2024-01-30", 1)).toBe("2024-02-29");
+  });
+
+  it("clamps Jan 30 + 1 month to Feb 28 in non-leap year", () => {
+    expect(addMonthsToDate("2025-01-30", 1)).toBe("2025-02-28");
+  });
+
+  it("handles adding 0 months", () => {
+    expect(addMonthsToDate("2024-06-15", 0)).toBe("2024-06-15");
+  });
+});
+
+// ─── sortDocumentsByField Additional Cases ──────────────
+
+describe("sortDocumentsByField additional", () => {
+  const makeDocs = (): EnrichedDocument[] => [
+    { id: "1", cat: "vehicule", type: "RCA", title: "B", due: "2024-06-01", amt: 200, rec: "none", _daysUntil: 10, _status: "warning" },
+    { id: "2", cat: "vehicule", type: "ITP", title: "A", due: "2024-03-01", amt: 50, rec: "none", _daysUntil: -5, _status: "expired" },
+    { id: "3", cat: "casa", type: "Gaz", title: "C", due: "2024-12-01", amt: 300, rec: "none", _daysUntil: 100, _status: "ok" },
+  ];
+
+  it("sorts by date ascending", () => {
+    const sorted = sortDocumentsByField(makeDocs(), "date", "asc");
+    expect(sorted[0]._daysUntil).toBe(-5);
+    expect(sorted[2]._daysUntil).toBe(100);
+  });
+
+  it("sorts by date descending", () => {
+    const sorted = sortDocumentsByField(makeDocs(), "date", "desc");
+    expect(sorted[0]._daysUntil).toBe(100);
+    expect(sorted[2]._daysUntil).toBe(-5);
+  });
+
+  it("sorts by urgency descending (ok first)", () => {
+    const sorted = sortDocumentsByField(makeDocs(), "urgency", "desc");
+    expect(sorted[0]._status).toBe("ok");
+    expect(sorted[2]._status).toBe("expired");
+  });
+
+  it("sorts by name descending", () => {
+    const sorted = sortDocumentsByField(makeDocs(), "name", "desc");
+    expect(sorted[0].title).toBe("C");
+    expect(sorted[2].title).toBe("A");
+  });
+
+  it("sorts by amount ascending", () => {
+    const sorted = sortDocumentsByField(makeDocs(), "amount", "asc");
+    expect(sorted[0].amt).toBe(50);
+    expect(sorted[2].amt).toBe(300);
+  });
+
+  it("handles null amounts in sort", () => {
+    const docs: EnrichedDocument[] = [
+      { id: "1", cat: "vehicule", type: "RCA", title: "A", due: "2024-06-01", amt: null, rec: "none", _daysUntil: 10, _status: "ok" },
+      { id: "2", cat: "vehicule", type: "ITP", title: "B", due: "2024-06-01", amt: 100, rec: "none", _daysUntil: 10, _status: "ok" },
+    ];
+    const sorted = sortDocumentsByField(docs, "amount", "asc");
+    expect(sorted[0].amt).toBe(null);
+    expect(sorted[1].amt).toBe(100);
+  });
+
+  it("does not mutate original array", () => {
+    const original = makeDocs();
+    const firstId = original[0].id;
+    sortDocumentsByField(original, "name", "asc");
+    expect(original[0].id).toBe(firstId);
+  });
+});
+
+// ─── Health Score Boundary Values ───────────────────────
+
+describe("getHealthScoreColor boundaries", () => {
+  it("score 0 is red", () => {
+    expect(getHealthScoreColor(0)).toBe("#FF3B30");
+  });
+
+  it("score 40 is red (boundary)", () => {
+    expect(getHealthScoreColor(40)).toBe("#FF3B30");
+  });
+
+  it("score 41 is orange", () => {
+    expect(getHealthScoreColor(41)).toBe("#FF9500");
+  });
+
+  it("score 70 is orange (boundary)", () => {
+    expect(getHealthScoreColor(70)).toBe("#FF9500");
+  });
+
+  it("score 71 is green", () => {
+    expect(getHealthScoreColor(71)).toBe("#34C759");
+  });
+
+  it("score 100 is green", () => {
+    expect(getHealthScoreColor(100)).toBe("#34C759");
+  });
+});
+
+// ─── translateSubtype Edge Cases ────────────────────────
+
+describe("translateSubtype edge cases", () => {
+  it("returns original for unknown subtype in English", () => {
+    expect(translateSubtype("SomethingNew", "en")).toBe("SomethingNew");
+  });
+
+  it("returns original for empty string", () => {
+    expect(translateSubtype("", "ro")).toBe("");
+    expect(translateSubtype("", "en")).toBe("");
+  });
+
+  it("translates Amendă to Fine in English", () => {
+    expect(translateSubtype("Amendă", "en")).toBe("Fine");
+  });
+
+  it("translates Pașaport to Passport in English", () => {
+    expect(translateSubtype("Pașaport", "en")).toBe("Passport");
+  });
+});
+
+// ─── i18n Fallback Behavior ─────────────────────────────
+
+describe("i18n fallback behavior", () => {
+  it("returns raw key when key doesn't exist in any language", () => {
+    expect(t("en", "nonexistent_key_xyz")).toBe("nonexistent_key_xyz");
+  });
+
+  it("falls back to Romanian when English key is missing", () => {
+    // Both languages should have all keys, but verify fallback works
+    const roValue = t("ro", "nav_home");
+    expect(roValue).toBeTruthy();
+    expect(roValue).not.toBe("nav_home");
+  });
+
+  it("handles empty params object", () => {
+    const result = t("en", "nav_home", {});
+    expect(result).toBe("Home");
+  });
+
+  it("leaves unreplaced placeholders as-is", () => {
+    // paid_on has {date} placeholder
+    const result = t("en", "paid_on");
+    expect(result).toContain("{date}");
+  });
+});
+
+// ─── i18n RO/EN Key Parity (exhaustive) ─────────────────
+
+describe("i18n RO/EN parity", () => {
+  // Access the dictionaries via t() — check every RO key exists in EN
+  // We can't access TRANSLATIONS directly, but we can check known keys
+  const ALL_KEYS = [
+    // Navigation
+    "nav_home", "nav_alerts", "nav_search", "nav_settings", "nav_add", "nav_label",
+    // Status
+    "status_expired", "status_warning", "status_ok",
+    "status_expired_plural", "status_warning_plural", "status_ok_plural",
+    // Categories
+    "cat_vehicule", "cat_personal", "cat_casa", "cat_financiar",
+    // Category card
+    "doc_singular", "doc_plural",
+    // Recurrence
+    "rec_none", "rec_weekly", "rec_monthly", "rec_annual",
+    "rec_none_short", "rec_weekly_short", "rec_monthly_short", "rec_annual_short",
+    // Sort
+    "sort_urgency", "sort_date", "sort_date_asc", "sort_date_desc",
+    "sort_amount", "sort_name", "sort_label",
+    // Days
+    "days_overdue_plural", "days_overdue_singular", "days_today", "days_tomorrow", "days_future",
+    // Home
+    "home_needs_attention", "home_see_all", "home_welcome", "home_welcome_sub", "home_30days",
+    // Months
+    "month_short_1", "month_short_2", "month_short_3", "month_short_4",
+    "month_short_5", "month_short_6", "month_short_7", "month_short_8",
+    "month_short_9", "month_short_10", "month_short_11", "month_short_12",
+    // Alerts
+    "alerts_title", "alerts_needs_attention", "alerts_none_title", "alerts_empty",
+    // Search
+    "search_title", "search_placeholder", "search_no_results", "search_count",
+    "search_no_filter_results", "search_all",
+    // Document detail
+    "detail_due", "detail_amount", "detail_recurrence", "detail_type", "detail_notes",
+    "detail_pay_next", "detail_resolved", "detail_edit", "detail_delete",
+    // Form
+    "form_add_title", "form_edit_title", "form_category", "form_type", "form_title",
+    "form_asset", "form_due", "form_amount", "form_recurrence", "form_notes",
+    "form_type_select", "form_title_placeholder", "form_asset_placeholder",
+    "form_notes_placeholder", "form_custom_type_placeholder", "form_search_type",
+    "form_save", "form_done", "form_date_placeholder",
+    // Validation
+    "val_title_required", "val_date_required", "val_date_invalid",
+    "val_amount_positive", "val_category_invalid",
+    // Confirm dialogs
+    "confirm_discard_title", "confirm_discard_msg", "confirm_discard_btn",
+    "confirm_delete_title", "confirm_delete_msg", "confirm_cancel", "confirm_delete_btn",
+    "confirm_paid_title", "confirm_paid_msg", "confirm_paid_btn",
+    "confirm_resolved_title", "confirm_resolved_msg", "confirm_resolved_btn",
+    "confirm_reset_title", "confirm_reset_msg", "confirm_reset_btn",
+    "confirm_clear_title", "confirm_clear_msg", "confirm_clear_btn",
+    // Toasts
+    "toast_added", "toast_updated", "toast_deleted", "toast_paid_next",
+    "toast_resolved", "toast_demo_restored", "toast_all_cleared", "toast_save_error",
+    "save_error_title", "save_error_msg",
+    // Settings
+    "settings_title", "settings_general", "settings_appearance", "settings_alerts",
+    "settings_data", "settings_about", "settings_total_docs", "settings_version",
+    "settings_theme", "settings_currency", "settings_language",
+    "settings_warning_threshold", "settings_warning_desc",
+    "settings_reminders", "settings_reminders_desc",
+    "settings_export_excel", "settings_import_excel",
+    "settings_export_success", "settings_export_error",
+    "settings_import_success", "settings_import_error", "settings_import_no_data",
+    "settings_import_confirm_title", "settings_import_confirm_msg", "settings_import_confirm_btn",
+    "settings_reset_demo", "settings_reset_demo_desc",
+    "settings_clear_all", "settings_clear_all_desc", "settings_about_text",
+    "settings_days_suffix", "settings_per_category", "settings_all_categories",
+    "settings_default", "settings_use_global",
+    // Buttons
+    "btn_close", "btn_back",
+    // Alerts
+    "alert_success", "alert_error", "alert_notice",
+    // Missing
+    "no_documents", "doc_not_found",
+    // Privacy
+    "settings_privacy", "settings_privacy_footer",
+    // IAP
+    "premium_subscribe", "iap_restore_ok", "iap_restore_none", "purchase_error",
+    "plan_monthly", "plan_annual", "plan_lifetime", "plan_month", "plan_best_value",
+    // Share
+    "share_app", "share_app_message",
+    // Congrats
+    "congrats_paid",
+    // Weekly
+    "notif_weekly_title", "notif_weekly_body",
+    // Accessibility
+    "a11y_search_btn", "a11y_see_all_alerts", "a11y_close_modal", "a11y_go_back",
+    "a11y_add_document", "a11y_save_document", "a11y_cancel",
+    "a11y_delete_document", "a11y_edit_document", "a11y_mark_paid",
+    "a11y_sort_by", "a11y_select_category", "a11y_select_type",
+    "a11y_select_recurrence", "a11y_open_document", "a11y_open_category",
+    "a11y_theme_toggle", "a11y_close_image", "a11y_image_preview",
+    "a11y_health_score", "a11y_onboarding_dot",
+    // Biometric
+    "biometric_lock", "biometric_desc", "biometric_unlock", "biometric_retry",
+    "biometric_failed", "biometric_not_available", "biometric_section", "biometric_locked_out",
+    // Attachments
+    "attachments", "add_photo", "add_file", "remove_attachment", "attachment_limit",
+    "from_camera", "from_gallery", "open_file", "attachment_error",
+    // Backup
+    "backup_section", "backup_create", "backup_restore", "backup_last",
+    "backup_include_attachments", "backup_include_desc",
+    "backup_success", "backup_error", "sharing_unavailable",
+    "all_docs_exist", "duplicates_skipped",
+    "restore_replace", "restore_merge", "restore_confirm",
+    "restore_success", "restore_error", "restore_invalid", "restore_choose",
+    // Notifications
+    "notif_reminder_title", "notif_reminder_body",
+    "notif_due_today_title", "notif_due_today_body",
+    "notif_permission_title", "notif_permission_denied",
+    "settings_notifications", "settings_notifications_desc",
+    "settings_notifications_enable", "settings_reminder_days", "settings_reminder_days_desc",
+    // Permissions
+    "photo_permission",
+    // Calendar
+    "cal_add", "cal_added", "cal_error", "cal_permission_denied",
+    // Analytics
+    "analytics_title", "analytics_30days", "analytics_total",
+    "analytics_by_category", "analytics_by_month", "analytics_no_data",
+    "analytics_total_paid", "analytics_avg_monthly", "analytics_based_on",
+    // Sharing
+    "share_document", "share_summary",
+    // Premium
+    "premium_title", "premium_subtitle",
+    "premium_feature_unlimited", "premium_feature_analytics",
+    "premium_feature_backup", "premium_feature_widgets", "premium_feature_notifications",
+    "premium_upgrade", "premium_restore", "premium_limit_title", "premium_limit_msg",
+    "premium_active", "premium_section", "premium_free_count", "premium_required",
+    "premium_early_access_note", "premium_unlock_free",
+    // Payment history
+    "payment_history", "total_paid", "paid_on", "payment_count",
+    // Notification actions
+    "notif_action_renewed", "notif_action_tomorrow",
+    // Health
+    "health_score", "health_critical", "health_attention", "health_good",
+    "health_hint_expired", "health_hint_warning",
+    // Digest
+    "notif_digest_title", "notif_digest_body_zero",
+    "notif_digest_body_one", "notif_digest_body_plural",
+    // Smart notifications
+    "notif_smart_rca", "notif_smart_itp", "notif_smart_tax",
+    "notif_smart_utility", "notif_smart_contract", "notif_smart_generic",
+    // Countdown
+    "countdown_today", "countdown_tomorrow", "countdown_days",
+    // Review
+    "review_enjoying", "review_rate",
+    // Error boundary
+    "error_title", "error_subtitle", "error_retry",
+    // Smart defaults
+    "smart_default_applied",
+    // Quick actions
+    "quick_action_add", "quick_action_alerts", "quick_action_search",
+    // Privacy sections
+    "privacy_last_updated",
+    "privacy_data_collected_title", "privacy_data_collected_body",
+    "privacy_permissions_title", "privacy_permissions_body",
+    "privacy_storage_title", "privacy_storage_body",
+    "privacy_sharing_title", "privacy_sharing_body",
+    "privacy_deletion_title", "privacy_deletion_body",
+    "privacy_contact_title", "privacy_contact_body",
+    // Onboarding
+    "onboarding_slide1_title", "onboarding_slide1_desc",
+    "onboarding_slide2_title", "onboarding_slide2_desc",
+    "onboarding_slide3_title", "onboarding_slide3_desc",
+    "onboarding_slide4_title", "onboarding_slide4_desc",
+    "onboarding_skip", "onboarding_next", "onboarding_start",
+  ];
+
+  it("every key exists in Romanian (not falling back to raw key)", () => {
+    const missing: string[] = [];
+    for (const key of ALL_KEYS) {
+      if (t("ro", key) === key) missing.push(key);
+    }
+    expect(missing).toEqual([]);
+  });
+
+  it("every key exists in English (not falling back to raw key)", () => {
+    const missing: string[] = [];
+    for (const key of ALL_KEYS) {
+      if (t("en", key) === key) missing.push(key);
+    }
+    expect(missing).toEqual([]);
+  });
+});
+
+// ─── Demo Data Validity ─────────────────────────────────
+
+describe("demo data validity", () => {
+  it("every demo document passes validation", () => {
+    const docs = createDemoDocuments();
+    for (const doc of docs) {
+      const errors = validateDocument(doc);
+      expect(errors).toEqual([]);
+    }
+  });
+
+  it("every demo document has a valid category", () => {
+    const docs = createDemoDocuments();
+    const validCats = ["vehicule", "casa", "personal", "financiar"];
+    for (const doc of docs) {
+      expect(validCats).toContain(doc.cat);
+    }
+  });
+
+  it("every demo document has a valid recurrence", () => {
+    const docs = createDemoDocuments();
+    const validRecs = ["none", "weekly", "monthly", "annual"];
+    for (const doc of docs) {
+      expect(validRecs).toContain(doc.rec);
+    }
+  });
+
+  it("demo documents include all 4 categories", () => {
+    const docs = createDemoDocuments();
+    const cats = new Set(docs.map((d) => d.cat));
+    expect(cats.size).toBe(4);
+  });
+
+  it("all demo IDs are unique", () => {
+    const docs = createDemoDocuments();
+    const ids = docs.map((d) => d.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+// ─── Enrich → Strip Round-Trip ──────────────────────────
+
+describe("enrich-strip round-trip", () => {
+  it("strip(enrich(doc)) returns original document shape", () => {
+    const original: RawDocument = {
+      id: "rt-1", cat: "vehicule", type: "RCA", title: "Round Trip",
+      due: addDaysToDate(getTodayString(), 30), amt: 500, rec: "annual",
+      notes: "Test note", asset: "B-99-ABC",
+    };
+    const enriched = enrichDocument(original);
+    const stripped = stripEnrichedFields(enriched);
+
+    expect(stripped).toEqual(original);
+    expect((stripped as any)._daysUntil).toBeUndefined();
+    expect((stripped as any)._status).toBeUndefined();
+  });
+
+  it("preserves all optional fields through round-trip", () => {
+    const original: RawDocument = {
+      id: "rt-2", cat: "casa", type: "Gaz", title: "With All Fields",
+      due: addDaysToDate(getTodayString(), 10), amt: 185, rec: "monthly",
+      notes: "Note here", asset: "Apt 1",
+      attachments: [{ id: "a1", uri: "file://test.jpg", name: "test.jpg", type: "image" }],
+      paymentHistory: [
+        { date: "2024-01-15", dueDate: "2024-01-10", amt: 180 },
+      ],
+    };
+    const stripped = stripEnrichedFields(enrichDocument(original));
+
+    expect(stripped.notes).toBe("Note here");
+    expect(stripped.asset).toBe("Apt 1");
+    expect(stripped.attachments).toHaveLength(1);
+    expect(stripped.paymentHistory).toHaveLength(1);
+    expect(stripped.paymentHistory![0].amt).toBe(180);
+  });
+
+  it("multiple enrich-strip cycles produce stable output", () => {
+    const original: RawDocument = {
+      id: "rt-3", cat: "personal", type: "Pașaport", title: "Passport",
+      due: addDaysToDate(getTodayString(), 100), amt: null, rec: "none",
+    };
+    const cycle1 = stripEnrichedFields(enrichDocument(original));
+    const cycle2 = stripEnrichedFields(enrichDocument(cycle1));
+    const cycle3 = stripEnrichedFields(enrichDocument(cycle2));
+
+    expect(cycle3).toEqual(original);
+  });
+});
+
+// ─── Constants Integrity ────────────────────────────────
+
+import { CATEGORIES, RECURRENCE_OPTIONS, CURRENCY_OPTIONS, STATUS_DISPLAY } from "../core/constants";
+
+describe("constants integrity", () => {
+  it("CATEGORIES has exactly 4 entries", () => {
+    expect(Object.keys(CATEGORIES)).toHaveLength(4);
+  });
+
+  it("every category has required fields", () => {
+    for (const [id, cat] of Object.entries(CATEGORIES)) {
+      expect(cat.id).toBe(id);
+      expect(cat.labelKey).toBeTruthy();
+      expect(cat.icon).toBeTruthy();
+      expect(cat.iconFilled).toBeTruthy();
+      expect(cat.color).toMatch(/^#[0-9A-F]{6}$/i);
+      expect(cat.subtypes.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("every category has Altele as last subtype", () => {
+    for (const cat of Object.values(CATEGORIES)) {
+      expect(cat.subtypes[cat.subtypes.length - 1]).toBe("Altele");
+    }
+  });
+
+  it("no duplicate subtypes within a category", () => {
+    for (const cat of Object.values(CATEGORIES)) {
+      const unique = new Set(cat.subtypes);
+      expect(unique.size).toBe(cat.subtypes.length);
+    }
+  });
+
+  it("STATUS_DISPLAY has all 3 statuses", () => {
+    expect(STATUS_DISPLAY.expired).toBeDefined();
+    expect(STATUS_DISPLAY.warning).toBeDefined();
+    expect(STATUS_DISPLAY.ok).toBeDefined();
+  });
+
+  it("status colors match brand spec", () => {
+    expect(STATUS_DISPLAY.expired.color).toBe("#FF3B30");
+    expect(STATUS_DISPLAY.warning.color).toBe("#FF9500");
+    expect(STATUS_DISPLAY.ok.color).toBe("#34C759");
+  });
+
+  it("RECURRENCE_OPTIONS has 4 entries in correct order", () => {
+    expect(RECURRENCE_OPTIONS).toHaveLength(4);
+    expect(RECURRENCE_OPTIONS.map((r) => r.value)).toEqual(["none", "weekly", "monthly", "annual"]);
+  });
+
+  it("CURRENCY_OPTIONS has 3 entries", () => {
+    expect(CURRENCY_OPTIONS).toHaveLength(3);
+    expect(CURRENCY_OPTIONS.map((c) => c.value)).toEqual(["RON", "EUR", "USD"]);
+  });
+});
+
+// ─── Smart Defaults Coverage ────────────────────────────
+
+describe("smart defaults coverage", () => {
+  it("every category subtype (except Altele) has a smart default", () => {
+    const missing: string[] = [];
+    for (const cat of Object.values(CATEGORIES)) {
+      for (const subtype of cat.subtypes) {
+        if (subtype === "Altele") continue;
+        if (!getSmartDefaults(subtype)) {
+          missing.push(`${cat.id}/${subtype}`);
+        }
+      }
+    }
+    expect(missing).toEqual([]);
+  });
+
+  it("all smart defaults return valid recurrence values", () => {
+    const validRecs = ["none", "weekly", "monthly", "annual"];
+    for (const cat of Object.values(CATEGORIES)) {
+      for (const subtype of cat.subtypes) {
+        const defaults = getSmartDefaults(subtype);
+        if (defaults) {
+          expect(validRecs).toContain(defaults.recurrence);
+        }
+      }
+    }
+  });
+});
+
+// ─── Migration: Recurrence Migration ────────────────────
+
+describe("migration recurrence upgrade", () => {
+  it("migrates legacy daily → weekly", () => {
+    const docs = [{ id: "1", cat: "casa", type: "Gaz", title: "Test", due: "2024-01-01", amt: 50, rec: "daily" }];
+    const result = migrateData(docs as any);
+    expect(result![0].rec).toBe("weekly");
+  });
+
+  it("migrates legacy quarterly → monthly", () => {
+    const docs = [{ id: "1", cat: "financiar", type: "Tax", title: "Test", due: "2024-01-01", amt: 100, rec: "quarterly" }];
+    const result = migrateData(docs as any);
+    expect(result![0].rec).toBe("monthly");
+  });
+
+  it("migrates legacy biannual → annual", () => {
+    const docs = [{ id: "1", cat: "vehicule", type: "ITP", title: "Test", due: "2024-01-01", amt: null, rec: "biannual" }];
+    const result = migrateData(docs as any);
+    expect(result![0].rec).toBe("annual");
+  });
+
+  it("preserves current recurrence values unchanged", () => {
+    const docs = [
+      { id: "1", cat: "casa", type: "Gaz", title: "A", due: "2024-01-01", amt: 50, rec: "monthly" },
+      { id: "2", cat: "vehicule", type: "RCA", title: "B", due: "2024-01-01", amt: 500, rec: "annual" },
+      { id: "3", cat: "personal", type: "CI", title: "C", due: "2024-01-01", amt: null, rec: "none" },
+    ];
+    const result = migrateData(docs as any);
+    expect(result![0].rec).toBe("monthly");
+    expect(result![1].rec).toBe("annual");
+    expect(result![2].rec).toBe("none");
+  });
 });
 
 
@@ -10716,32 +11691,39 @@ describe("i18n new keys (health, notifications, digest)", () => {
   <p>DocDue stores all your data locally on your device. We do not collect, transmit, or store any personal information on external servers. All documents, settings, and preferences remain exclusively on your phone.</p>
 
   <h2>2. What Data is Stored</h2>
-  <p>The app stores the following data locally on your device: document titles, due dates, amounts, category assignments, recurrence settings, notes, and your app preferences (theme, language, currency, warning threshold). None of this data leaves your device.</p>
+  <p>The app stores the following data locally on your device: document titles, due dates, amounts, category assignments, recurrence settings, notes, payment history, attached photos/files, and your app preferences (language, currency, notification settings). None of this data leaves your device.</p>
 
   <h2>3. No Account Required</h2>
   <p>DocDue does not require you to create an account, provide an email address, or sign in. The app is fully functional without any personal information.</p>
 
-  <h2>4. No Third-Party Services</h2>
-  <p>The current version of DocDue does not integrate with any third-party analytics, advertising, or tracking services. No data is shared with third parties.</p>
+  <h2>4. Third-Party Services</h2>
+  <p>DocDue uses RevenueCat solely for processing in-app purchases (PRO upgrade). RevenueCat receives only anonymous purchase transaction data required by Apple/Google. No personal data, document data, or usage data is shared. No analytics, advertising, or tracking services are used.</p>
 
-  <h2>5. Notifications</h2>
+  <h2>5. Camera & Photo Library</h2>
+  <p>DocDue may request access to your camera and photo library to attach photos to documents and to scan documents using on-device text recognition (OCR). All image processing happens locally on your device. No photos are uploaded to any server.</p>
+
+  <h2>6. Notifications</h2>
   <p>DocDue may send local notifications to remind you about upcoming document expirations. These notifications are generated entirely on your device and do not involve any external servers.</p>
 
-  <h2>6. Data Deletion</h2>
-  <p>You can delete all your data at any time from the Settings screen within the app. Uninstalling the app will also permanently delete all stored data.</p>
+  <h2>7. Biometric Authentication</h2>
+  <p>DocDue offers optional biometric lock (Face ID / Touch ID / Fingerprint). Biometric data is handled entirely by your device's operating system. DocDue never accesses, stores, or transmits biometric data.</p>
 
-  <h2>7. Children's Privacy</h2>
+  <h2>8. Data Deletion</h2>
+  <p>You can delete individual documents or all your data at any time from within the app. Uninstalling the app permanently deletes all stored data. There is no server-side data to delete.</p>
+
+  <h2>9. Data Export</h2>
+  <p>PRO users can export their data as backup files or Excel spreadsheets. These files are saved to your device and shared only if you choose to share them.</p>
+
+  <h2>10. Children's Privacy</h2>
   <p>DocDue is not directed at children under 13. We do not knowingly collect any data from children.</p>
 
-  <h2>8. Changes to This Policy</h2>
-  <p>We may update this privacy policy from time to time. Changes will be reflected in the "Last updated" date above. We encourage you to review this policy periodically.</p>
+  <h2>11. Changes to This Policy</h2>
+  <p>We may update this privacy policy from time to time. Changes will be reflected in the "Last updated" date above.</p>
 
-  <h2>9. Contact</h2>
-  <p>If you have questions about this privacy policy, please contact us at: <a href="mailto:docdueapp@gmail.com">docdueapp@gmail.com</a></p>
+  <h2>12. Contact</h2>
+  <p>If you have questions about this privacy policy, please contact us at: <a href="mailto:andreiiulianrobert@gmail.com">andreiiulianrobert@gmail.com</a></p>
 </body>
 </html>
 
 
-═══════════════════════════════════════════════════════════════
-  END OF SOURCE — 54 files, 2026-03-06 01:16
-═══════════════════════════════════════════════════════════════
+═══════════════════════════════ END ═══════════════════════════════

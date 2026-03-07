@@ -356,7 +356,6 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
 
     // Purchase terms
     premium_terms: "Plata se va debita din contul Apple ID sau Google Play. Achiziție unică — fără abonament, fără plăți recurente.",
-    premium_terms_links: "Prin continuare, accepți {terms} și {privacy}.",
     premium_terms_of_use: "Termenii de utilizare",
     premium_privacy_link: "Politica de confidențialitate",
 
@@ -724,7 +723,6 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
 
     // Purchase terms
     premium_terms: "Payment will be charged to your Apple ID or Google Play account. One-time purchase — no subscription, no recurring charges.",
-    premium_terms_links: "By continuing, you agree to the {terms} and {privacy}.",
     premium_terms_of_use: "Terms of Use",
     premium_privacy_link: "Privacy Policy",
 

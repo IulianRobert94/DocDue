@@ -45,6 +45,6 @@ AGE RATING: 4+ (no objectionable content)
 
 COPYRIGHT: 2026 DocDue
 
-SUPPORT URL: https://iulianrobert94.github.io/DocDue/support
+SUPPORT URL: https://iulianrobert94.github.io/DocDue/support.html
 
-PRIVACY POLICY URL: https://iulianrobert94.github.io/DocDue/privacy
+PRIVACY POLICY URL: https://iulianrobert94.github.io/DocDue/privacy.html

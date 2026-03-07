@@ -47,12 +47,14 @@ export default function PremiumScreen() {
   const glowAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.loop(
+    const anim = Animated.loop(
       Animated.sequence([
         Animated.timing(glowAnim, { toValue: 1, duration: 2000, useNativeDriver: true }),
         Animated.timing(glowAnim, { toValue: 0, duration: 2000, useNativeDriver: true }),
       ])
-    ).start();
+    );
+    anim.start();
+    return () => anim.stop();
   }, []);
 
   // Load offerings from RevenueCat
@@ -60,9 +62,9 @@ export default function PremiumScreen() {
     if (isIAPConfigured() && !isPremium) {
       getOfferings().then((pkgs) => {
         setPackages(pkgs);
-        // Default-select annual (best value)
-        const annual = pkgs.find((p) => p.type === 'annual');
-        setSelectedPkg(annual || pkgs[0] || null);
+        // Default-select lifetime (one-time purchase)
+        const lifetime = pkgs.find((p) => p.type === 'lifetime');
+        setSelectedPkg(lifetime || pkgs[0] || null);
       });
     }
   }, [isPremium]);
@@ -236,7 +238,7 @@ export default function PremiumScreen() {
                 )}
               </AnimatedPressable>
 
-              {/* Subscription terms — REQUIRED by Apple */}
+              {/* Purchase terms — REQUIRED by Apple */}
               <Text style={[s.termsText, { color: theme.textMuted }]}>
                 {t(language, 'premium_terms')}
               </Text>

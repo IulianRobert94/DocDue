@@ -12,7 +12,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import Constants from 'expo-constants';
 
 import { t } from '../../core/i18n';
-import { DATA_VERSION } from '../../core/constants';
+import { DATA_VERSION, MAX_IMPORT_LIMIT } from '../../core/constants';
 import type { RawDocument, AppSettings } from '../../core/constants';
 import type { AppTheme } from '../../theme/colors';
 import { AnimatedPressable } from '../AnimatedUI';
@@ -151,9 +151,8 @@ export function BackupRestoreSection({
         return;
       }
 
-      const MAX_IMPORT_DOCS = 5000;
-      if (backup.documents.length > MAX_IMPORT_DOCS) {
-        Alert.alert(t(language, 'alert_error'), t(language, 'import_too_large', { max: MAX_IMPORT_DOCS }));
+      if (backup.documents.length > MAX_IMPORT_LIMIT) {
+        Alert.alert(t(language, 'alert_error'), t(language, 'import_too_large', { max: MAX_IMPORT_LIMIT }));
         return;
       }
 

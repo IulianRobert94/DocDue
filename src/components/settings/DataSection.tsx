@@ -12,7 +12,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as XLSX from 'xlsx';
 
 import { t, translateSubtype } from '../../core/i18n';
-import { CATEGORIES, FREE_DOCUMENT_LIMIT } from '../../core/constants';
+import { CATEGORIES, FREE_DOCUMENT_LIMIT, MAX_IMPORT_LIMIT } from '../../core/constants';
 import type { CategoryId, RecurrenceValue, RawDocument, AppSettings } from '../../core/constants';
 import type { AppTheme } from '../../theme/colors';
 import { AnimatedPressable } from '../AnimatedUI';
@@ -112,9 +112,8 @@ export function DataSection({
       if (!ws) { Alert.alert(t(language, 'settings_import_no_data')); return; }
       const rows: Record<string, unknown>[] = XLSX.utils.sheet_to_json(ws);
       if (rows.length === 0) { Alert.alert(t(language, 'settings_import_no_data')); return; }
-      const MAX_IMPORT_ROWS = 5000;
-      if (rows.length > MAX_IMPORT_ROWS) {
-        Alert.alert(t(language, 'alert_error'), t(language, 'import_too_large', { max: MAX_IMPORT_ROWS }));
+      if (rows.length > MAX_IMPORT_LIMIT) {
+        Alert.alert(t(language, 'alert_error'), t(language, 'import_too_large', { max: MAX_IMPORT_LIMIT }));
         return;
       }
 

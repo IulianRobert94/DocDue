@@ -1,14 +1,14 @@
 /**
  * DocDue — In-App Purchase Service (RevenueCat)
  *
- * Manages premium subscriptions via RevenueCat.
+ * Manages one-time PRO purchase (non-consumable) via RevenueCat.
  * Call initializeIAP() on app launch.
  *
  * Setup:
  * 1. Create a RevenueCat account at https://app.revenuecat.com
- * 2. Add your iOS/Android app and create products
- * 3. Replace the API keys and product IDs below
- * 4. Configure offerings in the RevenueCat dashboard
+ * 2. Add your iOS/Android app and create a non-consumable product (lifetime)
+ * 3. Set real API keys in .env file
+ * 4. Configure a single offering with the lifetime product in RevenueCat dashboard
  */
 
 import Purchases, {
