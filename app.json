@@ -69,9 +69,7 @@
         "android.permission.RECORD_AUDIO",
         "android.permission.READ_CALENDAR",
         "android.permission.WRITE_CALENDAR"
-      ],
-      "navigationBarColor": "#0A0E17",
-      "navigationBarStyle": "dark"
+      ]
     },
     "experiments": {
       "typedRoutes": true
