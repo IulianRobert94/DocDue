@@ -65,7 +65,7 @@ export default function PremiumScreen() {
         // Default-select lifetime (one-time purchase)
         const lifetime = pkgs.find((p) => p.type === 'lifetime');
         setSelectedPkg(lifetime || pkgs[0] || null);
-      });
+      }).catch(() => {});
     }
   }, [isPremium]);
 

@@ -9,7 +9,12 @@ import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
-import * as XLSX from 'xlsx';
+// Lazy-loaded to save ~1MB from initial bundle
+let _xlsx: typeof import('xlsx') | null = null;
+async function getXLSX() {
+  if (!_xlsx) _xlsx = await import('xlsx');
+  return _xlsx;
+}
 
 import { t, translateSubtype } from '../../core/i18n';
 import { CATEGORIES, FREE_DOCUMENT_LIMIT, MAX_IMPORT_LIMIT } from '../../core/constants';
@@ -50,6 +55,7 @@ export function DataSection({
     if (!isPremium) { onPremiumGate(); return; }
     setIsLoading(true);
     try {
+      const XLSX = await getXLSX();
       const rows = documents.map((doc) => ({
         [t(language, 'form_category')]: t(language, CATEGORIES[doc.cat]?.labelKey || '') || doc.cat,
         [t(language, 'form_type')]: translateSubtype(doc.type, language),
@@ -106,6 +112,7 @@ export function DataSection({
       });
       if (result.canceled || !result.assets?.[0]) return;
       const fileUri = result.assets[0].uri;
+      const XLSX = await getXLSX();
       const fileContent = await FileSystem.readAsStringAsync(fileUri, { encoding: FileSystem.EncodingType.Base64 });
       const wb = XLSX.read(fileContent, { type: 'base64', cellDates: true });
       const ws = wb.Sheets[wb.SheetNames[0]];

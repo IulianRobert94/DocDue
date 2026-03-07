@@ -267,8 +267,9 @@ export function useEnrichedDocument(id: string | undefined): EnrichedDocument | 
   }, [doc]);
 }
 
-export function useGlobalStats(): GlobalStats {
-  const enriched = useEnrichedDocuments();
+export function useGlobalStats(precomputed?: EnrichedDocument[]): GlobalStats {
+  const fallback = useEnrichedDocuments();
+  const enriched = precomputed ?? fallback;
   return useMemo(() => {
     let expired = 0, warning = 0, ok = 0, totalDue = 0;
     for (const d of enriched) {
@@ -283,8 +284,9 @@ export function useGlobalStats(): GlobalStats {
   }, [enriched]);
 }
 
-export function useCategoryStats(): Record<CategoryId, CategoryStats> {
-  const enriched = useEnrichedDocuments();
+export function useCategoryStats(precomputed?: EnrichedDocument[]): Record<CategoryId, CategoryStats> {
+  const fallback = useEnrichedDocuments();
+  const enriched = precomputed ?? fallback;
   return useMemo(() => {
     const result = {} as Record<CategoryId, CategoryStats>;
     (Object.keys(CATEGORIES) as CategoryId[]).forEach((catId) => {

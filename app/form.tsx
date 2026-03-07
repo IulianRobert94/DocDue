@@ -17,7 +17,7 @@ import * as Haptics from 'expo-haptics';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
 import { useTheme, useLanguage, useCurrency } from '../src/stores/useSettingsStore';
-import { useDocumentStore, useEnrichedDocuments } from '../src/stores/useDocumentStore';
+import { useDocumentStore, useEnrichedDocument } from '../src/stores/useDocumentStore';
 import { t, translateSubtype } from '../src/core/i18n';
 import { parseLocalDate } from '../src/core/dateUtils';
 import { formatDate, formatMoney } from '../src/core/formatters';
@@ -54,12 +54,11 @@ export default function FormScreen() {
   const currency = useCurrency();
 
   const { editId, cat: catParam } = useLocalSearchParams<{ editId?: string; cat?: string }>();
-  const enrichedDocs = useEnrichedDocuments();
+  const existingDoc = useEnrichedDocument(editId);
   const addDocument = useDocumentStore((s) => s.addDocument);
   const updateDocument = useDocumentStore((s) => s.updateDocument);
 
   const isEdit = !!editId;
-  const existingDoc = isEdit ? enrichedDocs.find((d) => d.id === editId) : null;
 
   // If editing a document that no longer exists, fall back to add mode
   const effectiveEdit = isEdit && !!existingDoc;
@@ -184,7 +183,7 @@ export default function FormScreen() {
     if (!due.trim()) e.due = t(language, 'val_date_required');
     else if (!/^\d{4}-\d{2}-\d{2}$/.test(due)) e.due = t(language, 'val_date_invalid');
     else if (isNaN(parseLocalDate(due).getTime())) e.due = t(language, 'val_date_invalid');
-    if (amt.trim() && (isNaN(Number(amt)) || Number(amt) < 0)) e.amt = t(language, 'val_amount_positive');
+    if (amt.trim() && (isNaN(Number(amt)) || Number(amt) < 0 || Number(amt) > 999_999_999)) e.amt = t(language, 'val_amount_positive');
     setErrors(e);
     if (Object.keys(e).length > 0) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});

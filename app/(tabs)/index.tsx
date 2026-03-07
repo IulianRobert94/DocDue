@@ -50,8 +50,8 @@ export default function HomeScreen() {
   const CARD_WIDTH = (screenWidth - CARD_PADDING * 2 - CARD_GAP) / 2;
 
   const enriched = useEnrichedDocuments();
-  const stats = useGlobalStats();
-  const catStats = useCategoryStats();
+  const stats = useGlobalStats(enriched);
+  const catStats = useCategoryStats(enriched);
   const urgentDocs = useMemo(
     () => enriched.filter((d) => d._status === "expired" || d._status === "warning"),
     [enriched]
