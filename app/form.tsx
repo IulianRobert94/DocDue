@@ -7,7 +7,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TextInput, Alert,
-  Platform, Keyboard, InputAccessoryView,
+  Platform, Keyboard, InputAccessoryView, BackHandler,
   ActivityIndicator, Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -124,6 +124,20 @@ export default function FormScreen() {
     }
   };
 
+  // Android back button: show unsaved data warning
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const onBack = () => {
+      if (hasUnsavedData) {
+        handleCancel();
+        return true; // prevent default back
+      }
+      return false; // allow default back
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBack);
+    return () => sub.remove();
+  }, [hasUnsavedData]);
+
   useEffect(() => {
     if (!isEdit && subtypes.length > 0 && !subtypes.includes(type)) {
       setType(subtypes[0]);
@@ -173,7 +187,7 @@ export default function FormScreen() {
     if (amt.trim() && (isNaN(Number(amt)) || Number(amt) < 0)) e.amt = t(language, 'val_amount_positive');
     setErrors(e);
     if (Object.keys(e).length > 0) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
       return false;
     }
     return true;
@@ -184,7 +198,7 @@ export default function FormScreen() {
     if (!validate()) return;
     savingRef.current = true;
     setSaving(true);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     const sanitizedCustomType = customType.trim().replace(/[^\p{L}\p{N}\s\-.,()]/gu, '').trim();
     const finalType = type === 'Altele' ? (sanitizedCustomType || 'Altele') : (type || subtypes[0] || '');
     const docData: Omit<RawDocument, 'id'> = {

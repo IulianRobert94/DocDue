@@ -63,15 +63,17 @@ export const AnimatedPressable = React.memo(function AnimatedPressable({
 
   const handlePress = useCallback(() => {
     if (haptic) {
-      if (hapticStyle === "selection") {
-        Haptics.selectionAsync();
-      } else {
-        Haptics.impactAsync(
-          hapticStyle === "medium"
-            ? Haptics.ImpactFeedbackStyle.Medium
-            : Haptics.ImpactFeedbackStyle.Light
-        );
-      }
+      try {
+        if (hapticStyle === "selection") {
+          Haptics.selectionAsync();
+        } else {
+          Haptics.impactAsync(
+            hapticStyle === "medium"
+              ? Haptics.ImpactFeedbackStyle.Medium
+              : Haptics.ImpactFeedbackStyle.Light
+          );
+        }
+      } catch {}
     }
     onPress?.();
   }, [onPress, haptic, hapticStyle]);

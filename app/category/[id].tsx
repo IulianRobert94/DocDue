@@ -230,7 +230,7 @@ const s = StyleSheet.create({
   backBtn: { flexDirection: 'row', alignItems: 'center', minWidth: 60, paddingLeft: 4 },
   navTitle: { fontSize: 17, fontWeight: '600' },
   sortRow: { paddingVertical: 12 },
-  sortChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 18 },
+  sortChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 18, minHeight: 44 },
   sortText: { fontSize: 13, fontWeight: '600' },
   countLabel: { fontSize: 13, paddingHorizontal: 20, paddingBottom: 4 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8, gap: 8 },

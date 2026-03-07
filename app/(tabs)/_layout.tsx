@@ -41,7 +41,7 @@ export default function TabLayout() {
     >
       <Tabs.Screen
         name="index"
-        listeners={{ tabPress: () => Haptics.selectionAsync() }}
+        listeners={{ tabPress: () => Haptics.selectionAsync().catch(() => {}) }}
         options={{
           title: t(lang, "nav_home"),
           tabBarIcon: ({ color, focused }) => (
@@ -51,7 +51,7 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="alerts"
-        listeners={{ tabPress: () => Haptics.selectionAsync() }}
+        listeners={{ tabPress: () => Haptics.selectionAsync().catch(() => {}) }}
         options={{
           title: t(lang, "nav_alerts"),
           tabBarBadge: stats.urgentCount > 0 ? stats.urgentCount : undefined,
@@ -66,7 +66,7 @@ export default function TabLayout() {
         listeners={{
           tabPress: (e) => {
             e.preventDefault();
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
             if (!isPremium && docCount >= FREE_DOCUMENT_LIMIT) {
               router.push('/premium');
             } else {
@@ -86,7 +86,7 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="search"
-        listeners={{ tabPress: () => Haptics.selectionAsync() }}
+        listeners={{ tabPress: () => Haptics.selectionAsync().catch(() => {}) }}
         options={{
           title: t(lang, "nav_search"),
           tabBarIcon: ({ color, focused }) => (
@@ -96,7 +96,7 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="settings"
-        listeners={{ tabPress: () => Haptics.selectionAsync() }}
+        listeners={{ tabPress: () => Haptics.selectionAsync().catch(() => {}) }}
         options={{
           title: t(lang, "nav_settings"),
           tabBarIcon: ({ color, focused }) => (

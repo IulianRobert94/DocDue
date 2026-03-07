@@ -18,6 +18,7 @@ import { useTheme, useSettingsStore } from "../src/stores/useSettingsStore";
 import { ErrorBoundary } from "../src/components/ErrorBoundary";
 import { BiometricGate } from "../src/components/BiometricGate";
 import * as QuickActions from "expo-quick-actions";
+import { FREE_DOCUMENT_LIMIT } from "../src/core/constants";
 import {
   configureNotifications,
   rescheduleAllNotifications,
@@ -174,7 +175,7 @@ export default function RootLayout() {
           if (action.id === "add_document") {
             const settings = useSettingsStore.getState().settings;
             const docCount = useDocumentStore.getState().documents.length;
-            if (!settings.isPremium && docCount >= 5) {
+            if (!settings.isPremium && docCount >= FREE_DOCUMENT_LIMIT) {
               router.push("/premium");
             } else {
               router.push("/form");

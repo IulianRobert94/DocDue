@@ -247,6 +247,9 @@ export default function SearchScreen() {
         contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: insets.bottom + 40 }}
         onScrollBeginDrag={Keyboard.dismiss}
         keyboardShouldPersistTaps="handled"
+        removeClippedSubviews
+        maxToRenderPerBatch={15}
+        windowSize={7}
         renderItem={({ item, index }) => {
           const isFirst = index === 0;
           const isLast = index === filteredDocs.length - 1;
@@ -344,10 +347,11 @@ const s = StyleSheet.create({
   scopeChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 18,
     gap: 5,
+    minHeight: 44,
   },
   scopeText: { fontSize: 13, fontWeight: '600' },
   hintText: { fontSize: 13, marginTop: 10 },

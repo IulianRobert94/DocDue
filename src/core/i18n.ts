@@ -161,7 +161,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     settings_privacy_footer: "DocDue nu colectează date personale. Toate datele rămân pe dispozitivul tău.",
 
     // IAP & Premium
-    premium_subscribe: "Abonează-te",
+    premium_subscribe: "Cumpără Pro",
     iap_restore_ok: "Achiziția a fost restaurată cu succes!",
     iap_restore_none: "Nu s-au găsit achiziții anterioare.",
     purchase_error: "Achiziția a eșuat. Încearcă din nou.",
@@ -290,9 +290,9 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     premium_upgrade: "Upgrade la Pro",
     premium_restore: "Restaurare achiziție",
     premium_limit_title: "Limită atinsă",
-    premium_limit_msg: "Versiunea gratuită permite maxim {n} documente. Faceți upgrade la Pro pentru documente nelimitate.",
+    premium_limit_msg: "Versiunea gratuită permite maxim {n} documente. Cumpără Pro (plată unică) pentru documente nelimitate.",
     premium_active: "Pro activ",
-    premium_section: "Abonament",
+    premium_section: "DocDue Pro",
     premium_free_count: "{n} din {max} documente",
     premium_required: "Funcție Pro",
 
@@ -353,6 +353,15 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     // Premium early access
     premium_early_access_note: "Toate funcțiile sunt gratuite în perioada de early access.",
     premium_unlock_free: "Activează gratuit",
+
+    // Purchase terms
+    premium_terms: "Plata se va debita din contul Apple ID sau Google Play. Achiziție unică — fără abonament, fără plăți recurente.",
+    premium_terms_links: "Prin continuare, accepți {terms} și {privacy}.",
+    premium_terms_of_use: "Termenii de utilizare",
+    premium_privacy_link: "Politica de confidențialitate",
+
+    // Import limit
+    import_too_large: "Fișierul conține prea multe înregistrări (max {max}).",
 
     // Form date placeholder
     form_date_placeholder: "ZZ.LL.AAAA",
@@ -520,7 +529,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     settings_privacy_footer: "DocDue does not collect personal data. All data stays on your device.",
 
     // IAP & Premium
-    premium_subscribe: "Subscribe",
+    premium_subscribe: "Get Pro",
     iap_restore_ok: "Purchase restored successfully!",
     iap_restore_none: "No previous purchases found.",
     purchase_error: "Purchase failed. Please try again.",
@@ -649,9 +658,9 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     premium_upgrade: "Upgrade to Pro",
     premium_restore: "Restore purchase",
     premium_limit_title: "Limit reached",
-    premium_limit_msg: "The free version allows up to {n} documents. Upgrade to Pro for unlimited documents.",
+    premium_limit_msg: "The free version allows up to {n} documents. Get Pro (one-time purchase) for unlimited documents.",
     premium_active: "Pro active",
-    premium_section: "Subscription",
+    premium_section: "DocDue Pro",
     premium_free_count: "{n} of {max} documents",
     premium_required: "Pro feature",
 
@@ -712,6 +721,15 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     // Premium early access
     premium_early_access_note: "All features are free during early access.",
     premium_unlock_free: "Unlock for free",
+
+    // Purchase terms
+    premium_terms: "Payment will be charged to your Apple ID or Google Play account. One-time purchase — no subscription, no recurring charges.",
+    premium_terms_links: "By continuing, you agree to the {terms} and {privacy}.",
+    premium_terms_of_use: "Terms of Use",
+    premium_privacy_link: "Privacy Policy",
+
+    // Import limit
+    import_too_large: "File contains too many records (max {max}).",
 
     // Form date placeholder
     form_date_placeholder: "YYYY-MM-DD",

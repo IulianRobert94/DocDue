@@ -112,6 +112,11 @@ export function DataSection({
       if (!ws) { Alert.alert(t(language, 'settings_import_no_data')); return; }
       const rows: Record<string, unknown>[] = XLSX.utils.sheet_to_json(ws);
       if (rows.length === 0) { Alert.alert(t(language, 'settings_import_no_data')); return; }
+      const MAX_IMPORT_ROWS = 5000;
+      if (rows.length > MAX_IMPORT_ROWS) {
+        Alert.alert(t(language, 'alert_error'), t(language, 'import_too_large', { max: MAX_IMPORT_ROWS }));
+        return;
+      }
 
       const parseDateValue = (raw: unknown): string => {
         if (raw instanceof Date && !isNaN(raw.getTime())) {
@@ -268,13 +273,17 @@ export function DataSection({
           </Text>
         </AnimatedPressable>
         <RowDivider theme={theme} />
-        <AnimatedPressable style={styles.row} onPress={handleResetDemo} hapticStyle="light" accessibilityLabel={t(language, 'settings_reset_demo')}>
-          <Ionicons name="refresh-outline" size={18} color="#007AFF" style={{ marginRight: 8 }} />
-          <Text style={[styles.rowLabel, { color: '#007AFF' }]}>
-            {t(language, 'settings_reset_demo')}
-          </Text>
-        </AnimatedPressable>
-        <RowDivider theme={theme} />
+        {__DEV__ && (
+          <>
+            <AnimatedPressable style={styles.row} onPress={handleResetDemo} hapticStyle="light" accessibilityLabel={t(language, 'settings_reset_demo')}>
+              <Ionicons name="refresh-outline" size={18} color="#007AFF" style={{ marginRight: 8 }} />
+              <Text style={[styles.rowLabel, { color: '#007AFF' }]}>
+                {t(language, 'settings_reset_demo')}
+              </Text>
+            </AnimatedPressable>
+            <RowDivider theme={theme} />
+          </>
+        )}
         <AnimatedPressable style={styles.row} onPress={handleClearAll} hapticStyle="medium" accessibilityLabel={t(language, 'settings_clear_all')}>
           <Ionicons name="trash-outline" size={18} color="#FF3B30" style={{ marginRight: 8 }} />
           <Text style={[styles.rowLabel, { color: '#FF3B30' }]}>

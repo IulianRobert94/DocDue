@@ -109,7 +109,7 @@ export function ImageViewer({ visible, uri, onClose }: ImageViewerProps) {
     translateY.value = 0;
     savedTranslateX.value = 0;
     savedTranslateY.value = 0;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     onClose();
   };
 

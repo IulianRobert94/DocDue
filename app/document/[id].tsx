@@ -65,7 +65,7 @@ export default function DocumentDetailScreen() {
   const statusConfig = STATUS_DISPLAY[doc._status] || { color: '#999', labelKey: 'status_ok' };
 
   const handleDelete = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
     Alert.alert(
       t(language, 'confirm_delete_title'),
       t(language, 'confirm_delete_msg', { title: doc.title }),
@@ -86,7 +86,7 @@ export default function DocumentDetailScreen() {
         {
           text: t(language, isRecurring ? 'confirm_paid_btn' : 'confirm_resolved_btn'),
           onPress: () => {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
             const result = markAsPaid(doc);
             if (result === 'paid_next') {
               playCongrats();
@@ -286,7 +286,7 @@ export default function DocumentDetailScreen() {
                     return;
                   }
                   await addDocumentToCalendar(doc, language);
-                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
                   Alert.alert(t(language, 'alert_success'), t(language, 'cal_added'));
                 } catch (e) {
                   Alert.alert(t(language, 'cal_error'));

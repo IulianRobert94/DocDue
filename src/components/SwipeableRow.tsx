@@ -77,7 +77,7 @@ export const SwipeableRow = React.memo(function SwipeableRow({
   const totalWidth = secondaryAction ? 160 : 80;
 
   const handleSwipeOpen = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     Alert.alert(confirmTitle, confirmMessage, [
       {
         text: confirmCancel,
@@ -88,7 +88,7 @@ export const SwipeableRow = React.memo(function SwipeableRow({
         text: confirmDelete,
         style: 'destructive',
         onPress: () => {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
           onDelete();
         },
       },

@@ -5,12 +5,11 @@
  */
 
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, ScrollView, StyleSheet, Alert, ActivityIndicator, Animated } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Alert, ActivityIndicator, Animated, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-
 import { useTheme, useLanguage, useSettingsStore } from '../src/stores/useSettingsStore';
 import { t } from '../src/core/i18n';
 import { AnimatedPressable, FadeInView } from '../src/components/AnimatedUI';
@@ -71,11 +70,11 @@ export default function PremiumScreen() {
   const handlePurchase = async () => {
     if (!selectedPkg) return;
     setLoading(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     try {
       const result = await purchasePackage(selectedPkg.package);
       if (result.success) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
         updateSetting('isPremium', true);
         router.back();
       } else if (!result.cancelled) {
@@ -91,7 +90,7 @@ export default function PremiumScreen() {
     try {
       const restored = await restorePurchases();
       if (restored) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
         updateSetting('isPremium', true);
         Alert.alert(t(language, 'alert_success'), t(language, 'iap_restore_ok'));
         router.back();
@@ -105,7 +104,7 @@ export default function PremiumScreen() {
 
   // Early access mode (RevenueCat not yet configured)
   const handleUnlockEarlyAccess = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     updateSetting('isPremium', true);
     router.back();
   };
@@ -236,6 +235,26 @@ export default function PremiumScreen() {
                   <Text style={s.restoreText}>{t(language, 'premium_restore')}</Text>
                 )}
               </AnimatedPressable>
+
+              {/* Subscription terms — REQUIRED by Apple */}
+              <Text style={[s.termsText, { color: theme.textMuted }]}>
+                {t(language, 'premium_terms')}
+              </Text>
+              <Text style={[s.termsText, { color: theme.textMuted }]}>
+                <Text
+                  style={{ color: '#007AFF' }}
+                  onPress={() => Linking.openURL('https://iulianrobert94.github.io/DocDue/terms.html').catch(() => {})}
+                >
+                  {t(language, 'premium_terms_of_use')}
+                </Text>
+                {'  ·  '}
+                <Text
+                  style={{ color: '#007AFF' }}
+                  onPress={() => Linking.openURL('https://iulianrobert94.github.io/DocDue/privacy.html').catch(() => {})}
+                >
+                  {t(language, 'premium_privacy_link')}
+                </Text>
+              </Text>
             </>
           ) : (
             <>
@@ -305,4 +324,5 @@ const s = StyleSheet.create({
 
   restoreBtn: { alignItems: 'center', paddingVertical: 12 },
   restoreText: { color: '#007AFF', fontSize: 15 },
+  termsText: { fontSize: 11, textAlign: 'center', lineHeight: 16, marginTop: 4 },
 });

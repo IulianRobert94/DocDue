@@ -239,6 +239,7 @@ export default function SettingsScreen() {
                           paddingHorizontal: 16,
                           paddingVertical: 8,
                           borderRadius: 18,
+                          minHeight: 44,
                           backgroundColor: isSelected
                             ? '#007AFF'
                             : theme.inputFill,
@@ -347,9 +348,8 @@ export default function SettingsScreen() {
           <AnimatedPressable
             style={s.row}
             onPress={() => {
-              // TODO: Replace with real App Store / Play Store URLs after publishing
               const url = Platform.OS === 'ios'
-                ? 'https://apps.apple.com/app/docdue/id0000000000'
+                ? 'https://iulianrobert94.github.io/DocDue/'
                 : 'https://play.google.com/store/apps/details?id=com.docdueapp';
               Share.share({
                 message: t(language, 'share_app_message') + '\n' + url,

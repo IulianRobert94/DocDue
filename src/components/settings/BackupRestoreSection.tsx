@@ -116,7 +116,8 @@ export function BackupRestoreSection({
           const key = `${doc.id}_${att.id}`;
           const base64 = attachmentsData[key];
           const MAX_ATTACHMENT_SIZE = 20 * 1024 * 1024; // 20MB base64 limit
-          if (base64 && base64.length < MAX_ATTACHMENT_SIZE && att.uri && att.uri.startsWith('file://')) {
+          const isValidPath = att.uri && att.uri.startsWith('file://') && att.uri.includes('/attachments/') && !att.uri.includes('..');
+          if (base64 && base64.length < MAX_ATTACHMENT_SIZE && isValidPath) {
             try {
               await FileSystem.writeAsStringAsync(att.uri, base64, { encoding: FileSystem.EncodingType.Base64 });
             } catch {
@@ -147,6 +148,12 @@ export function BackupRestoreSection({
 
       if (!backup.documents || !Array.isArray(backup.documents)) {
         Alert.alert(t(language, 'restore_invalid'));
+        return;
+      }
+
+      const MAX_IMPORT_DOCS = 5000;
+      if (backup.documents.length > MAX_IMPORT_DOCS) {
+        Alert.alert(t(language, 'alert_error'), t(language, 'import_too_large', { max: MAX_IMPORT_DOCS }));
         return;
       }
 
@@ -214,7 +221,7 @@ export function BackupRestoreSection({
                 });
                 addDocuments(docsWithoutId);
                 if (backup.settings) {
-                  const { biometricEnabled, lastBackupDate, ...restoreSettings } = backup.settings;
+                  const { biometricEnabled, lastBackupDate, isPremium, ...restoreSettings } = backup.settings;
                   Object.entries(restoreSettings).forEach(([key, value]) => {
                     if (key in settings) {
                       updateSetting(key as keyof AppSettings, value as never);

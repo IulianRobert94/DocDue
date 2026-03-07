@@ -64,7 +64,7 @@ export const SegmentedControl = React.memo(function SegmentedControl({
                 elevation: 3,
               }],
             ]}
-            onPress={() => { Haptics.selectionAsync(); onSelect(opt.value); }}
+            onPress={() => { Haptics.selectionAsync().catch(() => {}); onSelect(opt.value); }}
             accessibilityRole="radio"
             accessibilityState={{ selected: isActive }}
             accessibilityLabel={opt.label}
