@@ -69,7 +69,8 @@
         "android.permission.USE_FINGERPRINT",
         "android.permission.SCHEDULE_EXACT_ALARM",
         "android.permission.READ_CALENDAR",
-        "android.permission.WRITE_CALENDAR"
+        "android.permission.WRITE_CALENDAR",
+        "android.permission.POST_NOTIFICATIONS"
       ]
     },
     "experiments": {
@@ -92,7 +93,7 @@
         {
           "image": "./assets/splash-icon.png",
           "backgroundColor": "#0A0E17",
-          "imageWidth": 200
+          "imageWidth": 280
         }
       ],
       "@react-native-community/datetimepicker",

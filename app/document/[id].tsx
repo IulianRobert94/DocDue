@@ -91,8 +91,9 @@ export default function DocumentDetailScreen() {
             if (result === 'paid_next') {
               playCongrats();
             } else {
-              playCongrats();
-              setTimeout(() => router.back(), 1800);
+              // One-time doc is deleted — go back immediately to avoid
+              // "not found" flashing behind the congrats overlay
+              router.back();
             }
           },
         },

@@ -34,7 +34,7 @@ Documents also support `paymentHistory: PaymentRecord[]` — snapshots of past p
 
 Two stores, both hydrated in `app/_layout.tsx` on launch:
 
-- **useDocumentStore** (`src/stores/useDocumentStore.ts`): CRUD for documents. Exports memoized selectors: `useEnrichedDocuments()`, `useGlobalStats()`, `useCategoryStats()`. Every mutation auto-persists to AsyncStorage and reschedules notifications + widget data.
+- **useDocumentStore** (`src/stores/useDocumentStore.ts`): CRUD for documents. Exports memoized selectors: `useEnrichedDocuments()`, `useEnrichedDocument(id)`, `useGlobalStats(precomputed?)`, `useCategoryStats(precomputed?)`. Stats hooks accept optional precomputed enriched docs to avoid redundant enrichment. Every mutation auto-persists to AsyncStorage and reschedules notifications + widget data.
 - **useSettingsStore** (`src/stores/useSettingsStore.ts`): User preferences (language, currency, notifications, biometric). Exports derived hooks: `useTheme()`, `useLanguage()`, `useCurrency()`. Auto-persists on every `updateSetting()` call. New settings fields auto-migrate via `{ ...DEFAULT_SETTINGS, ...parsed }` spread on hydration.
 
 ### Routing — File-Based (Expo Router)
@@ -115,4 +115,6 @@ Custom implementation in `src/core/i18n.ts`. No library — just a dictionary + 
 - Status colors are semantic and constant: `#FF3B30` (expired/red), `#FF9500` (warning/orange), `#34C759` (ok/green). Never change these
 - Category colors are brand identity: `#007AFF`, `#AF52DE`, `#34C759`, `#FF9500`. Never change these
 - Store mutations have side effects: auto-persist to AsyncStorage → reschedule notifications → update widget data. No manual persistence needed
-- Tests live in `src/__tests__/core.test.ts` (112 tests covering date utils, validation, enrichment, migration, formatters, health score, smart defaults, i18n)
+- Tests live in `src/__tests__/` (333 tests across 4 files: core, stores, services, ocr)
+- xlsx is lazy-loaded in `DataSection.tsx` via `getXLSX()` to save ~1MB from initial bundle — always use `const XLSX = await getXLSX()` instead of static import
+- **Security**: When you find a security vulnerability, flag it immediately with a WARNING comment and suggest a secure alternative. Never implement insecure patterns even if asked
