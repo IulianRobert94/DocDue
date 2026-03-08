@@ -68,15 +68,21 @@ interface DocumentsState {
 
 // ─── Persist helper ─────────────────────────────────────
 
+let _lastPersistedDocs: RawDocument[] | null = null;
+
 function persistDocs(documents: RawDocument[]) {
   const lang = useSettingsStore?.getState?.()?.settings?.language || "en";
   const payload = { version: DATA_VERSION, documents };
-  AsyncStorage.setItem(STORAGE_KEY_DOCUMENTS, JSON.stringify(payload)).catch(
-    (e) => {
+  AsyncStorage.setItem(STORAGE_KEY_DOCUMENTS, JSON.stringify(payload))
+    .then(() => { _lastPersistedDocs = documents; })
+    .catch((e) => {
       if (__DEV__) console.warn("DocDue: persist error", e);
+      // Revert in-memory state to last successfully persisted version
+      if (_lastPersistedDocs) {
+        useDocumentStore.setState({ documents: _lastPersistedDocs });
+      }
       Alert.alert(t(lang, "save_error_title"), t(lang, "save_error_msg"));
-    }
-  );
+    });
 }
 
 // ─── Attachment cleanup helper ──────────────────────────
@@ -147,6 +153,7 @@ export const useDocumentStore = create<DocumentsState>()((set, get) => ({
         const migrated = migrateData(parsed);
         if (migrated) {
           // migrated can be [] (user deleted all docs) — that's valid
+          _lastPersistedDocs = migrated;
           set({ documents: migrated, _hydrated: true });
           if (migrated.length > 0) triggerNotificationReschedule(migrated);
           return;
@@ -154,6 +161,7 @@ export const useDocumentStore = create<DocumentsState>()((set, get) => ({
       }
       // First launch — persist demo data
       const demo = createDemoDocuments();
+      _lastPersistedDocs = demo;
       persistDocs(demo);
       set({ documents: demo, _hydrated: true });
     } catch (e) {

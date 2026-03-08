@@ -336,7 +336,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
 
     // Review prompt
     review_enjoying: "Îți place DocDue?",
-    review_rate: "Lasă un review pe App Store",
+    review_rate: "Lasă un review",
 
     // ErrorBoundary
     error_title: "Ceva nu a funcționat",
@@ -355,7 +355,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     premium_unlock_free: "Activează gratuit",
 
     // Purchase terms
-    premium_terms: "Plata se va debita din contul Apple ID sau Google Play. Achiziție unică — fără abonament, fără plăți recurente.",
+    premium_terms: "Achiziție unică — fără abonament, fără plăți recurente.",
     premium_terms_of_use: "Termenii de utilizare",
     premium_privacy_link: "Politica de confidențialitate",
 
@@ -703,7 +703,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
 
     // Review prompt
     review_enjoying: "Enjoying DocDue?",
-    review_rate: "Leave a review on the App Store",
+    review_rate: "Leave a review",
 
     // ErrorBoundary
     error_title: "Something went wrong",
@@ -722,7 +722,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     premium_unlock_free: "Unlock for free",
 
     // Purchase terms
-    premium_terms: "Payment will be charged to your Apple ID or Google Play account. One-time purchase — no subscription, no recurring charges.",
+    premium_terms: "One-time purchase — no subscription, no recurring charges.",
     premium_terms_of_use: "Terms of Use",
     premium_privacy_link: "Privacy Policy",
 
