@@ -74,7 +74,7 @@ export default function PremiumScreen() {
     setLoading(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     try {
-      const result = await purchasePackage(selectedPkg.package);
+      const result = await purchasePackage(selectedPkg.productId);
       if (result.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
         updateSetting('isPremium', true);

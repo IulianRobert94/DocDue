@@ -42,13 +42,13 @@ jest.mock("expo-store-review", () => ({
   requestReview: jest.fn(() => Promise.resolve()),
 }));
 
-jest.mock("react-native-purchases", () => ({
-  __esModule: true,
-  default: {
-    configure: jest.fn(),
-    setLogLevel: jest.fn(),
-  },
-  LOG_LEVEL: { DEBUG: "DEBUG" },
+jest.mock("react-native-iap", () => ({
+  initConnection: jest.fn(() => Promise.resolve()),
+  endConnection: jest.fn(() => Promise.resolve()),
+  fetchProducts: jest.fn(() => Promise.resolve([])),
+  getAvailablePurchases: jest.fn(() => Promise.resolve([])),
+  requestPurchase: jest.fn(() => Promise.resolve()),
+  finishTransaction: jest.fn(() => Promise.resolve()),
 }));
 
 jest.mock("expo-file-system/legacy", () => ({
@@ -398,11 +398,11 @@ describe("IAP configuration", () => {
     (globalThis as any).__DEV__ = true;
   });
 
-  it("skips init when API keys are placeholders", async () => {
+  it("initializes when store connection succeeds", async () => {
     const { initializeIAP, isIAPConfigured } = require("../services/iap");
     await initializeIAP();
-    // Should NOT be initialized because keys start with "YOUR_"
-    expect(isIAPConfigured()).toBe(false);
+    // react-native-iap connects directly to Apple/Google — no API keys needed
+    expect(isIAPConfigured()).toBe(true);
   });
 });
 

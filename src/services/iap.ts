@@ -1,131 +1,120 @@
 /**
- * DocDue — In-App Purchase Service (RevenueCat)
+ * DocDue — In-App Purchase Service (react-native-iap)
  *
- * Manages one-time PRO purchase (non-consumable) via RevenueCat.
- * Call initializeIAP() on app launch.
+ * Manages one-time PRO purchase (non-consumable).
+ * Connects directly to Apple StoreKit / Google Play Billing.
+ * No external service needed — all communication is direct.
  *
  * Setup:
- * 1. Create a RevenueCat account at https://app.revenuecat.com
- * 2. Add your iOS/Android app and create a non-consumable product (lifetime)
- * 3. Set real API keys in .env file
- * 4. Configure a single offering with the lifetime product in RevenueCat dashboard
+ * 1. Create the product in App Store Connect (Non-Consumable)
+ * 2. Create the product in Google Play Console (In-app product)
+ * 3. Both with Product ID: com.docdueapp.pro.lifetime
  */
 
-import Purchases, {
-  LOG_LEVEL,
-  type CustomerInfo,
-  type PurchasesPackage,
-} from "react-native-purchases";
-import { Platform } from "react-native";
+import {
+  initConnection,
+  endConnection,
+  fetchProducts,
+  getAvailablePurchases,
+  requestPurchase,
+  finishTransaction,
+  type Product,
+  type Purchase,
+} from "react-native-iap";
 
 // ─── Configuration ───────────────────────────────────────
-// Set real keys in .env file (never commit .env to git)
 
-const REVENUECAT_IOS_KEY = process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY ?? "YOUR_REVENUECAT_IOS_API_KEY";
-const REVENUECAT_ANDROID_KEY = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY ?? "YOUR_REVENUECAT_ANDROID_API_KEY";
+const PRODUCT_ID = "com.docdueapp.pro.lifetime";
 
-// Entitlement ID configured in RevenueCat dashboard
-const PRO_ENTITLEMENT = "pro";
-
-// ─── Initialization ─────────────────────────────────────
+// ─── State ──────────────────────────────────────────────
 
 let _initialized = false;
+
+// ─── Initialization ─────────────────────────────────────
+// Connects to Apple/Google billing servers.
+// In Expo Go this will fail (no native module) — that's expected.
 
 export async function initializeIAP(): Promise<void> {
   if (_initialized) return;
   try {
-    const apiKey = Platform.OS === "ios" ? REVENUECAT_IOS_KEY : REVENUECAT_ANDROID_KEY;
-
-    // Skip initialization if API keys aren't set yet
-    if (apiKey.startsWith("YOUR_")) {
-      if (__DEV__) console.log("DocDue: RevenueCat not configured — using early access mode");
-      return;
-    }
-
-    Purchases.configure({ apiKey });
-    if (__DEV__) {
-      Purchases.setLogLevel(LOG_LEVEL.DEBUG);
-    }
+    await initConnection();
     _initialized = true;
+    if (__DEV__) console.log("DocDue: IAP connected to store");
   } catch (e) {
-    if (__DEV__) console.warn("DocDue: IAP init error", e);
+    // Expected in Expo Go or when store is unavailable
+    if (__DEV__) console.log("DocDue: IAP not available — using early access mode");
   }
 }
 
 // ─── Check Premium Status ────────────────────────────────
+// Checks if user has previously purchased the PRO product.
 
 export async function checkPremiumStatus(): Promise<boolean> {
   if (!_initialized) return false;
   try {
-    const customerInfo = await Purchases.getCustomerInfo();
-    return customerInfo.entitlements.active[PRO_ENTITLEMENT] !== undefined;
+    const purchases = await getAvailablePurchases();
+    return purchases.some((p) => p.productId === PRODUCT_ID);
   } catch {
     return false;
   }
 }
 
-// ─── Get Offerings (Packages) ────────────────────────────
+// ─── Get Products (replaces RevenueCat "offerings") ──────
+// Fetches product info (price, title) from the store.
 
 export interface IAPPackage {
   id: string;
   type: "monthly" | "annual" | "lifetime";
   price: string;
   pricePerMonth?: string;
-  package: PurchasesPackage;
+  productId: string;
 }
 
 export async function getOfferings(): Promise<IAPPackage[]> {
   if (!_initialized) return [];
   try {
-    const offerings = await Purchases.getOfferings();
-    const current = offerings.current;
-    if (!current) return [];
-
-    const packages: IAPPackage[] = [];
-    for (const pkg of current.availablePackages) {
-      const product = pkg.product;
-      const id = pkg.identifier;
-
-      let type: IAPPackage["type"] = "monthly";
-      if (id.includes("annual") || id.includes("yearly")) type = "annual";
-      else if (id.includes("lifetime")) type = "lifetime";
-
-      packages.push({
-        id,
-        type,
-        price: product.priceString,
-        pricePerMonth: type === "annual"
-          ? `${(product.price / 12).toFixed(2)} ${product.currencyCode}`
-          : undefined,
-        package: pkg,
-      });
-    }
-
-    // Sort: annual first, then monthly, then lifetime
-    const order = { annual: 0, monthly: 1, lifetime: 2 };
-    return packages.sort((a, b) => order[a.type] - order[b.type]);
+    const products = (await fetchProducts({ skus: [PRODUCT_ID], type: "in-app" })) as Product[] | null;
+    if (!products) return [];
+    return products.map((product) => ({
+      id: product.id,
+      type: "lifetime" as const,
+      price: product.displayPrice,
+      productId: product.id,
+    }));
   } catch {
     return [];
   }
 }
 
 // ─── Purchase ────────────────────────────────────────────
+// Initiates purchase flow. Apple/Google shows their native payment sheet.
+// CRITICAL: finishTransaction() must be called or the purchase gets refunded.
 
 export type PurchaseResult =
-  | { success: true; customerInfo: CustomerInfo }
+  | { success: true }
   | { success: false; cancelled: boolean; error?: string };
 
-export async function purchasePackage(pkg: PurchasesPackage): Promise<PurchaseResult> {
+export async function purchasePackage(productId: string): Promise<PurchaseResult> {
   try {
-    const { customerInfo } = await Purchases.purchasePackage(pkg);
-    const isPro = customerInfo.entitlements.active[PRO_ENTITLEMENT] !== undefined;
-    if (isPro) {
-      return { success: true, customerInfo };
+    const purchase = await requestPurchase({
+      request: {
+        apple: { sku: productId, andDangerouslyFinishTransactionAutomatically: false },
+        google: { skus: [productId] },
+      },
+      type: "in-app",
+    }) as Purchase | Purchase[] | null;
+
+    // Android returns array, iOS returns single object
+    const p = Array.isArray(purchase) ? purchase[0] : purchase;
+    if (p) {
+      await finishTransaction({ purchase: p, isConsumable: false });
+      return { success: true };
     }
-    return { success: false, cancelled: false, error: "Entitlement not granted" };
+    return { success: false, cancelled: false, error: "No purchase returned" };
   } catch (e: unknown) {
-    const err = e as { userCancelled?: boolean; message?: string };
-    if (err.userCancelled) {
+    const err = e as { code?: string; message?: string };
+    // User cancelled — not an error
+    if (err.code === "E_USER_CANCELLED" || err.message?.includes("cancel")) {
       return { success: false, cancelled: true };
     }
     return { success: false, cancelled: false, error: err.message || "Purchase failed" };
@@ -133,19 +122,33 @@ export async function purchasePackage(pkg: PurchasesPackage): Promise<PurchaseRe
 }
 
 // ─── Restore Purchases ──────────────────────────────────
+// Checks Apple/Google for previous purchases on this account.
+// Required by Apple App Store guidelines.
 
 export async function restorePurchases(): Promise<boolean> {
   if (!_initialized) return false;
   try {
-    const customerInfo = await Purchases.restorePurchases();
-    return customerInfo.entitlements.active[PRO_ENTITLEMENT] !== undefined;
+    const purchases = await getAvailablePurchases();
+    return purchases.some((p) => p.productId === PRODUCT_ID);
   } catch {
     return false;
   }
 }
 
-// ─── Check if RevenueCat is configured ──────────────────
+// ─── Check if IAP is available ──────────────────────────
 
 export function isIAPConfigured(): boolean {
   return _initialized;
+}
+
+// ─── Cleanup (optional, called on app unmount) ──────────
+
+export async function endIAP(): Promise<void> {
+  if (!_initialized) return;
+  try {
+    await endConnection();
+    _initialized = false;
+  } catch {
+    // Ignore cleanup errors
+  }
 }

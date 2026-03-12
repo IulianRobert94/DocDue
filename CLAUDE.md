@@ -53,7 +53,7 @@ Two stores, both hydrated in `app/_layout.tsx` on launch:
 
 Free tier: max 10 documents. PRO (`settings.isPremium`, one-time purchase): unlimited documents + backup/restore + Excel export/import + analytics. The add-tab center button checks document count and routes to `/premium` if limit reached. Backup/export features in settings are gated with `isPremium` checks.
 
-**IAP Integration**: RevenueCat (`react-native-purchases`) is integrated in `src/services/iap.ts`. When API keys are configured, the premium screen shows real pricing tiers + restore purchases. When not configured (API keys start with `YOUR_`), it falls back to early access mode (free unlock). To go live: create RevenueCat account, add products, replace keys in `iap.ts`.
+**IAP Integration**: `react-native-iap` connects directly to Apple StoreKit / Google Play Billing via `src/services/iap.ts`. Product ID: `com.docdueapp.pro.lifetime` (non-consumable). When the store connection succeeds, the premium screen shows real pricing + restore purchases. When unavailable (Expo Go or store not configured), it falls back to early access mode (free unlock). To go live: create the in-app product in App Store Connect and Google Play Console with the matching product ID.
 
 ### Four Document Categories
 
@@ -93,7 +93,7 @@ Custom implementation in `src/core/i18n.ts`. No library — just a dictionary + 
 - `calendar.ts` — Add due dates to device calendar
 - `ocr.ts` — ML Kit OCR for auto-filling form fields from photos (on-device, no network). Requires dev build — graceful fallback in Expo Go
 - `widgetService.ts` — Home screen widget data (pushes to expo-widgets in dev build, silent no-op in Expo Go)
-- `iap.ts` — RevenueCat integration for in-app purchases (one-time PRO purchase + restore)
+- `iap.ts` — In-app purchases via react-native-iap (one-time PRO purchase + restore, direct Apple/Google connection)
 - `reviewPrompt.ts` — App Store review prompt after 7 days + 3 documents
 
 ### Key Components

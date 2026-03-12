@@ -99,7 +99,8 @@
       ],
       "@react-native-community/datetimepicker",
       "expo-calendar",
-      "expo-notifications"
+      "expo-notifications",
+      "react-native-iap"
     ],
     "extra": {
       "router": {},

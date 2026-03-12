@@ -61,17 +61,13 @@ jest.mock("expo-store-review", () => ({
   requestReview: jest.fn(() => Promise.resolve()),
 }));
 
-jest.mock("react-native-purchases", () => ({
-  __esModule: true,
-  default: {
-    configure: jest.fn(),
-    setLogLevel: jest.fn(),
-    getCustomerInfo: jest.fn(),
-    getOfferings: jest.fn(),
-    purchasePackage: jest.fn(),
-    restorePurchases: jest.fn(),
-  },
-  LOG_LEVEL: { DEBUG: "DEBUG" },
+jest.mock("react-native-iap", () => ({
+  initConnection: jest.fn(() => Promise.resolve()),
+  endConnection: jest.fn(() => Promise.resolve()),
+  getProducts: jest.fn(() => Promise.resolve([])),
+  getAvailablePurchases: jest.fn(() => Promise.resolve([])),
+  requestPurchase: jest.fn(() => Promise.resolve()),
+  finishTransaction: jest.fn(() => Promise.resolve()),
 }));
 
 // ─── Imports ────────────────────────────────────────────
