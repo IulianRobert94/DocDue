@@ -58,12 +58,13 @@ describe("extractDate", () => {
     expect(extractDate("Date: 32.01.2025")).toBeNull();
   });
 
-  it("rejects year before 2020", () => {
-    expect(extractDate("Date: 15.06.2019")).toBeNull();
+  it("rejects year too far in the past", () => {
+    expect(extractDate("Date: 15.06.1999")).toBeNull();
   });
 
-  it("rejects year after 2040", () => {
-    expect(extractDate("Date: 15.06.2041")).toBeNull();
+  it("rejects year too far in the future", () => {
+    const farFuture = new Date().getFullYear() + 31;
+    expect(extractDate(`Date: 15.06.${farFuture}`)).toBeNull();
   });
 
   it("handles single-digit day and month", () => {

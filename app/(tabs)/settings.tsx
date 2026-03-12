@@ -14,6 +14,7 @@ import {
   ActivityIndicator,
   Share,
   Platform,
+  Linking,
 } from 'react-native';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as Haptics from 'expo-haptics';
@@ -337,6 +338,18 @@ export default function SettingsScreen() {
               {t(language, 'settings_privacy')}
             </Text>
             <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
+          </AnimatedPressable>
+          <RowDivider theme={theme} />
+          <AnimatedPressable
+            style={s.row}
+            onPress={() => Linking.openURL('mailto:andreiiulianrobert@gmail.com?subject=DocDue%20Support').catch(() => {})}
+            accessibilityLabel={t(language, 'settings_contact_support')}
+          >
+            <Ionicons name="mail-outline" size={18} color="#007AFF" style={{ marginRight: 8 }} />
+            <Text style={[s.rowLabel, { color: '#007AFF', flex: 1 }]}>
+              {t(language, 'settings_contact_support')}
+            </Text>
+            <Ionicons name="open-outline" size={16} color={theme.textMuted} />
           </AnimatedPressable>
         </View>
         <Text style={[s.footerText, { color: theme.textSecondary, marginHorizontal: 20, marginTop: 6 }]}>

@@ -98,13 +98,19 @@ function cleanupAttachments(doc: RawDocument) {
 
 let _rescheduleTimer: ReturnType<typeof setTimeout> | null = null;
 
-function doReschedule(documents: RawDocument[]) {
+async function doReschedule(documents: RawDocument[], attempt = 1) {
   const settings = useSettingsStore?.getState?.()?.settings;
   if (settings?.notificationsEnabled) {
-    rescheduleAllNotifications(documents, settings.reminderDays, settings.language)
-      .then(() => scheduleMorningDigest(documents, settings.language))
-      .then(() => scheduleWeeklySummary(documents, settings.language))
-      .catch((e) => { if (__DEV__) console.warn("DocDue: notification reschedule error", e); });
+    try {
+      await rescheduleAllNotifications(documents, settings.reminderDays, settings.language);
+      await scheduleMorningDigest(documents, settings.language);
+      await scheduleWeeklySummary(documents, settings.language);
+    } catch (e) {
+      if (__DEV__) console.warn("DocDue: notification reschedule error", e);
+      if (attempt < 3) {
+        setTimeout(() => doReschedule(documents, attempt + 1), attempt * 2000);
+      }
+    }
   }
   updateWidgetData(documents);
 }
@@ -138,11 +144,13 @@ export const useDocumentStore = create<DocumentsState>()((set, get) => ({
 
   _hydrate: async () => {
     if (get()._hydrated) return;
+    const withTimeout = <T,>(promise: Promise<T>, ms: number): Promise<T | null> =>
+      Promise.race([promise, new Promise<null>((resolve) => setTimeout(() => resolve(null), ms))]);
     try {
-      let raw = await AsyncStorage.getItem(STORAGE_KEY_DOCUMENTS);
+      let raw = await withTimeout(AsyncStorage.getItem(STORAGE_KEY_DOCUMENTS), 5000);
       // Migrate from legacy key if needed
       if (!raw) {
-        raw = await AsyncStorage.getItem(STORAGE_KEY_DOCUMENTS_LEGACY);
+        raw = await withTimeout(AsyncStorage.getItem(STORAGE_KEY_DOCUMENTS_LEGACY), 5000);
         if (raw) {
           await AsyncStorage.setItem(STORAGE_KEY_DOCUMENTS, raw);
           await AsyncStorage.removeItem(STORAGE_KEY_DOCUMENTS_LEGACY);
@@ -159,8 +167,9 @@ export const useDocumentStore = create<DocumentsState>()((set, get) => ({
           return;
         }
       }
-      // First launch — persist demo data
-      const demo = createDemoDocuments();
+      // First launch — persist demo data in current language
+      const lang = useSettingsStore?.getState?.()?.settings?.language || "ro";
+      const demo = createDemoDocuments(lang);
       _lastPersistedDocs = demo;
       persistDocs(demo);
       set({ documents: demo, _hydrated: true });
@@ -201,23 +210,23 @@ export const useDocumentStore = create<DocumentsState>()((set, get) => ({
   },
 
   markAsPaid: (doc) => {
-    // Safety: verify document still exists
-    const exists = get().documents.some((d) => d.id === doc.id);
-    if (!exists) return "resolved";
+    // Safety: fetch fresh state to prevent stale-doc double-tap
+    const fresh = get().documents.find((d) => d.id === doc.id);
+    if (!fresh) return "resolved";
 
     // Snapshot the payment before advancing/deleting
-    const payment = { date: getTodayString(), dueDate: doc.due, amt: doc.amt };
-    const history = [...(doc.paymentHistory || []), payment];
+    const payment = { date: getTodayString(), dueDate: fresh.due, amt: fresh.amt };
+    const history = [...(fresh.paymentHistory || []), payment];
 
-    const recDays = getRecurrenceDays(doc.rec);
+    const recDays = getRecurrenceDays(fresh.rec);
     if (recDays > 0) {
       const MONTH_MAP: Record<string, number> = {
         monthly: 1, annual: 12,
       };
-      const months = MONTH_MAP[doc.rec];
+      const months = MONTH_MAP[fresh.rec];
       const nextDue = months
-        ? addMonthsToDate(doc.due, months)
-        : addDaysToDate(doc.due, recDays);
+        ? addMonthsToDate(fresh.due, months)
+        : addDaysToDate(fresh.due, recDays);
       set((state) => ({
         documents: state.documents.map((d) =>
           d.id === doc.id ? { ...d, due: nextDue, paymentHistory: history } : d
@@ -239,7 +248,8 @@ export const useDocumentStore = create<DocumentsState>()((set, get) => ({
   },
 
   resetToDemo: () => {
-    const demo = createDemoDocuments();
+    const lang = useSettingsStore?.getState?.()?.settings?.language || "ro";
+    const demo = createDemoDocuments(lang);
     set({ documents: demo });
     afterMutation(demo);
   },

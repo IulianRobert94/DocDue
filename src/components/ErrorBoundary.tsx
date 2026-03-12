@@ -46,7 +46,8 @@ export class ErrorBoundary extends React.Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    if (__DEV__) console.error('ErrorBoundary caught:', error, errorInfo);
+    // Log in all environments — production logs are invisible to user but visible in crash tools
+    console.error('ErrorBoundary caught:', error, errorInfo);
   }
 
   handleReset = () => {

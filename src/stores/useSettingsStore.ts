@@ -46,11 +46,13 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
 
   _hydrate: async () => {
     if (get()._hydrated) return;
+    const withTimeout = <T,>(promise: Promise<T>, ms: number): Promise<T | null> =>
+      Promise.race([promise, new Promise<null>((resolve) => setTimeout(() => resolve(null), ms))]);
     try {
-      let raw = await AsyncStorage.getItem(STORAGE_KEY_SETTINGS);
+      let raw = await withTimeout(AsyncStorage.getItem(STORAGE_KEY_SETTINGS), 5000);
       // Migrate from legacy key if needed
       if (!raw) {
-        raw = await AsyncStorage.getItem(STORAGE_KEY_SETTINGS_LEGACY);
+        raw = await withTimeout(AsyncStorage.getItem(STORAGE_KEY_SETTINGS_LEGACY), 5000);
         if (raw) {
           await AsyncStorage.setItem(STORAGE_KEY_SETTINGS, raw);
           await AsyncStorage.removeItem(STORAGE_KEY_SETTINGS_LEGACY);

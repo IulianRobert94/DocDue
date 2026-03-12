@@ -230,6 +230,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     backup_include_attachments: "Include atașamente",
     backup_include_desc: "Fișier mai mare",
     backup_success: "Backup creat cu succes",
+    attachments_skipped: "atașamente nu au putut fi incluse",
     backup_error: "Eroare la crearea backup-ului",
     sharing_unavailable: "Partajarea nu este disponibilă pe acest dispozitiv.",
     all_docs_exist: "Toate documentele există deja.",
@@ -286,7 +287,8 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     premium_feature_analytics: "Analiză cheltuieli",
     premium_feature_backup: "Backup și restaurare",
     premium_feature_widgets: "Widget-uri home screen",
-    premium_feature_notifications: "Notificări avansate",
+    premium_feature_export: "Export Excel și import",
+    settings_contact_support: "Contactează suportul",
     premium_upgrade: "Upgrade la Pro",
     premium_restore: "Restaurare achiziție",
     premium_limit_title: "Limită atinsă",
@@ -306,6 +308,10 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     // Notification actions
     notif_action_renewed: "Reînnoit ✓",
     notif_action_tomorrow: "Mâine",
+
+    // Demo banner
+    demo_banner_text: "Acestea sunt documente demonstrative. Adaugă-le pe ale tale!",
+    demo_banner_dismiss: "Șterge exemplele",
 
     // Health Score
     health_score: "Scor sănătate",
@@ -597,6 +603,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     backup_include_attachments: "Include attachments",
     backup_include_desc: "Larger file size",
     backup_success: "Backup created successfully",
+    attachments_skipped: "attachments could not be included",
     backup_error: "Error creating backup",
     sharing_unavailable: "Sharing is not available on this device.",
     all_docs_exist: "All documents already exist.",
@@ -653,7 +660,8 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     premium_feature_analytics: "Spending analytics",
     premium_feature_backup: "Backup & restore",
     premium_feature_widgets: "Home screen widgets",
-    premium_feature_notifications: "Advanced notifications",
+    premium_feature_export: "Excel export & import",
+    settings_contact_support: "Contact support",
     premium_upgrade: "Upgrade to Pro",
     premium_restore: "Restore purchase",
     premium_limit_title: "Limit reached",
@@ -673,6 +681,10 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     // Notification actions
     notif_action_renewed: "Renewed ✓",
     notif_action_tomorrow: "Tomorrow",
+
+    // Demo banner
+    demo_banner_text: "These are demo documents. Add your own!",
+    demo_banner_dismiss: "Remove examples",
 
     // Health Score
     health_score: "Health Score",

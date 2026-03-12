@@ -18,7 +18,7 @@ import { useTheme, useSettingsStore } from "../src/stores/useSettingsStore";
 import { ErrorBoundary } from "../src/components/ErrorBoundary";
 import { BiometricGate } from "../src/components/BiometricGate";
 import * as QuickActions from "expo-quick-actions";
-import { FREE_DOCUMENT_LIMIT } from "../src/core/constants";
+import { FREE_DOCUMENT_LIMIT, STORAGE_KEY_ONBOARDED } from "../src/core/constants";
 import {
   configureNotifications,
   rescheduleAllNotifications,
@@ -69,7 +69,7 @@ export default function RootLayout() {
           useSettingsStore.getState()._hydrate(),
           initializeIAP(),
         ]);
-        const onboarded = await AsyncStorage.getItem("dt_onboarded");
+        const onboarded = await AsyncStorage.getItem(STORAGE_KEY_ONBOARDED);
         setShowOnboarding(!onboarded);
 
         // Reschedule notifications and update widget after hydration

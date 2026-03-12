@@ -1273,7 +1273,7 @@ describe("i18n RO/EN parity", () => {
     // Backup
     "backup_section", "backup_create", "backup_restore", "backup_last",
     "backup_include_attachments", "backup_include_desc",
-    "backup_success", "backup_error", "sharing_unavailable",
+    "backup_success", "attachments_skipped", "backup_error", "sharing_unavailable",
     "all_docs_exist", "duplicates_skipped",
     "restore_replace", "restore_merge", "restore_confirm",
     "restore_success", "restore_error", "restore_invalid", "restore_choose",
@@ -1296,7 +1296,9 @@ describe("i18n RO/EN parity", () => {
     // Premium
     "premium_title", "premium_subtitle",
     "premium_feature_unlimited", "premium_feature_analytics",
-    "premium_feature_backup", "premium_feature_widgets", "premium_feature_notifications",
+    "premium_feature_backup", "premium_feature_widgets", "premium_feature_export",
+    "settings_contact_support",
+    "demo_banner_text", "demo_banner_dismiss",
     "premium_upgrade", "premium_restore", "premium_limit_title", "premium_limit_msg",
     "premium_active", "premium_section", "premium_free_count", "premium_required",
     "premium_early_access_note", "premium_unlock_free",

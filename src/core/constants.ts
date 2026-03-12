@@ -21,6 +21,7 @@ export const STORAGE_KEY_DOCUMENTS = "dt12_docs";
 export const STORAGE_KEY_SETTINGS = "dt12_settings";
 export const STORAGE_KEY_DOCUMENTS_LEGACY = "dt11_docs";
 export const STORAGE_KEY_SETTINGS_LEGACY = "dt11_settings";
+export const STORAGE_KEY_ONBOARDED = "dt_onboarded";
 export const MAX_ATTACHMENTS = 5;
 
 // ─── TypeScript Types ───────────────────────────────────

@@ -98,14 +98,15 @@ export default function SearchScreen() {
       return true;
     });
     if (debouncedQuery.length === 0) return baseDocs;
-    const query = debouncedQuery.toLowerCase();
+    const query = debouncedQuery.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const normalize = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
     return baseDocs.filter((doc) => {
-      const subName = translateSubtype(doc.type, language).toLowerCase();
+      const subName = normalize(translateSubtype(doc.type, language));
       return (
-        doc.title.toLowerCase().includes(query) ||
+        normalize(doc.title).includes(query) ||
         subName.includes(query) ||
-        (doc.asset && doc.asset.toLowerCase().includes(query)) ||
-        (doc.notes && doc.notes.toLowerCase().includes(query))
+        (doc.asset && normalize(doc.asset).includes(query)) ||
+        (doc.notes && normalize(doc.notes).includes(query))
       );
     });
   }, [enrichedDocs, statusFilter, scopeFilter, debouncedQuery, language]);
@@ -254,7 +255,7 @@ export default function SearchScreen() {
           const isFirst = index === 0;
           const isLast = index === filteredDocs.length - 1;
           const statusColor = STATUS_DISPLAY[item._status]?.color || '#999';
-          const category = CATEGORIES[item.cat];
+          const category = CATEGORIES[item.cat] ?? CATEGORIES.vehicule;
 
           return (
             <SwipeableRow

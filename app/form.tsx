@@ -8,7 +8,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TextInput, Alert,
   Platform, Keyboard, InputAccessoryView, BackHandler,
-  ActivityIndicator, Modal,
+  ActivityIndicator, Modal, KeyboardAvoidingView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -84,6 +84,14 @@ export default function FormScreen() {
   const [showTypePicker, setShowTypePicker] = useState(false);
   const [typeSearch, setTypeSearch] = useState('');
   const savingRef = useRef(false); // Guard against rapid double-taps
+  const scrollRef = useRef<ScrollView>(null);
+
+  // Cleanup recurrence auto-set timer on unmount
+  useEffect(() => {
+    return () => {
+      if (recAutoSetTimer.current) clearTimeout(recAutoSetTimer.current);
+    };
+  }, []);
 
   // Toggle date picker dialog (both platforms now)
   const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
@@ -183,7 +191,11 @@ export default function FormScreen() {
     if (!due.trim()) e.due = t(language, 'val_date_required');
     else if (!/^\d{4}-\d{2}-\d{2}$/.test(due)) e.due = t(language, 'val_date_invalid');
     else if (isNaN(parseLocalDate(due).getTime())) e.due = t(language, 'val_date_invalid');
-    if (amt.trim() && (isNaN(Number(amt)) || Number(amt) < 0 || Number(amt) > 999_999_999)) e.amt = t(language, 'val_amount_positive');
+    else {
+      const y = parseLocalDate(due).getFullYear();
+      if (y < 2000 || y > 2099) e.due = t(language, 'val_date_invalid');
+    }
+    if (amt.trim() && (isNaN(Number(amt)) || Number(amt) < 0 || Number(amt) > 999_999_999 || !/^\d{1,9}(\.\d{1,2})?$/.test(amt.trim()))) e.amt = t(language, 'val_amount_positive');
     setErrors(e);
     if (Object.keys(e).length > 0) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
@@ -223,13 +235,18 @@ export default function FormScreen() {
   const categoryIds = Object.keys(CATEGORIES) as CategoryId[];
 
   return (
-      <View style={[s.container, { backgroundColor: theme.background }]}>
+      <KeyboardAvoidingView
+        style={[s.container, { backgroundColor: theme.background }]}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      >
           <ScrollView
+            ref={scrollRef}
             style={{ flex: 1 }}
             contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: 160 }}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
-            automaticallyAdjustKeyboardInsets
+            automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
           >
             {/* Modal header — Cancel | grabber | title */}
             <FadeInView delay={0} style={s.modalHeader}>
@@ -478,6 +495,7 @@ export default function FormScreen() {
                 <TextInput style={[s.notesInput, { color: theme.text }]} value={notes} onChangeText={setNotes}
                   placeholder={t(language, 'form_notes_placeholder')} placeholderTextColor={theme.textDim}
                   multiline numberOfLines={4} textAlignVertical="top" maxLength={500}
+                  onFocus={() => { if (Platform.OS === 'android') setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 300); }}
                   inputAccessoryViewID={Platform.OS === 'ios' ? 'notesKeyboardDone' : undefined}
                   accessibilityLabel={t(language, 'form_notes')} />
               </View>
@@ -545,7 +563,7 @@ export default function FormScreen() {
             </View>
           </InputAccessoryView>
         )}
-      </View>
+      </KeyboardAvoidingView>
   );
 }
 

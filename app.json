@@ -23,7 +23,8 @@
         "NSPhotoLibraryUsageDescription": "DocDue needs access to your photos to attach them to documents.",
         "NSCameraUsageDescription": "DocDue needs access to the camera to take photos for documents.",
         "NSCalendarsFullAccessUsageDescription": "DocDue can add document due dates to your calendar.",
-        "NSCalendarsWriteOnlyAccessUsageDescription": "DocDue can add document due dates to your calendar."
+        "NSCalendarsWriteOnlyAccessUsageDescription": "DocDue can add document due dates to your calendar.",
+        "ITSAppUsesNonExemptEncryption": false
       },
       "privacyManifests": {
         "NSPrivacyTracking": false,
@@ -103,23 +104,6 @@
     "extra": {
       "router": {},
       "eas": {
-        "build": {
-          "experimental": {
-            "ios": {
-              "appExtensions": [
-                {
-                  "targetName": "ExpoWidgetsTarget",
-                  "bundleIdentifier": "com.docdueapp.ExpoWidgetsTarget",
-                  "entitlements": {
-                    "com.apple.security.application-groups": [
-                      "group.com.docdueapp"
-                    ]
-                  }
-                }
-              ]
-            }
-          }
-        },
         "projectId": "033e3e3b-42eb-4150-8c0a-22345bd353ab"
       }
     },

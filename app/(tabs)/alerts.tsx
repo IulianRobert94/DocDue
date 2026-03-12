@@ -79,7 +79,7 @@ export default function AlertsScreen() {
           const isFirst = index === 0;
           const isLast = index === section.data.length - 1;
           const statusColor = STATUS_DISPLAY[item._status]?.color || '#999';
-          const category = CATEGORIES[item.cat];
+          const category = CATEGORIES[item.cat] ?? CATEGORIES.vehicule;
 
           return (
             <View style={{ marginHorizontal: 16 }}>

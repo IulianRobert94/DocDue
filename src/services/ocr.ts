@@ -79,7 +79,8 @@ export function extractDate(text: string): string | null {
     const year = parseInt(yearStr, 10);
 
     // Validate ranges
-    if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 2020 && year <= 2040) {
+    const currentYear = new Date().getFullYear();
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= currentYear - 5 && year <= currentYear + 30) {
       const mm = String(month).padStart(2, "0");
       const dd = String(day).padStart(2, "0");
       matches.push({ date: `${year}-${mm}-${dd}`, original: match[0] });

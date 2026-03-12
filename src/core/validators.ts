@@ -35,6 +35,11 @@ export function validateDocument(doc: Partial<RawDocument>, lang: LanguageCode =
     const parsed = parseLocalDate(doc.due);
     if (isNaN(parsed.getTime())) {
       errors.push(t(lang, "val_date_invalid"));
+    } else {
+      const y = parsed.getFullYear();
+      if (y < 2000 || y > 2099) {
+        errors.push(t(lang, "val_date_invalid"));
+      }
     }
   }
 

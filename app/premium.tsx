@@ -27,7 +27,7 @@ const PRO_FEATURES: ReadonlyArray<{ icon: IconName; color: string; key: string }
   { icon: 'documents', color: '#007AFF', key: 'premium_feature_unlimited' },
   { icon: 'bar-chart', color: '#34C759', key: 'premium_feature_analytics' },
   { icon: 'cloud-upload', color: '#5856D6', key: 'premium_feature_backup' },
-  { icon: 'notifications', color: '#FF3B30', key: 'premium_feature_notifications' },
+  { icon: 'grid', color: '#FF9500', key: 'premium_feature_export' },
 ];
 
 export default function PremiumScreen() {

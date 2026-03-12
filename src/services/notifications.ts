@@ -180,8 +180,8 @@ export async function rescheduleAllNotifications(
         },
       });
     } catch {
-      // Exact alarm scheduling may fail on Android without SCHEDULE_EXACT_ALARM permission
-      break;
+      // Exact alarm scheduling may fail on Android — skip this one, try the rest
+      continue;
     }
   }
 }

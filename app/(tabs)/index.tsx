@@ -9,16 +9,18 @@
  * - "+" button moved to center tab (not in header)
  */
 
-import React, { useRef, useMemo } from "react";
+import React, { useRef, useMemo, useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
   StyleSheet,
   Animated as RNAnimated,
   useWindowDimensions,
+  Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useTheme, useLanguage } from "../../src/stores/useSettingsStore";
@@ -26,6 +28,7 @@ import {
   useEnrichedDocuments,
   useGlobalStats,
   useCategoryStats,
+  useDocumentStore,
 } from "../../src/stores/useDocumentStore";
 import { t } from "../../src/core/i18n";
 import { CATEGORIES, QUICK_PREVIEW_LIMIT } from "../../src/core/constants";
@@ -62,6 +65,39 @@ export default function HomeScreen() {
     () => calculateHealthScore(enriched),
     [enriched]
   );
+
+  // Demo banner — show only when demo data is present and not dismissed
+  const clearAll = useDocumentStore((s) => s.clearAll);
+  const [showDemoBanner, setShowDemoBanner] = useState(false);
+  useEffect(() => {
+    AsyncStorage.getItem("dt_demo_dismissed").then((val) => {
+      if (!val && enriched.length > 0) {
+        // Check if first doc looks like demo (has demo-style titles)
+        const firstTitle = enriched[0]?.title || "";
+        const hasDemo = firstTitle.includes("Dacia Duster") || firstTitle.includes("Car Insurance");
+        setShowDemoBanner(hasDemo);
+      }
+    }).catch(() => {});
+  }, [enriched.length]);
+
+  const handleDismissDemo = useCallback(() => {
+    Alert.alert(
+      t(lang, "demo_banner_dismiss"),
+      t(lang, "demo_banner_text"),
+      [
+        { text: t(lang, "confirm_cancel"), style: "cancel" },
+        {
+          text: t(lang, "demo_banner_dismiss"),
+          style: "destructive",
+          onPress: () => {
+            clearAll();
+            AsyncStorage.setItem("dt_demo_dismissed", "1").catch(() => {});
+            setShowDemoBanner(false);
+          },
+        },
+      ]
+    );
+  }, [lang, clearAll]);
 
   // ─── Scroll-driven collapse ────────────────────────
   const scrollY = useRef(new RNAnimated.Value(0)).current;
@@ -134,6 +170,22 @@ export default function HomeScreen() {
             </Text>
           </View>
         </RNAnimated.View>
+
+        {/* ─── Demo Banner ───────────────────────────── */}
+        {showDemoBanner && (
+          <AnimatedSection index={0} style={{ marginHorizontal: 16, marginBottom: 12 }}>
+            <View style={[styles.demoBanner, { backgroundColor: '#007AFF14', borderColor: '#007AFF33' }]}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.demoBannerText, { color: theme.textSecondary }]}>
+                  {t(lang, "demo_banner_text")}
+                </Text>
+              </View>
+              <AnimatedPressable onPress={handleDismissDemo} hapticStyle="selection" style={styles.demoBannerBtn}>
+                <Ionicons name="trash-outline" size={16} color="#FF3B30" />
+              </AnimatedPressable>
+            </View>
+          </AnimatedSection>
+        )}
 
         {/* ─── Status Summary ───────────────────────── */}
         <AnimatedSection index={0} style={{ marginHorizontal: 16, marginBottom: 0 }}>
@@ -432,4 +484,9 @@ const styles = StyleSheet.create({
   },
   emptyTitle: { fontSize: 20, fontWeight: "600" },
   emptySub: { fontSize: 15, lineHeight: 22, marginTop: 8, textAlign: "center" },
+
+  // Demo banner
+  demoBanner: { flexDirection: "row", alignItems: "center", padding: 12, borderRadius: 10, borderWidth: 1 },
+  demoBannerText: { fontSize: 14, lineHeight: 20 },
+  demoBannerBtn: { padding: 8, marginLeft: 8 },
 });

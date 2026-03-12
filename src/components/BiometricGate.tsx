@@ -20,6 +20,7 @@ import { t } from "../core/i18n";
 import { AnimatedPressable } from "./AnimatedUI";
 
 const MAX_ATTEMPTS = 5;
+const LOCKOUT_DURATIONS = [30_000, 60_000, 300_000]; // 30s, 60s, 5min
 
 export function BiometricGate({ children }: { children: React.ReactNode }) {
   const biometricEnabled = useSettingsStore((s) => s.settings.biometricEnabled);
@@ -28,6 +29,7 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
   const [locked, setLocked] = useState(biometricEnabled);
   const [failed, setFailed] = useState(false);
   const [failCount, setFailCount] = useState(0);
+  const lockoutRound = useRef(0);
   const backgroundTime = useRef<number>(0);
   const appState = useRef(AppState.currentState);
 
@@ -94,10 +96,12 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
     }
   }, [biometricEnabled]);
 
-  // Auto-reset lockout after 30 seconds
+  // Escalating lockout: 30s → 60s → 5min (then stays at 5min)
   useEffect(() => {
     if (failCount >= MAX_ATTEMPTS) {
-      const timer = setTimeout(() => setFailCount(0), 30_000);
+      const duration = LOCKOUT_DURATIONS[Math.min(lockoutRound.current, LOCKOUT_DURATIONS.length - 1)];
+      lockoutRound.current++;
+      const timer = setTimeout(() => setFailCount(0), duration);
       return () => clearTimeout(timer);
     }
   }, [failCount]);

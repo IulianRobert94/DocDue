@@ -12,8 +12,8 @@ import * as DocumentPicker from 'expo-document-picker';
 import Constants from 'expo-constants';
 
 import { t } from '../../core/i18n';
-import { DATA_VERSION, MAX_IMPORT_LIMIT } from '../../core/constants';
-import type { RawDocument, AppSettings } from '../../core/constants';
+import { DATA_VERSION, MAX_IMPORT_LIMIT, DEFAULT_SETTINGS } from '../../core/constants';
+import type { RawDocument, AppSettings, LanguageCode, CurrencyCode, ThemeMode } from '../../core/constants';
 import type { AppTheme } from '../../theme/colors';
 import { AnimatedPressable } from '../AnimatedUI';
 import { RowDivider } from './SettingsUI';
@@ -52,6 +52,7 @@ export function BackupRestoreSection({
     try {
       const includeAttachments = settings.includeAttachmentsInBackup;
       const attachmentsData: Record<string, string> = {};
+      let skippedAttachments = 0;
 
       if (includeAttachments) {
         for (const doc of documents) {
@@ -62,9 +63,11 @@ export function BackupRestoreSection({
                 if (info.exists) {
                   const base64 = await FileSystem.readAsStringAsync(att.uri, { encoding: FileSystem.EncodingType.Base64 });
                   attachmentsData[`${doc.id}_${att.id}`] = base64;
+                } else {
+                  skippedAttachments++;
                 }
               } catch {
-                // Skip unreadable files
+                skippedAttachments++;
               }
             }
           }
@@ -95,7 +98,10 @@ export function BackupRestoreSection({
         dialogTitle: t(language, 'backup_create'),
       });
       updateSetting('lastBackupDate', new Date().toISOString());
-      Alert.alert(t(language, 'alert_success'), t(language, 'backup_success'));
+      const successMsg = skippedAttachments > 0
+        ? `${t(language, 'backup_success')}\n(${skippedAttachments} ${t(language, 'attachments_skipped')})`
+        : t(language, 'backup_success');
+      Alert.alert(t(language, 'alert_success'), successMsg);
     } catch (e: unknown) {
       if (__DEV__) console.error('DocDue backup error:', e);
       Alert.alert(t(language, 'backup_error'), (e as Error)?.message || String(e));
@@ -220,12 +226,18 @@ export function BackupRestoreSection({
                 });
                 addDocuments(docsWithoutId);
                 if (backup.settings) {
-                  const { biometricEnabled, lastBackupDate, isPremium, ...restoreSettings } = backup.settings;
-                  Object.entries(restoreSettings).forEach(([key, value]) => {
-                    if (key in settings) {
-                      updateSetting(key as keyof AppSettings, value as never);
-                    }
-                  });
+                  const s = backup.settings;
+                  // Validate each setting type before applying — skip biometricEnabled, lastBackupDate, isPremium
+                  if (s.theme === 'dark') updateSetting('theme', s.theme as ThemeMode);
+                  if (s.currency && ['RON', 'EUR', 'USD'].includes(s.currency)) updateSetting('currency', s.currency as CurrencyCode);
+                  if (s.language && ['ro', 'en'].includes(s.language)) updateSetting('language', s.language as LanguageCode);
+                  if (Array.isArray(s.reminderDays) && s.reminderDays.every((d: unknown) => typeof d === 'number' && [1, 3, 7, 14].includes(d as number))) {
+                    updateSetting('reminderDays', s.reminderDays as number[]);
+                  }
+                  if (typeof s.notificationsEnabled === 'boolean') updateSetting('notificationsEnabled', s.notificationsEnabled);
+                  if (typeof s.includeAttachmentsInBackup === 'boolean') updateSetting('includeAttachmentsInBackup', s.includeAttachmentsInBackup);
+                  if (typeof s.firstOpenDate === 'string' || s.firstOpenDate === null) updateSetting('firstOpenDate', s.firstOpenDate ?? null);
+                  if (typeof s.reviewPrompted === 'boolean') updateSetting('reviewPrompted', s.reviewPrompted);
                 }
                 if (backup.attachments) {
                   await restoreAttachmentFiles(backupDocs, backup.attachments);

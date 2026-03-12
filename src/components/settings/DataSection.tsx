@@ -124,9 +124,12 @@ export function DataSection({
         return;
       }
 
+      const isValidYear = (y: number) => y >= 2000 && y <= 2099;
+
       const parseDateValue = (raw: unknown): string => {
         if (raw instanceof Date && !isNaN(raw.getTime())) {
           const y = raw.getFullYear();
+          if (!isValidYear(y)) return '';
           const m = String(raw.getMonth() + 1).padStart(2, '0');
           const d = String(raw.getDate()).padStart(2, '0');
           return `${y}-${m}-${d}`;
@@ -134,16 +137,26 @@ export function DataSection({
         if (typeof raw === 'number' && raw > 0) {
           const epoch = new Date((raw - 25569) * 86400 * 1000);
           const y = epoch.getUTCFullYear();
+          if (!isValidYear(y)) return '';
           const m = String(epoch.getUTCMonth() + 1).padStart(2, '0');
           const d = String(epoch.getUTCDate()).padStart(2, '0');
           return `${y}-${m}-${d}`;
         }
         const str = String(raw || '');
-        if (str.match(/^\d{4}-\d{2}-\d{2}$/)) return str;
+        if (str.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          const y = parseInt(str.slice(0, 4), 10);
+          return isValidYear(y) ? str : '';
+        }
         const euMatch = str.match(/^(\d{2})[./](\d{2})[./](\d{4})$/);
-        if (euMatch) return `${euMatch[3]}-${euMatch[2]}-${euMatch[1]}`;
+        if (euMatch) {
+          const y = parseInt(euMatch[3], 10);
+          return isValidYear(y) ? `${euMatch[3]}-${euMatch[2]}-${euMatch[1]}` : '';
+        }
         const usMatch = str.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-        if (usMatch) return `${usMatch[3]}-${usMatch[1]}-${usMatch[2]}`;
+        if (usMatch) {
+          const y = parseInt(usMatch[3], 10);
+          return isValidYear(y) ? `${usMatch[3]}-${usMatch[1]}-${usMatch[2]}` : '';
+        }
         return '';
       };
 

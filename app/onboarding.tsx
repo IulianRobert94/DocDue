@@ -13,10 +13,17 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { STORAGE_KEY_ONBOARDED } from '../src/core/constants';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage, useTheme, useSettingsStore } from '../src/stores/useSettingsStore';
 import { AnimatedPressable } from '../src/components/AnimatedUI';
-import { requestNotificationPermission } from '../src/services/notifications';
+import {
+  requestNotificationPermission,
+  rescheduleAllNotifications,
+  scheduleMorningDigest,
+  scheduleWeeklySummary,
+} from '../src/services/notifications';
+import { useDocumentStore } from '../src/stores/useDocumentStore';
 import { t } from '../src/core/i18n';
 
 import type { IconName } from '../src/types';
@@ -101,7 +108,7 @@ export default function OnboardingScreen() {
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 50 }).current;
 
   const finishOnboarding = async () => {
-    await AsyncStorage.setItem('dt_onboarded', '1');
+    await AsyncStorage.setItem(STORAGE_KEY_ONBOARDED, '1');
     router.replace('/(tabs)');
   };
 
@@ -112,6 +119,12 @@ export default function OnboardingScreen() {
         const granted = await requestNotificationPermission();
         if (granted) {
           useSettingsStore.getState().updateSetting('notificationsEnabled', true);
+          // Schedule notifications immediately — _layout.tsx init already ran
+          const docs = useDocumentStore.getState().documents;
+          const settings = useSettingsStore.getState().settings;
+          rescheduleAllNotifications(docs, settings.reminderDays, settings.language).catch(() => {});
+          scheduleMorningDigest(docs, settings.language).catch(() => {});
+          scheduleWeeklySummary(docs, settings.language).catch(() => {});
         }
       }
       if (isLastSlide) {
@@ -119,14 +132,18 @@ export default function OnboardingScreen() {
       } else {
         flatListRef.current?.scrollToIndex({ index: currentIndex + 1, animated: true });
       }
-    } catch {}
+    } catch (e) {
+      if (__DEV__) console.warn("DocDue: onboarding next error", e);
+    }
   };
 
   const handleSkip = async () => {
     try {
-      await AsyncStorage.setItem('dt_onboarded', '1');
+      await AsyncStorage.setItem(STORAGE_KEY_ONBOARDED, '1');
       router.replace('/(tabs)');
-    } catch {}
+    } catch (e) {
+      if (__DEV__) console.warn("DocDue: onboarding skip error", e);
+    }
   };
 
   const renderItem = ({ item }: { item: OnboardingStep }) => (
