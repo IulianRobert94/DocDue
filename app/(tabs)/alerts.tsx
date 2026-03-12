@@ -68,7 +68,7 @@ export default function AlertsScreen() {
             <Ionicons
               name={STATUS_DISPLAY[status]?.icon || 'ellipse'}
               size={14}
-              color={STATUS_DISPLAY[status]?.color}
+              color={STATUS_DISPLAY[status]?.color || '#999'}
             />
             <Text style={[s.sectionTitle, { color: theme.textSecondary }]}>
               {title} ({data.length})

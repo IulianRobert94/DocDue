@@ -203,7 +203,7 @@ export default function DocumentDetailScreen() {
                     accessibilityLabel={t(language, 'open_file')}
                   >
                     {att.type === 'image' ? (
-                      <Image source={{ uri: att.uri }} style={s.attachThumb} accessibilityLabel={att.name} />
+                      <Image source={{ uri: att.uri }} style={s.attachThumb} accessibilityLabel={att.name} onError={() => {}} />
                     ) : (
                       <View style={[s.attachThumb, s.attachFile, { backgroundColor: theme.inputFill }]}>
                         <Ionicons name="document-text" size={28} color="#FF3B30" />
@@ -239,7 +239,7 @@ export default function DocumentDetailScreen() {
                       {payment.amt != null ? formatMoney(payment.amt, currency, language) : '—'}
                     </Text>
                   </View>
-                  {i < doc.paymentHistory!.length - 1 && (
+                  {i < (doc.paymentHistory?.length ?? 0) - 1 && (
                     <View style={{ paddingLeft: 16 }}>
                       <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: theme.divider }} />
                     </View>
