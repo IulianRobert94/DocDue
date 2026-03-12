@@ -50,7 +50,7 @@ export function migrateData(stored: StoredData | RawDocument[] | null): RawDocum
       (item): item is RawDocument =>
         typeof item === "object" && item !== null && "id" in item && "due" in item && "cat" in item
     );
-    return valid.length > 0 ? valid.map(migrateRecurrence) : null;
+    return valid.map(migrateRecurrence);
   }
 
   // Must be an object at this point

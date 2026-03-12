@@ -294,7 +294,7 @@ const s = StyleSheet.create({
   heroSub: { fontSize: 17, marginTop: 4 },
 
   group: { marginHorizontal: 16, borderRadius: 12, overflow: 'hidden' },
-  featureRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16, minHeight: 52 },
+  featureRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16, minHeight: 60 },
   featureIcon: { width: 36, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   featureText: { fontSize: 17, flex: 1 },
 

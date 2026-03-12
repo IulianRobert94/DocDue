@@ -247,9 +247,9 @@ describe("migrateData", () => {
     expect(migrateData(docs as any)).toEqual(docs);
   });
 
-  it("returns null for corrupted array (no id field)", () => {
+  it("returns empty array for corrupted v0 array (no id field)", () => {
     const bad = [{ name: "not a document" }];
-    expect(migrateData(bad as any)).toBeNull();
+    expect(migrateData(bad as any)).toEqual([]);
   });
 
   it("extracts documents from object format", () => {
@@ -638,12 +638,12 @@ describe("migrateData edge cases", () => {
     expect(migrateData(stored as any)).toBeNull();
   });
 
-  it("returns null for array of primitives", () => {
-    expect(migrateData([1, 2, 3] as any)).toBeNull();
+  it("returns empty array for array of primitives (corrupted v0 data)", () => {
+    expect(migrateData([1, 2, 3] as any)).toEqual([]);
   });
 
-  it("returns null for array of objects without id field", () => {
-    expect(migrateData([{ name: "foo" }, { name: "bar" }] as any)).toBeNull();
+  it("returns empty array for array of objects without id field (corrupted v0)", () => {
+    expect(migrateData([{ name: "foo" }, { name: "bar" }] as any)).toEqual([]);
   });
 
   it("accepts array where first element has id field", () => {

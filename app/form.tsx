@@ -195,7 +195,9 @@ export default function FormScreen() {
       const y = parseLocalDate(due).getFullYear();
       if (y < 2000 || y > 2099) e.due = t(language, 'val_date_invalid');
     }
-    if (amt.trim() && (isNaN(Number(amt)) || Number(amt) < 0 || Number(amt) > 999_999_999 || !/^\d{1,9}(\.\d{1,2})?$/.test(amt.trim()))) e.amt = t(language, 'val_amount_positive');
+    const normalizedAmt = amt.trim().replace(',', '.');
+    const amtNum = Number(normalizedAmt);
+    if (normalizedAmt && (isNaN(amtNum) || amtNum < 0 || amtNum > 999_999_999 || !/^\d{1,9}(\.\d{1,2})?$/.test(normalizedAmt))) e.amt = t(language, 'val_amount_positive');
     setErrors(e);
     if (Object.keys(e).length > 0) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
@@ -215,7 +217,7 @@ export default function FormScreen() {
     const docData: Omit<RawDocument, 'id'> = {
       cat, type: finalType, title: title.trim(),
       asset: asset.trim() || undefined, due,
-      amt: amt.trim() ? Number(amt) : null, rec,
+      amt: amt.trim() ? Number(amt.trim().replace(',', '.')) : null, rec,
       notes: notes.trim() || undefined,
       attachments: attachments.length > 0 ? attachments : undefined,
     };

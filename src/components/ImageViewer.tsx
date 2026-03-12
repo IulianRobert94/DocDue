@@ -120,6 +120,7 @@ export function ImageViewer({ visible, uri, onClose }: ImageViewerProps) {
       animationType="fade"
       onRequestClose={handleClose}
       statusBarTranslucent
+      accessibilityViewIsModal
     >
       <View style={styles.overlay}>
         <StatusBar barStyle="light-content" />

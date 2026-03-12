@@ -78,7 +78,7 @@ function persistDocs(documents: RawDocument[]) {
     .catch((e) => {
       if (__DEV__) console.warn("DocDue: persist error", e);
       // Revert in-memory state to last successfully persisted version
-      if (_lastPersistedDocs) {
+      if (_lastPersistedDocs !== null) {
         useDocumentStore.setState({ documents: _lastPersistedDocs });
       }
       Alert.alert(t(lang, "save_error_title"), t(lang, "save_error_msg"));
@@ -159,8 +159,14 @@ export const useDocumentStore = create<DocumentsState>()((set, get) => ({
         }
       }
       if (raw) {
-        const parsed = JSON.parse(raw);
-        const migrated = migrateData(parsed);
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(raw);
+        } catch {
+          if (__DEV__) console.warn("DocDue: corrupted JSON in AsyncStorage, resetting");
+          parsed = null;
+        }
+        const migrated = migrateData(parsed as Parameters<typeof migrateData>[0]);
         if (migrated) {
           // migrated can be [] (user deleted all docs) — that's valid
           _lastPersistedDocs = migrated;

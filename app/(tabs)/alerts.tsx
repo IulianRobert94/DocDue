@@ -51,6 +51,9 @@ export default function AlertsScreen() {
         sections={sections}
         stickySectionHeadersEnabled={false}
         keyExtractor={(item) => item.id}
+        maxToRenderPerBatch={15}
+        windowSize={7}
+        removeClippedSubviews
         ListHeaderComponent={
           <FadeInView delay={0} style={s.titleContainer}>
             <Text style={[s.largeTitle, { color: theme.text }]} accessibilityRole="header">

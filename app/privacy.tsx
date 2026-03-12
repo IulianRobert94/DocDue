@@ -66,7 +66,7 @@ const s = StyleSheet.create({
   backBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 8 },
   largeTitle: { fontSize: 34, fontWeight: '700' },
   subtitle: { fontSize: 13, marginTop: 4 },
-  sectionHeader: { fontSize: 13, fontWeight: '400', textTransform: 'uppercase', paddingHorizontal: 20, paddingBottom: 8, letterSpacing: 0.3 },
-  group: { marginHorizontal: 16, borderRadius: 10, overflow: 'hidden' },
+  sectionHeader: { fontSize: 13, fontWeight: '500', textTransform: 'uppercase', paddingHorizontal: 20, paddingBottom: 8, letterSpacing: 0.5 },
+  group: { marginHorizontal: 16, borderRadius: 12, overflow: 'hidden' },
   bodyText: { fontSize: 15, lineHeight: 22, padding: 16 },
 });

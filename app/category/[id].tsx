@@ -140,6 +140,9 @@ export default function CategoryDetailScreen() {
         sections={sections}
         keyExtractor={(item) => item.id}
         stickySectionHeadersEnabled={false}
+        maxToRenderPerBatch={15}
+        windowSize={7}
+        removeClippedSubviews
         contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
         renderSectionHeader={({ section: { title, status, data } }) => (
           <View style={s.sectionHeader} accessibilityRole="header">

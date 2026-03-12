@@ -797,6 +797,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
 const SUBTYPE_TRANSLATIONS: Record<string, Record<string, string>> = {
   en: {
     // Vehicule
+    "RCA": "Liability insurance (RCA)", "ITP": "Technical inspection (ITP)", "CASCO": "Comprehensive insurance",
     "Rovignetă": "Road vignette", "Impozit auto": "Vehicle tax", "Revizie service": "Service check",
     "Tahograf calibrare": "Tachograph calibration", "Licență transport": "Transport license",
     "Copie conformă": "Certified copy", "Verificare ADR": "ADR inspection",
@@ -807,6 +808,7 @@ const SUBTYPE_TRANSLATIONS: Record<string, Record<string, string>> = {
     "Asigurare facultativă": "Optional insurance", "Contract chirie": "Rental contract",
     "Impozit locuință": "Property tax", "Revizie centrală": "Heating inspection",
     "Verificare gaze": "Gas inspection",
+    "Internet": "Internet", "TV": "TV", "Cloud storage": "Cloud storage", "Hosting": "Hosting",
     // Personal
     "Permis conducere": "Driver's license", "Carte de identitate": "National ID",
     "Pașaport": "Passport", "Atestat profesional": "Professional certificate",
