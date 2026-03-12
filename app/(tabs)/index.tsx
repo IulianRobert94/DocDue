@@ -73,8 +73,7 @@ export default function HomeScreen() {
     AsyncStorage.getItem("dt_demo_dismissed").then((val) => {
       if (!val && enriched.length > 0) {
         // Check if first doc looks like demo (has demo-style titles)
-        const firstTitle = enriched[0]?.title || "";
-        const hasDemo = firstTitle.includes("Dacia Duster") || firstTitle.includes("Car Insurance");
+        const hasDemo = enriched.some((d) => d.id.startsWith("demo_"));
         setShowDemoBanner(hasDemo);
       }
     }).catch(() => {});

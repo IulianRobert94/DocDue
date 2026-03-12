@@ -76,13 +76,16 @@ export default function DocumentDetailScreen() {
     );
   };
 
+  const markingRef = useRef(false);
   const handleMarkPaid = () => {
+    if (markingRef.current) return;
+    markingRef.current = true;
     const isRecurring = doc.rec !== 'none';
     Alert.alert(
       t(language, isRecurring ? 'confirm_paid_title' : 'confirm_resolved_title'),
       t(language, isRecurring ? 'confirm_paid_msg' : 'confirm_resolved_msg'),
       [
-        { text: t(language, 'confirm_cancel'), style: 'cancel' },
+        { text: t(language, 'confirm_cancel'), style: 'cancel', onPress: () => { markingRef.current = false; } },
         {
           text: t(language, isRecurring ? 'confirm_paid_btn' : 'confirm_resolved_btn'),
           onPress: () => {
@@ -95,9 +98,11 @@ export default function DocumentDetailScreen() {
               // "not found" flashing behind the congrats overlay
               router.back();
             }
+            markingRef.current = false;
           },
         },
-      ]
+      ],
+      { cancelable: true, onDismiss: () => { markingRef.current = false; } }
     );
   };
 

@@ -29,6 +29,7 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
   const [locked, setLocked] = useState(biometricEnabled);
   const [failed, setFailed] = useState(false);
   const [failCount, setFailCount] = useState(0);
+  const [lockoutSeconds, setLockoutSeconds] = useState(0);
   const lockoutRound = useRef(0);
   const backgroundTime = useRef<number>(0);
   const appState = useRef(AppState.currentState);
@@ -36,12 +37,11 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
   const authenticate = useCallback(async () => {
     setFailed(false);
     try {
-      // Check what biometric types are available
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: t(language, "biometric_unlock"),
-        fallbackLabel: t(language, "biometric_retry"),
+        fallbackLabel: t(language, "biometric_use_passcode"),
         cancelLabel: t(language, "confirm_cancel"),
-        // On iOS, allow device passcode as fallback if biometric fails
+        // Allow device passcode as fallback on both platforms
         disableDeviceFallback: false,
       });
       if (result.success) {
@@ -96,19 +96,40 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
     }
   }, [biometricEnabled]);
 
-  // Escalating lockout: 30s → 60s → 5min (then stays at 5min)
+  // Escalating lockout: 30s → 60s → 5min with visible countdown
   useEffect(() => {
     if (failCount >= MAX_ATTEMPTS) {
-      const duration = LOCKOUT_DURATIONS[Math.min(lockoutRound.current, LOCKOUT_DURATIONS.length - 1)];
+      const durationMs = LOCKOUT_DURATIONS[Math.min(lockoutRound.current, LOCKOUT_DURATIONS.length - 1)];
       lockoutRound.current++;
-      const timer = setTimeout(() => setFailCount(0), duration);
-      return () => clearTimeout(timer);
+      setLockoutSeconds(Math.round(durationMs / 1000));
+
+      // Countdown timer
+      const interval = setInterval(() => {
+        setLockoutSeconds((prev) => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            setFailCount(0);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      return () => clearInterval(interval);
     }
   }, [failCount]);
 
   if (!locked) {
     return <>{children}</>;
   }
+
+  const formatLockoutTime = (seconds: number): string => {
+    if (seconds >= 60) {
+      const min = Math.ceil(seconds / 60);
+      return language === "ro" ? `${min} min` : `${min} min`;
+    }
+    return language === "ro" ? `${seconds}s` : `${seconds}s`;
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -129,7 +150,7 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
         )}
         {failCount >= MAX_ATTEMPTS ? (
           <Text style={styles.failedText}>
-            {t(language, "biometric_locked_out")}
+            {t(language, "biometric_locked_out_dynamic", { time: formatLockoutTime(lockoutSeconds) })}
           </Text>
         ) : (
           <AnimatedPressable
