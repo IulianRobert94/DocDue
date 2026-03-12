@@ -317,7 +317,7 @@ export default function FormScreen() {
                     maxLength={150}
                     accessibilityLabel={t(language, 'form_title')} />
                 </View>
-                {errors.title ? <Text style={s.errorText}>{errors.title}</Text> : null}
+                {errors.title ? <Text style={s.errorText} accessibilityLiveRegion="polite" accessibilityRole="alert">{errors.title}</Text> : null}
                 <View style={s.dividerWrap}><View style={[s.divider, { backgroundColor: theme.divider }]} /></View>
 
                 <View style={s.inputRow}>
@@ -354,7 +354,7 @@ export default function FormScreen() {
                     />
                   </View>
                 )}
-                {errors.due ? <Text style={s.errorText}>{errors.due}</Text> : null}
+                {errors.due ? <Text style={s.errorText} accessibilityLiveRegion="polite" accessibilityRole="alert">{errors.due}</Text> : null}
                 <View style={s.dividerWrap}><View style={[s.divider, { backgroundColor: theme.divider }]} /></View>
 
                 <View style={s.inputRow}>
@@ -369,7 +369,7 @@ export default function FormScreen() {
                     <Text style={{ fontSize: 15, color: theme.textMuted, marginLeft: 6 }}>{currency}</Text>
                   )}
                 </View>
-                {errors.amt ? <Text style={s.errorText}>{errors.amt}</Text> : null}
+                {errors.amt ? <Text style={s.errorText} accessibilityLiveRegion="polite" accessibilityRole="alert">{errors.amt}</Text> : null}
                 <View style={s.dividerWrap}><View style={[s.divider, { backgroundColor: theme.divider }]} /></View>
 
                 {/* Recurrence — label + SegmentedControl stacked */}

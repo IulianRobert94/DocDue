@@ -80,7 +80,9 @@ export function extractDate(text: string): string | null {
 
     // Validate ranges
     const currentYear = new Date().getFullYear();
-    if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= currentYear - 5 && year <= currentYear + 30) {
+    // Validate day range per month (accounts for leap years)
+    const maxDay = new Date(year, month, 0).getDate();
+    if (month >= 1 && month <= 12 && day >= 1 && day <= maxDay && year >= currentYear - 5 && year <= currentYear + 30) {
       const mm = String(month).padStart(2, "0");
       const dd = String(day).padStart(2, "0");
       matches.push({ date: `${year}-${mm}-${dd}`, original: match[0] });

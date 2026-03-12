@@ -53,7 +53,7 @@ export default function DocumentDetailScreen() {
         <View style={{ paddingTop: insets.top + 16, alignItems: 'center', paddingVertical: 80 }}>
           <Ionicons name="document-outline" size={40} color={theme.textDim} style={{ marginBottom: 12 }} />
           <Text style={[s.emptyText, { color: theme.textMuted }]}>{t(language, 'doc_not_found')}</Text>
-          <AnimatedPressable onPress={() => router.back()} style={{ marginTop: 20 }}>
+          <AnimatedPressable onPress={() => router.back()} style={{ marginTop: 20 }} accessibilityLabel={t(language, 'btn_close')}>
             <Text style={{ color: '#007AFF', fontSize: 17 }}>{t(language, 'btn_close')}</Text>
           </AnimatedPressable>
         </View>
@@ -203,7 +203,7 @@ export default function DocumentDetailScreen() {
                     accessibilityLabel={t(language, 'open_file')}
                   >
                     {att.type === 'image' ? (
-                      <Image source={{ uri: att.uri }} style={s.attachThumb} />
+                      <Image source={{ uri: att.uri }} style={s.attachThumb} accessibilityLabel={att.name} />
                     ) : (
                       <View style={[s.attachThumb, s.attachFile, { backgroundColor: theme.inputFill }]}>
                         <Ionicons name="document-text" size={28} color="#FF3B30" />

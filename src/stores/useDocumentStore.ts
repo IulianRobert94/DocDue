@@ -109,6 +109,8 @@ async function doReschedule(documents: RawDocument[], attempt = 1) {
       if (__DEV__) console.warn("DocDue: notification reschedule error", e);
       if (attempt < 3) {
         setTimeout(() => doReschedule(documents, attempt + 1), attempt * 2000);
+      } else if (__DEV__) {
+        console.warn("DocDue: notification reschedule failed after 3 attempts — notifications may be stale");
       }
     }
   }

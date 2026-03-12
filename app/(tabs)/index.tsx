@@ -262,6 +262,7 @@ export default function HomeScreen() {
                     {hasAlert && (
                       <View
                         style={[styles.alertDot, { backgroundColor: catStat.expired > 0 ? "#FF3B30" : "#FF9500" }]}
+                        accessibilityLabel={catStat.expired > 0 ? `${catStat.expired} ${t(lang, "status_expired")}` : `${catStat.warning} ${t(lang, "status_warning")}`}
                       />
                     )}
                   </View>
@@ -450,7 +451,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingRight: 20,
   },
-  seeAll: { color: "#007AFF", fontSize: 15 },
+  seeAll: { color: "#007AFF", fontSize: 15, fontWeight: "500" },
 
   // Compact doc row (single line per doc)
   docRow: {

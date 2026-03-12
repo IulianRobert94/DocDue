@@ -119,65 +119,69 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
     }
   }, [failCount]);
 
-  if (!locked) {
-    return <>{children}</>;
-  }
-
   const formatLockoutTime = (seconds: number): string => {
     if (seconds >= 60) {
       const min = Math.ceil(seconds / 60);
-      return language === "ro" ? `${min} min` : `${min} min`;
+      return `${min} min`;
     }
-    return language === "ro" ? `${seconds}s` : `${seconds}s`;
+    return `${seconds}s`;
   };
 
+  // Always render children to preserve navigation state.
+  // Lock screen is an absolute overlay on top.
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <View style={styles.content}>
-        <View style={[styles.iconCircle, { backgroundColor: "rgba(0,122,255,0.15)" }]}>
-          <Ionicons name="lock-closed" size={44} color="#007AFF" />
+    <View style={{ flex: 1 }}>
+      {children}
+      {locked && (
+        <View style={[styles.overlay, { backgroundColor: theme.background }]}>
+          <View style={styles.content}>
+            <View style={[styles.iconCircle, { backgroundColor: "rgba(0,122,255,0.15)" }]}>
+              <Ionicons name="lock-closed" size={44} color="#007AFF" />
+            </View>
+            <Text style={[styles.title, { color: theme.text }]}>
+              DocDue
+            </Text>
+            <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
+              {t(language, "biometric_unlock")}
+            </Text>
+            {failed && failCount < MAX_ATTEMPTS && (
+              <Text style={styles.failedText}>
+                {t(language, "biometric_failed")}
+              </Text>
+            )}
+            {failCount >= MAX_ATTEMPTS ? (
+              <Text style={styles.failedText}>
+                {t(language, "biometric_locked_out_dynamic", { time: formatLockoutTime(lockoutSeconds) })}
+              </Text>
+            ) : (
+              <AnimatedPressable
+                style={styles.retryBtn}
+                onPress={authenticate}
+                hapticStyle="medium"
+                accessibilityLabel={t(language, "biometric_retry")}
+              >
+                <Ionicons
+                  name={Platform.OS === "ios" ? "scan" : "finger-print"}
+                  size={20}
+                  color="#FFF"
+                  style={{ marginRight: 8 }}
+                />
+                <Text style={styles.retryText}>{t(language, "biometric_retry")}</Text>
+              </AnimatedPressable>
+            )}
+          </View>
         </View>
-        <Text style={[styles.title, { color: theme.text }]}>
-          DocDue
-        </Text>
-        <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
-          {t(language, "biometric_unlock")}
-        </Text>
-        {failed && failCount < MAX_ATTEMPTS && (
-          <Text style={styles.failedText}>
-            {t(language, "biometric_failed")}
-          </Text>
-        )}
-        {failCount >= MAX_ATTEMPTS ? (
-          <Text style={styles.failedText}>
-            {t(language, "biometric_locked_out_dynamic", { time: formatLockoutTime(lockoutSeconds) })}
-          </Text>
-        ) : (
-          <AnimatedPressable
-            style={styles.retryBtn}
-            onPress={authenticate}
-            hapticStyle="medium"
-            accessibilityLabel={t(language, "biometric_retry")}
-          >
-            <Ionicons
-              name={Platform.OS === "ios" ? "scan" : "finger-print"}
-              size={20}
-              color="#FFF"
-              style={{ marginRight: 8 }}
-            />
-            <Text style={styles.retryText}>{t(language, "biometric_retry")}</Text>
-          </AnimatedPressable>
-        )}
-      </View>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
     justifyContent: "center",
     alignItems: "center",
+    zIndex: 999,
   },
   content: {
     alignItems: "center",
