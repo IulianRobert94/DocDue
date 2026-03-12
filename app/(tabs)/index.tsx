@@ -34,7 +34,7 @@ import { t } from "../../src/core/i18n";
 import { CATEGORIES, QUICK_PREVIEW_LIMIT } from "../../src/core/constants";
 import type { CategoryId, IconName } from "../../src/core/constants";
 import { formatDaysRemaining, getCategoryLabel } from "../../src/core/formatters";
-import { AnimatedPressable, AnimatedSection } from "../../src/components/AnimatedUI";
+import { AnimatedPressable, AnimatedSection, AnimatedCounter, AnimatedBar } from "../../src/components/AnimatedUI";
 import { calculateHealthScore, getHealthScoreColor } from "../../src/core/healthScore";
 
 const COLLAPSE_START = 30;
@@ -65,6 +65,20 @@ export default function HomeScreen() {
     () => calculateHealthScore(enriched),
     [enriched]
   );
+
+  // Floating animation for empty state icon
+  const floatAnim = useRef(new RNAnimated.Value(0)).current;
+  useEffect(() => {
+    if (enriched.length > 0) return;
+    const anim = RNAnimated.loop(
+      RNAnimated.sequence([
+        RNAnimated.timing(floatAnim, { toValue: -8, duration: 1500, useNativeDriver: true }),
+        RNAnimated.timing(floatAnim, { toValue: 0, duration: 1500, useNativeDriver: true }),
+      ])
+    );
+    anim.start();
+    return () => anim.stop();
+  }, [enriched.length === 0]);
 
   // Demo banner — show only when demo data is present and not dismissed
   const clearAll = useDocumentStore((s) => s.clearAll);
@@ -211,9 +225,7 @@ export default function HomeScreen() {
               accessibilityLabel={t(lang, "a11y_health_score", { score: healthScore })}
             >
               <View style={[styles.scoreCard, { backgroundColor: theme.card }]}>
-                <Text style={[styles.scoreNumber, { color: getHealthScoreColor(healthScore) }]}>
-                  {healthScore}
-                </Text>
+                <AnimatedCounter value={healthScore} style={[styles.scoreNumber, { color: getHealthScoreColor(healthScore) }]} />
                 <View style={styles.scoreBarWrap}>
                   <View style={styles.scoreLabelRow}>
                     <Text style={[styles.scoreLabel, { color: theme.textSecondary }]}>
@@ -228,7 +240,7 @@ export default function HomeScreen() {
                     )}
                   </View>
                   <View style={[styles.scoreTrack, { backgroundColor: theme.border }]}>
-                    <View style={[styles.scoreFill, { width: `${healthScore}%`, backgroundColor: getHealthScoreColor(healthScore) }]} />
+                    <AnimatedBar percentage={healthScore} color={getHealthScoreColor(healthScore)} style={styles.scoreFill} />
                   </View>
                 </View>
                 <Ionicons name="chevron-forward" size={14} color={theme.textDim} />
@@ -330,9 +342,9 @@ export default function HomeScreen() {
         {/* ─── Empty State ──────────────────────────── */}
         {enriched.length === 0 && (
           <AnimatedSection index={1} style={styles.emptyState}>
-            <View style={styles.emptyIconWrap}>
+            <RNAnimated.View style={[styles.emptyIconWrap, { transform: [{ translateY: floatAnim }] }]}>
               <Ionicons name="documents-outline" size={44} color={theme.textDim} />
-            </View>
+            </RNAnimated.View>
             <Text style={[styles.emptyTitle, { color: theme.text }]}>
               {t(lang, "home_welcome")}
             </Text>

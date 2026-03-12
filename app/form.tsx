@@ -8,7 +8,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TextInput, Alert,
   Platform, Keyboard, InputAccessoryView, BackHandler,
-  ActivityIndicator, Modal, KeyboardAvoidingView,
+  ActivityIndicator, Modal, KeyboardAvoidingView, Animated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -83,6 +83,9 @@ export default function FormScreen() {
   const [attachments, setAttachments] = useState<Attachment[]>(existingDoc?.attachments || []);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const successScale = useRef(new Animated.Value(0)).current;
+  const successOpacity = useRef(new Animated.Value(0)).current;
   const [recAutoSet, setRecAutoSet] = useState(false);
   const recAutoSetTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [showTypePicker, setShowTypePicker] = useState(false);
@@ -246,8 +249,16 @@ export default function FormScreen() {
       } else {
         addDocument(docData);
       }
-      router.back();
-    } finally {
+      // Show success animation then navigate back
+      setShowSuccess(true);
+      successScale.setValue(0);
+      successOpacity.setValue(1);
+      Animated.sequence([
+        Animated.spring(successScale, { toValue: 1, speed: 12, bounciness: 8, useNativeDriver: true }),
+        Animated.delay(400),
+        Animated.timing(successOpacity, { toValue: 0, duration: 200, useNativeDriver: true }),
+      ]).start(() => router.back());
+    } catch {
       savingRef.current = false;
       setSaving(false);
     }
@@ -619,6 +630,14 @@ export default function FormScreen() {
             </View>
           </InputAccessoryView>
         )}
+      {/* Success overlay */}
+      {showSuccess && (
+        <Animated.View style={[s.successOverlay, { opacity: successOpacity }]} pointerEvents="none">
+          <Animated.View style={[s.successCircle, { transform: [{ scale: successScale }] }]}>
+            <Ionicons name="checkmark" size={44} color="#FFF" />
+          </Animated.View>
+        </Animated.View>
+      )}
       </KeyboardAvoidingView>
   );
 }
@@ -674,5 +693,20 @@ const s = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 17,
     fontWeight: '600',
+  },
+  successOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(10,14,23,0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 100,
+  },
+  successCircle: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: '#34C759',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

@@ -9,7 +9,7 @@
  */
 
 import React, { useCallback, useEffect, useRef } from "react";
-import { Pressable, Animated, ViewStyle, StyleProp, Easing } from "react-native";
+import { Pressable, Animated, ViewStyle, StyleProp, Easing, Text, TextStyle } from "react-native";
 import * as Haptics from "expo-haptics";
 
 // ─── AnimatedPressable (scale on press) ──────────────
@@ -155,5 +155,94 @@ export function AnimatedSection({ index, children, style }: AnimatedSectionProps
     <FadeInView delay={60 + index * 50} style={style}>
       {children}
     </FadeInView>
+  );
+}
+
+// ─── AnimatedCounter (number counting up) ─────────────
+
+interface AnimatedCounterProps {
+  value: number;
+  duration?: number;
+  delay?: number;
+  style?: StyleProp<TextStyle>;
+}
+
+export function AnimatedCounter({ value, duration = 800, delay = 200, style }: AnimatedCounterProps) {
+  const anim = useRef(new Animated.Value(0)).current;
+  const displayRef = useRef<Text>(null);
+  const valueRef = useRef(value);
+  valueRef.current = value;
+
+  useEffect(() => {
+    anim.setValue(0);
+    const timer = setTimeout(() => {
+      Animated.timing(anim, {
+        toValue: value,
+        duration,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: false,
+      }).start();
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [value]);
+
+  const animValue = anim.interpolate({
+    inputRange: [0, value || 1],
+    outputRange: [0, value || 1],
+    extrapolate: "clamp",
+  });
+
+  return (
+    <AnimatedText style={style} animValue={animValue} />
+  );
+}
+
+// Helper to avoid re-render on every frame
+function AnimatedText({ style, animValue }: { style?: StyleProp<TextStyle>; animValue: Animated.AnimatedInterpolation<number> }) {
+  const textRef = useRef<Text>(null);
+
+  useEffect(() => {
+    const id = animValue.addListener(({ value }) => {
+      textRef.current?.setNativeProps({ text: String(Math.round(value)) });
+    });
+    return () => animValue.removeListener(id);
+  }, [animValue]);
+
+  return <Animated.Text ref={textRef as any} style={style}>0</Animated.Text>;
+}
+
+// ─── AnimatedBar (width animates from 0%) ─────────────
+
+interface AnimatedBarProps {
+  percentage: number;
+  color: string;
+  delay?: number;
+  style?: StyleProp<ViewStyle>;
+}
+
+export function AnimatedBar({ percentage, color, delay = 300, style }: AnimatedBarProps) {
+  const width = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    width.setValue(0);
+    const timer = setTimeout(() => {
+      Animated.spring(width, {
+        toValue: percentage,
+        useNativeDriver: false,
+        speed: 8,
+        bounciness: 3,
+      }).start();
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [percentage]);
+
+  const animWidth = width.interpolate({
+    inputRange: [0, 100],
+    outputRange: ["0%", "100%"],
+    extrapolate: "clamp",
+  });
+
+  return (
+    <Animated.View style={[{ width: animWidth, backgroundColor: color }, style]} />
   );
 }

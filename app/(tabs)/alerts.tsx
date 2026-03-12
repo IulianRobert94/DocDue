@@ -85,7 +85,7 @@ export default function AlertsScreen() {
           const category = CATEGORIES[item.cat] ?? CATEGORIES.vehicule;
 
           return (
-            <View style={{ marginHorizontal: 16 }}>
+            <FadeInView delay={index * 40} style={{ marginHorizontal: 16 }}>
               <SwipeableRow
                 onDelete={() => deleteDocument(item.id)}
                 confirmTitle={t(language, 'confirm_delete_title')}
@@ -143,7 +143,7 @@ export default function AlertsScreen() {
                   )}
                 </AnimatedPressable>
               </SwipeableRow>
-            </View>
+            </FadeInView>
           );
         }}
         ListEmptyComponent={

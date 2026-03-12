@@ -258,6 +258,7 @@ export default function SearchScreen() {
           const category = CATEGORIES[item.cat] ?? CATEGORIES.vehicule;
 
           return (
+            <FadeInView delay={index * 40}>
             <SwipeableRow
               onDelete={() => deleteDocument(item.id)}
               confirmTitle={t(language, 'confirm_delete_title')}
@@ -301,6 +302,7 @@ export default function SearchScreen() {
                 {!isLast && <View style={{ position: 'absolute', bottom: 0, left: 56, right: 0, height: StyleSheet.hairlineWidth, backgroundColor: theme.divider }} />}
               </AnimatedPressable>
             </SwipeableRow>
+            </FadeInView>
           );
         }}
         ListEmptyComponent={
