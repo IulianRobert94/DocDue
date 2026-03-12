@@ -201,7 +201,7 @@ export function AttachmentPicker({
           {attachments.map((att) => (
             <View key={att.id} style={styles.thumbnailWrap}>
               {att.type === "image" ? (
-                <Image source={{ uri: att.uri }} style={styles.thumbnail} accessibilityLabel={att.name} />
+                <Image source={{ uri: att.uri }} style={styles.thumbnail} accessibilityLabel={att.name} accessibilityRole="image" />
               ) : (
                 <View style={[styles.thumbnail, styles.fileThumbnail, { backgroundColor: theme.inputFill }]} accessibilityLabel={att.name}>
                   <Ionicons

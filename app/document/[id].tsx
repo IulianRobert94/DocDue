@@ -203,7 +203,7 @@ export default function DocumentDetailScreen() {
                     accessibilityLabel={t(language, 'open_file')}
                   >
                     {att.type === 'image' ? (
-                      <Image source={{ uri: att.uri }} style={s.attachThumb} accessibilityLabel={att.name} onError={() => {}} />
+                      <Image source={{ uri: att.uri }} style={s.attachThumb} accessibilityLabel={att.name} accessibilityRole="image" onError={() => {}} />
                     ) : (
                       <View style={[s.attachThumb, s.attachFile, { backgroundColor: theme.inputFill }]}>
                         <Ionicons name="document-text" size={28} color="#FF3B30" />

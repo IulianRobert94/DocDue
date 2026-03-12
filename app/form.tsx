@@ -4,7 +4,7 @@
  * Sticky bottom save bar + header cancel/save
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TextInput, Alert,
   Platform, Keyboard, InputAccessoryView, BackHandler,
@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
-import { useTheme, useLanguage, useCurrency } from '../src/stores/useSettingsStore';
+import { useTheme, useLanguage, useCurrency, useSettingsStore } from '../src/stores/useSettingsStore';
 import { useDocumentStore, useEnrichedDocument } from '../src/stores/useDocumentStore';
 import { t, translateSubtype } from '../src/core/i18n';
 import { parseLocalDate } from '../src/core/dateUtils';
@@ -57,6 +57,8 @@ export default function FormScreen() {
   const existingDoc = useEnrichedDocument(editId);
   const addDocument = useDocumentStore((s) => s.addDocument);
   const updateDocument = useDocumentStore((s) => s.updateDocument);
+  const customSubtypes = useSettingsStore((s) => s.settings.customSubtypes);
+  const updateSetting = useSettingsStore((s) => s.updateSetting);
 
   const isEdit = !!editId;
 
@@ -66,8 +68,10 @@ export default function FormScreen() {
   const todayStr = dateToString(new Date());
 
   const [cat, setCat] = useState<CategoryId>(existingDoc?.cat || (catParam as CategoryId) || 'vehicule');
-  const initSubtypes = CATEGORIES[existingDoc?.cat || (catParam as CategoryId) || 'vehicule']?.subtypes || [];
-  const isCustomType = existingDoc?.type ? !initSubtypes.includes(existingDoc.type) : false;
+  const initCat = existingDoc?.cat || (catParam as CategoryId) || 'vehicule';
+  const initSubtypes = CATEGORIES[initCat]?.subtypes || [];
+  const initCustom = customSubtypes?.[initCat] || [];
+  const isCustomType = existingDoc?.type ? !initSubtypes.includes(existingDoc.type) && !initCustom.includes(existingDoc.type) : false;
   const [type, setType] = useState<string>(isCustomType ? 'Altele' : (existingDoc?.type || ''));
   const [customType, setCustomType] = useState<string>(isCustomType ? (existingDoc?.type || '') : '');
   const [title, setTitle] = useState<string>(existingDoc?.title || '');
@@ -100,7 +104,14 @@ export default function FormScreen() {
   );
 
   const category = CATEGORIES[cat];
-  const subtypes = category?.subtypes || [];
+  const presetSubtypes = category?.subtypes || [];
+  // Merge custom subtypes before "Altele" (Other)
+  const savedCustom = customSubtypes?.[cat] || [];
+  const subtypes = useMemo(() => {
+    const withoutAltele = presetSubtypes.filter((s) => s !== 'Altele');
+    const uniqueCustom = savedCustom.filter((c) => !withoutAltele.includes(c));
+    return [...withoutAltele, ...uniqueCustom, 'Altele'];
+  }, [presetSubtypes, savedCustom]);
 
   // Check if user has entered any data (to warn before discarding)
   const hasUnsavedData = isEdit
@@ -153,6 +164,7 @@ export default function FormScreen() {
   }, [cat]);
 
   const handleDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
+    Keyboard.dismiss();
     if (Platform.OS === 'android' && event.type === 'set') {
       setShowDatePicker(false);
     }
@@ -214,6 +226,13 @@ export default function FormScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     const sanitizedCustomType = customType.trim().replace(/[^\p{L}\p{N}\s\-.,()]/gu, '').trim();
     const finalType = type === 'Altele' ? (sanitizedCustomType || 'Altele') : (type || subtypes[0] || '');
+    // Auto-save new custom subtype for future use
+    if (type === 'Altele' && sanitizedCustomType && sanitizedCustomType !== 'Altele') {
+      const existing = customSubtypes?.[cat] || [];
+      if (!existing.includes(sanitizedCustomType) && !presetSubtypes.includes(sanitizedCustomType)) {
+        updateSetting('customSubtypes', { ...customSubtypes, [cat]: [...existing, sanitizedCustomType] });
+      }
+    }
     const docData: Omit<RawDocument, 'id'> = {
       cat, type: finalType, title: title.trim(),
       asset: asset.trim() || undefined, due,
@@ -317,7 +336,8 @@ export default function FormScreen() {
                     placeholder={t(language, 'form_title_placeholder')} placeholderTextColor={theme.textDim}
                     returnKeyType="done" onSubmitEditing={Keyboard.dismiss}
                     maxLength={150}
-                    accessibilityLabel={t(language, 'form_title')} />
+                    accessibilityLabel={t(language, 'form_title')}
+                    aria-invalid={!!errors.title} />
                 </View>
                 {errors.title ? <Text style={s.errorText} accessibilityLiveRegion="polite" accessibilityRole="alert">{errors.title}</Text> : null}
                 <View style={s.dividerWrap}><View style={[s.divider, { backgroundColor: theme.divider }]} /></View>
@@ -326,7 +346,7 @@ export default function FormScreen() {
                   <Text style={[s.inputLabel, { color: theme.textSecondary }]}>{t(language, 'form_asset')}</Text>
                   <TextInput style={[s.inputField, { color: theme.text }]} value={asset} onChangeText={setAsset}
                     placeholder={t(language, 'form_asset_placeholder')} placeholderTextColor={theme.textDim}
-                    returnKeyType="done" onSubmitEditing={Keyboard.dismiss}
+                    returnKeyType="next" onSubmitEditing={Keyboard.dismiss}
                     maxLength={100}
                     accessibilityLabel={t(language, 'form_asset')} />
                 </View>
@@ -342,7 +362,8 @@ export default function FormScreen() {
                 {showDatePicker && (
                   <View style={s.datePickerContainer}>
                     <View style={s.datePickerHeader}>
-                      <AnimatedPressable onPress={() => setShowDatePicker(false)} haptic={false}>
+                      <AnimatedPressable onPress={() => setShowDatePicker(false)} haptic={false}
+                        accessibilityLabel={t(language, 'form_done')} accessibilityRole="button">
                         <Text style={s.doneText}>{t(language, 'form_done')}</Text>
                       </AnimatedPressable>
                     </View>
@@ -364,9 +385,10 @@ export default function FormScreen() {
                   <TextInput style={[s.inputField, { color: theme.text }]} value={amt}
                     onChangeText={(v) => { setAmt(v); clearError('amt'); }}
                     placeholder="0" placeholderTextColor={theme.textDim} keyboardType="decimal-pad"
-                    maxLength={12}
+                    returnKeyType="done" maxLength={12}
                     inputAccessoryViewID={Platform.OS === 'ios' ? 'amtKeyboardDone' : undefined}
-                    accessibilityLabel={t(language, 'form_amount')} />
+                    accessibilityLabel={t(language, 'form_amount')}
+                    aria-invalid={!!errors.amt} />
                   {amt.trim().length > 0 && (
                     <Text style={{ fontSize: 15, color: theme.textMuted, marginLeft: 6 }}>{currency}</Text>
                   )}
@@ -403,14 +425,16 @@ export default function FormScreen() {
               transparent
               onRequestClose={() => setShowTypePicker(false)}
               statusBarTranslucent
+              accessibilityViewIsModal
             >
               <View style={[s.pickerOverlay, { backgroundColor: theme.background }]}>
                 {/* Modal header */}
                 <View style={[s.pickerHeader, { paddingTop: insets.top + 8 }]}>
-                  <AnimatedPressable onPress={() => setShowTypePicker(false)} haptic={false}>
+                  <AnimatedPressable onPress={() => setShowTypePicker(false)} haptic={false}
+                    accessibilityLabel={t(language, 'confirm_cancel')} accessibilityRole="button">
                     <Text style={s.cancelText}>{t(language, 'confirm_cancel')}</Text>
                   </AnimatedPressable>
-                  <Text style={[s.pickerTitle, { color: theme.text }]}>{t(language, 'form_type')}</Text>
+                  <Text style={[s.pickerTitle, { color: theme.text }]} accessibilityRole="header">{t(language, 'form_type')}</Text>
                   <View style={{ width: 60 }} />
                 </View>
 
@@ -424,9 +448,11 @@ export default function FormScreen() {
                     placeholder={t(language, 'form_search_type')}
                     placeholderTextColor={theme.textDim}
                     returnKeyType="done"
+                    accessibilityLabel={t(language, 'form_search_type')}
                   />
                   {typeSearch.length > 0 && (
-                    <AnimatedPressable onPress={() => setTypeSearch('')} haptic={false}>
+                    <AnimatedPressable onPress={() => setTypeSearch('')} haptic={false}
+                      accessibilityLabel={t(language, 'a11y_clear_search')} accessibilityRole="button">
                       <Ionicons name="close-circle" size={18} color={theme.textMuted} />
                     </AnimatedPressable>
                   )}
@@ -456,11 +482,36 @@ export default function FormScreen() {
                           accessibilityLabel={t(language, 'a11y_select_type', { name: translateSubtype(sub, language) })}
                           accessibilityState={{ selected: type === sub }}
                         >
-                          <Text style={[s.pickerRowText, { color: theme.text }]}>
+                          <Text style={[s.pickerRowText, { color: theme.text, flex: 1 }]}>
                             {translateSubtype(sub, language)}
                           </Text>
                           {type === sub && (
                             <Ionicons name="checkmark" size={20} color="#007AFF" />
+                          )}
+                          {savedCustom.includes(sub) && (
+                            <AnimatedPressable
+                              onPress={() => {
+                                Alert.alert(
+                                  t(language, 'confirm_delete_type_title'),
+                                  t(language, 'confirm_delete_type_msg', { name: sub }),
+                                  [
+                                    { text: t(language, 'confirm_cancel'), style: 'cancel' },
+                                    { text: t(language, 'confirm_delete_btn'), style: 'destructive', onPress: () => {
+                                      const updated = savedCustom.filter((c) => c !== sub);
+                                      updateSetting('customSubtypes', { ...customSubtypes, [cat]: updated });
+                                      if (type === sub) { setType(''); setCustomType(''); }
+                                    }},
+                                  ]
+                                );
+                              }}
+                              haptic={false}
+                              accessibilityLabel={t(language, 'a11y_delete_custom_type', { name: sub })}
+                              accessibilityRole="button"
+                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                              style={{ marginLeft: 12 }}
+                            >
+                              <Ionicons name="close-circle" size={20} color={theme.textMuted} />
+                            </AnimatedPressable>
                           )}
                         </AnimatedPressable>
                         {idx < arr.length - 1 && <RowDivider theme={theme} />}
@@ -481,6 +532,7 @@ export default function FormScreen() {
                         onSubmitEditing={() => setShowTypePicker(false)}
                         maxLength={100}
                         autoFocus
+                        accessibilityLabel={t(language, 'form_custom_type_placeholder')}
                       />
                     </View>
                   )}
@@ -496,7 +548,7 @@ export default function FormScreen() {
               <View style={[s.group, { backgroundColor: theme.card }]}>
                 <TextInput style={[s.notesInput, { color: theme.text }]} value={notes} onChangeText={setNotes}
                   placeholder={t(language, 'form_notes_placeholder')} placeholderTextColor={theme.textDim}
-                  multiline numberOfLines={4} textAlignVertical="top" maxLength={500}
+                  multiline numberOfLines={4} textAlignVertical="top" maxLength={500} returnKeyType="default"
                   onFocus={() => { if (Platform.OS === 'android') setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 300); }}
                   inputAccessoryViewID={Platform.OS === 'ios' ? 'notesKeyboardDone' : undefined}
                   accessibilityLabel={t(language, 'form_notes')} />
@@ -549,7 +601,8 @@ export default function FormScreen() {
           <InputAccessoryView nativeID="notesKeyboardDone">
             <View style={[s.keyboardToolbar, { backgroundColor: theme.card, borderTopColor: theme.divider }]}>
               <View style={{ flex: 1 }} />
-              <AnimatedPressable onPress={Keyboard.dismiss} haptic={false}>
+              <AnimatedPressable onPress={Keyboard.dismiss} haptic={false}
+                accessibilityLabel={t(language, 'form_done')} accessibilityRole="button">
                 <Text style={s.doneText}>{t(language, 'form_done')}</Text>
               </AnimatedPressable>
             </View>
@@ -559,7 +612,8 @@ export default function FormScreen() {
           <InputAccessoryView nativeID="amtKeyboardDone">
             <View style={[s.keyboardToolbar, { backgroundColor: theme.card, borderTopColor: theme.divider }]}>
               <View style={{ flex: 1 }} />
-              <AnimatedPressable onPress={Keyboard.dismiss} haptic={false}>
+              <AnimatedPressable onPress={Keyboard.dismiss} haptic={false}
+                accessibilityLabel={t(language, 'form_done')} accessibilityRole="button">
                 <Text style={s.doneText}>{t(language, 'form_done')}</Text>
               </AnimatedPressable>
             </View>

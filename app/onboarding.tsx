@@ -159,7 +159,9 @@ export default function OnboardingScreen() {
   return (
     <View style={[s.container, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20, backgroundColor: theme.background }]}>
       {!isLastSlide && (
-        <AnimatedPressable onPress={handleSkip} style={[s.skipBtn, { top: insets.top + 8 }]} haptic={false}>
+        <AnimatedPressable onPress={handleSkip} style={[s.skipBtn, { top: insets.top + 8 }]} haptic={false}
+          accessibilityLabel={t(lang, 'onboarding_skip')} accessibilityRole="button"
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Text style={[s.skipText, { color: theme.textMuted }]}>{t(lang, 'onboarding_skip')}</Text>
         </AnimatedPressable>
       )}
@@ -189,7 +191,8 @@ export default function OnboardingScreen() {
       </View>
 
       <View style={s.footer}>
-        <AnimatedPressable onPress={handleNext} style={s.nextBtn} scaleValue={0.96} hapticStyle="medium">
+        <AnimatedPressable onPress={handleNext} style={s.nextBtn} scaleValue={0.96} hapticStyle="medium"
+          accessibilityLabel={isLastSlide ? t(lang, 'onboarding_start') : t(lang, 'onboarding_next')} accessibilityRole="button">
           <Text style={s.nextText}>{isLastSlide ? t(lang, 'onboarding_start') : t(lang, 'onboarding_next')}</Text>
           <Ionicons name={isLastSlide ? "checkmark" : "arrow-forward"} size={20} color="#FFF" />
         </AnimatedPressable>

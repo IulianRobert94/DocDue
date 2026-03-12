@@ -395,6 +395,7 @@ describe("useSettingsStore", () => {
         isPremium: false,
         firstOpenDate: null,
         reviewPrompted: false,
+        customSubtypes: { vehicule: [], personal: [], casa: [], financiar: [] },
       },
       _hydrated: true,
     });

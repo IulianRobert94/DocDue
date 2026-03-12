@@ -127,6 +127,7 @@ export interface AppSettings {
   isPremium: boolean;
   firstOpenDate: string | null;
   reviewPrompted: boolean;
+  customSubtypes: Record<CategoryId, string[]>;
 }
 
 // ─── Recurrence Options ─────────────────────────────────
@@ -254,4 +255,5 @@ export const DEFAULT_SETTINGS: AppSettings = {
   isPremium: false,
   firstOpenDate: null,
   reviewPrompted: false,
+  customSubtypes: { vehicule: [], personal: [], casa: [], financiar: [] },
 };

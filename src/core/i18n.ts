@@ -91,6 +91,8 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     confirm_discard_btn: "Renunță",
     confirm_delete_title: "Șterge document",
     confirm_delete_msg: "Sigur vrei să ștergi \"{title}\"? Acțiunea este ireversibilă.",
+    confirm_delete_type_title: "Șterge tip",
+    confirm_delete_type_msg: "Ștergi \"{name}\" din lista de tipuri?",
     confirm_cancel: "Anulează",
     confirm_delete_btn: "Șterge",
     confirm_paid_title: "Marchează ca plătit?",
@@ -354,6 +356,8 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     // ImageViewer
     a11y_close_image: "Închide previzualizarea",
     a11y_image_preview: "Previzualizare atașament",
+    a11y_clear_search: "Șterge căutarea",
+    a11y_delete_custom_type: "Șterge tipul {name}",
 
     // HealthScoreArc
     a11y_health_score: "Scor sănătate: {score} din 100",
@@ -473,6 +477,8 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     confirm_discard_btn: "Discard",
     confirm_delete_title: "Delete document",
     confirm_delete_msg: "Are you sure you want to delete \"{title}\"? This cannot be undone.",
+    confirm_delete_type_title: "Delete type",
+    confirm_delete_type_msg: "Remove \"{name}\" from the type list?",
     confirm_cancel: "Cancel",
     confirm_delete_btn: "Delete",
     confirm_paid_title: "Mark as paid?",
@@ -729,6 +735,8 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     // ImageViewer
     a11y_close_image: "Close preview",
     a11y_image_preview: "Attachment preview",
+    a11y_clear_search: "Clear search",
+    a11y_delete_custom_type: "Delete type {name}",
 
     // HealthScoreArc
     a11y_health_score: "Health score: {score} out of 100",

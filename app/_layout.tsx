@@ -88,7 +88,7 @@ export default function RootLayout() {
             .catch((e) => { if (__DEV__) console.warn("DocDue: weekly summary error", e); });
         }
 
-        // Sync premium status from RevenueCat if configured
+        // Sync premium status from store if configured
         if (isIAPConfigured()) {
           checkPremiumStatus().then((isPro) => {
             if (isPro !== settings.isPremium) {
@@ -129,7 +129,12 @@ export default function RootLayout() {
         await SplashScreen.hideAsync();
       }
     }
-    init();
+    // Safety net: hide splash after 8s even if init stalls
+    const splashTimeout = setTimeout(() => {
+      setReady(true);
+      SplashScreen.hideAsync();
+    }, 8000);
+    init().finally(() => clearTimeout(splashTimeout));
   }, []);
 
   // Handle notification taps and action buttons

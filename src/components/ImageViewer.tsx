@@ -141,6 +141,7 @@ export function ImageViewer({ visible, uri, onClose }: ImageViewerProps) {
             style={[{ width, height: height * 0.75 }, animatedStyle]}
             resizeMode="contain"
             accessibilityLabel={t(language, 'a11y_image_preview')}
+            accessibilityRole="image"
           />
         </GestureDetector>
       </View>

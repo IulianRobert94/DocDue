@@ -54,10 +54,10 @@ export default function PremiumScreen() {
       ])
     );
     anim.start();
-    return () => anim.stop();
+    return () => { anim.stop(); glowAnim.setValue(0); };
   }, []);
 
-  // Load offerings from RevenueCat
+  // Load offerings from store
   useEffect(() => {
     if (isIAPConfigured() && !isPremium) {
       getOfferings().then((pkgs) => {
