@@ -53,7 +53,10 @@ export default function FormScreen() {
   const language = useLanguage();
   const currency = useCurrency();
 
-  const { editId, cat: catParam } = useLocalSearchParams<{ editId?: string; cat?: string }>();
+  const { editId, cat: catParam, dupCat, dupType, dupTitle, dupAsset, dupAmt, dupRec, dupNotes } = useLocalSearchParams<{
+    editId?: string; cat?: string;
+    dupCat?: string; dupType?: string; dupTitle?: string; dupAsset?: string; dupAmt?: string; dupRec?: string; dupNotes?: string;
+  }>();
   const existingDoc = useEnrichedDocument(editId);
   const addDocument = useDocumentStore((s) => s.addDocument);
   const updateDocument = useDocumentStore((s) => s.updateDocument);
@@ -67,19 +70,19 @@ export default function FormScreen() {
 
   const todayStr = dateToString(new Date());
 
-  const [cat, setCat] = useState<CategoryId>(existingDoc?.cat || (catParam as CategoryId) || 'vehicule');
+  const [cat, setCat] = useState<CategoryId>(existingDoc?.cat || (dupCat as CategoryId) || (catParam as CategoryId) || 'vehicule');
   const initCat = existingDoc?.cat || (catParam as CategoryId) || 'vehicule';
   const initSubtypes = CATEGORIES[initCat]?.subtypes || [];
   const initCustom = customSubtypes?.[initCat] || [];
   const isCustomType = existingDoc?.type ? !initSubtypes.includes(existingDoc.type) && !initCustom.includes(existingDoc.type) : false;
-  const [type, setType] = useState<string>(isCustomType ? 'Altele' : (existingDoc?.type || ''));
+  const [type, setType] = useState<string>(isCustomType ? 'Altele' : (existingDoc?.type || dupType || ''));
   const [customType, setCustomType] = useState<string>(isCustomType ? (existingDoc?.type || '') : '');
-  const [title, setTitle] = useState<string>(existingDoc?.title || '');
-  const [asset, setAsset] = useState<string>(existingDoc?.asset || '');
+  const [title, setTitle] = useState<string>(existingDoc?.title || (dupTitle ? `${dupTitle} (copy)` : ''));
+  const [asset, setAsset] = useState<string>(existingDoc?.asset || dupAsset || '');
   const [due, setDue] = useState<string>(existingDoc?.due || todayStr);
-  const [amt, setAmt] = useState<string>(existingDoc?.amt ? String(existingDoc.amt) : '');
-  const [rec, setRec] = useState<RecurrenceValue>(existingDoc?.rec || 'none');
-  const [notes, setNotes] = useState<string>(existingDoc?.notes || '');
+  const [amt, setAmt] = useState<string>(existingDoc?.amt ? String(existingDoc.amt) : (dupAmt || ''));
+  const [rec, setRec] = useState<RecurrenceValue>(existingDoc?.rec || (dupRec as RecurrenceValue) || 'none');
+  const [notes, setNotes] = useState<string>(existingDoc?.notes || dupNotes || '');
   const [attachments, setAttachments] = useState<Attachment[]>(existingDoc?.attachments || []);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
