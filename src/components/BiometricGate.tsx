@@ -224,18 +224,6 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 22,
   },
-  passcodeBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 16,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-  },
-  passcodeText: {
-    color: "#007AFF",
-    fontSize: 15,
-    fontWeight: "500",
-  },
   passcodeHint: {
     fontSize: 12,
     textAlign: "center",
