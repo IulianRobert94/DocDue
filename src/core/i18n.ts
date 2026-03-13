@@ -66,7 +66,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     detail_due: "Scadență", detail_amount: "Sumă", detail_recurrence: "Recurență",
     detail_type: "Tip", detail_notes: "Note",
     detail_pay_next: "Plătit — Următoarea scadență", detail_resolved: "Rezolvat",
-    detail_edit: "Editează", detail_delete: "Șterge",
+    detail_edit: "Editează", detail_duplicate: "Duplică", detail_delete: "Șterge",
 
     // Document form
     form_add_title: "Document nou", form_edit_title: "Editează",
@@ -456,7 +456,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     detail_due: "Due date", detail_amount: "Amount", detail_recurrence: "Recurrence",
     detail_type: "Type", detail_notes: "Notes",
     detail_pay_next: "Paid — Generate next due", detail_resolved: "Resolved",
-    detail_edit: "Edit", detail_delete: "Delete",
+    detail_edit: "Edit", detail_duplicate: "Duplicate", detail_delete: "Delete",
 
     form_add_title: "New document", form_edit_title: "Edit",
     form_category: "Category", form_type: "Type", form_title: "Title",
