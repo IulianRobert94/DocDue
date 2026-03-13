@@ -13,6 +13,7 @@ import * as Notifications from "expo-notifications";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { File, Paths } from "expo-file-system/next";
 import { useDocumentStore } from "../src/stores/useDocumentStore";
 import { useTheme, useSettingsStore } from "../src/stores/useSettingsStore";
 import { ErrorBoundary } from "../src/components/ErrorBoundary";
@@ -70,16 +71,20 @@ export default function RootLayout() {
           useSettingsStore.getState()._hydrate(),
           initializeIAP(),
         ]);
+        // Detect fresh install using a Caches marker file.
+        // iOS restores AsyncStorage from iCloud backup after reinstall,
+        // but Caches directory is NOT restored — so a missing marker = fresh install.
+        const marker = new File(Paths.cache, "docdue_installed");
         const onboarded = await AsyncStorage.getItem(STORAGE_KEY_ONBOARDED);
-        // iOS may restore AsyncStorage from iCloud backup after reinstall,
-        // so onboarded flag can persist. Detect fresh installs by checking
-        // if the flag is set but there are zero documents (no real data).
-        const docs = useDocumentStore.getState().documents;
-        const isFreshInstall = !!onboarded && docs.length === 0;
-        if (isFreshInstall) {
-          await AsyncStorage.removeItem(STORAGE_KEY_ONBOARDED);
+        if (!marker.exists) {
+          // Fresh install or reinstall — Caches dir is NOT restored from iCloud.
+          // Clear any stale iCloud-restored onboarding flag.
+          if (onboarded) await AsyncStorage.removeItem(STORAGE_KEY_ONBOARDED);
+          setShowOnboarding(true);
+          marker.create();
+        } else {
+          setShowOnboarding(!onboarded);
         }
-        setShowOnboarding(!onboarded || isFreshInstall);
 
         // Reschedule notifications and update widget after hydration
         const settings = useSettingsStore.getState().settings;
