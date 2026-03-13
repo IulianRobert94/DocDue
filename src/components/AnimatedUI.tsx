@@ -168,44 +168,27 @@ interface AnimatedCounterProps {
 }
 
 export function AnimatedCounter({ value, duration = 800, delay = 200, style }: AnimatedCounterProps) {
+  const [display, setDisplay] = useState(0);
   const anim = useRef(new Animated.Value(0)).current;
-  const displayRef = useRef<Text>(null);
-  const valueRef = useRef(value);
-  valueRef.current = value;
 
   useEffect(() => {
     anim.setValue(0);
+    const id = anim.addListener(({ value: v }) => {
+      setDisplay(Math.round(v));
+    });
     const timer = setTimeout(() => {
       Animated.timing(anim, {
         toValue: value,
         duration,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: false,
-      }).start();
+      }).start(() => setDisplay(value));
     }, delay);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      anim.removeListener(id);
+    };
   }, [value]);
-
-  const animValue = anim.interpolate({
-    inputRange: [0, value || 1],
-    outputRange: [0, value || 1],
-    extrapolate: "clamp",
-  });
-
-  return (
-    <AnimatedText style={style} animValue={animValue} />
-  );
-}
-
-function AnimatedText({ style, animValue }: { style?: StyleProp<TextStyle>; animValue: Animated.AnimatedInterpolation<number> }) {
-  const [display, setDisplay] = useState(0);
-
-  useEffect(() => {
-    const id = animValue.addListener(({ value }) => {
-      setDisplay(Math.round(value));
-    });
-    return () => animValue.removeListener(id);
-  }, [animValue]);
 
   return <Text style={style}>{display}</Text>;
 }

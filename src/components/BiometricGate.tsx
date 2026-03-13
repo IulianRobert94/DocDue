@@ -5,9 +5,7 @@
  * - Shows lock screen on app open
  * - Re-locks when app returns from background (after 5s away)
  * - Uses Face ID / Touch ID / fingerprint via expo-local-authentication
- *
- * NOTE: Face ID only works in production/dev builds.
- * In Expo Go, falls back to device passcode.
+ * - "Use Passcode" button: triggers auth → Face ID first, then iOS shows passcode option
  */
 
 import React, { useEffect, useRef, useState, useCallback } from "react";
@@ -33,18 +31,13 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
   const lockoutRound = useRef(0);
   const backgroundTime = useRef<number>(0);
   const appState = useRef(AppState.currentState);
+  const authInProgress = useRef(false);
 
   const authenticate = useCallback(async () => {
+    if (authInProgress.current) return;
+    authInProgress.current = true;
     setFailed(false);
     try {
-      // In Expo Go, biometric hardware isn't available — skip lock
-      // In production builds, Face ID / Touch ID works normally
-      const enrolled = await LocalAuthentication.isEnrolledAsync();
-      if (!enrolled) {
-        setLocked(false);
-        return;
-      }
-
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: t(language, "biometric_unlock"),
         fallbackLabel: t(language, "biometric_use_passcode"),
@@ -62,14 +55,15 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
     } catch {
       setFailed(true);
       setFailCount((c) => c + 1);
+    } finally {
+      authInProgress.current = false;
     }
   }, [language]);
 
   // Auto-authenticate on mount if locked
   useEffect(() => {
     if (locked) {
-      // Small delay to let the UI render before showing the biometric prompt
-      const timer = setTimeout(() => authenticate(), 300);
+      const timer = setTimeout(() => authenticate(), 500);
       return () => clearTimeout(timer);
     }
   }, [locked, authenticate]);
@@ -110,7 +104,6 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
       lockoutRound.current++;
       setLockoutSeconds(Math.round(durationMs / 1000));
 
-      // Countdown timer
       const interval = setInterval(() => {
         setLockoutSeconds((prev) => {
           if (prev <= 1) {
@@ -134,8 +127,6 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
     return `${seconds}s`;
   };
 
-  // Always render children to preserve navigation state.
-  // Lock screen is an absolute overlay on top.
   return (
     <View style={{ flex: 1 }}>
       {children}
@@ -161,20 +152,36 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
                 {t(language, "biometric_locked_out_dynamic", { time: formatLockoutTime(lockoutSeconds) })}
               </Text>
             ) : (
-              <AnimatedPressable
-                style={styles.retryBtn}
-                onPress={authenticate}
-                hapticStyle="medium"
-                accessibilityLabel={t(language, "biometric_retry")}
-              >
-                <Ionicons
-                  name={Platform.OS === "ios" ? "scan" : "finger-print"}
-                  size={20}
-                  color="#FFF"
-                  style={{ marginRight: 8 }}
-                />
-                <Text style={styles.retryText}>{t(language, "biometric_retry")}</Text>
-              </AnimatedPressable>
+              <>
+                <AnimatedPressable
+                  style={styles.retryBtn}
+                  onPress={authenticate}
+                  hapticStyle="medium"
+                  accessibilityLabel={t(language, "biometric_retry")}
+                >
+                  <Ionicons
+                    name={Platform.OS === "ios" ? "scan" : "finger-print"}
+                    size={20}
+                    color="#FFF"
+                    style={{ marginRight: 8 }}
+                  />
+                  <Text style={styles.retryText}>{t(language, "biometric_retry")}</Text>
+                </AnimatedPressable>
+                <AnimatedPressable
+                  style={styles.passcodeBtn}
+                  onPress={authenticate}
+                  hapticStyle="light"
+                  accessibilityLabel={t(language, "biometric_use_passcode")}
+                >
+                  <Ionicons name="keypad-outline" size={18} color="#007AFF" style={{ marginRight: 6 }} />
+                  <Text style={styles.passcodeText}>{t(language, "biometric_use_passcode")}</Text>
+                </AnimatedPressable>
+                <Text style={[styles.passcodeHint, { color: theme.textDim }]}>
+                  {Platform.OS === "ios"
+                    ? t(language, "biometric_passcode_hint_ios")
+                    : t(language, "biometric_passcode_hint_android")}
+                </Text>
+              </>
             )}
           </View>
         </View>
@@ -223,6 +230,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 14,
     borderRadius: 22,
+  },
+  passcodeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  passcodeText: {
+    color: "#007AFF",
+    fontSize: 15,
+    fontWeight: "500",
+  },
+  passcodeHint: {
+    fontSize: 12,
+    textAlign: "center",
+    marginTop: 8,
+    lineHeight: 16,
   },
   retryText: {
     color: "#FFF",

@@ -345,7 +345,7 @@ export default function FormScreen() {
 
                 <View style={s.inputRow}>
                   <Text style={[s.inputLabel, { color: theme.textSecondary }]}>{t(language, 'form_title')}</Text>
-                  <TextInput style={[s.inputField, { color: theme.text }]} value={title}
+                  <TextInput style={[s.inputField, { color: theme.text }]} defaultValue={title}
                     onChangeText={(v) => { setTitle(v); clearError('title'); }}
                     placeholder={t(language, 'form_title_placeholder')} placeholderTextColor={theme.textDim}
                     returnKeyType="done" onSubmitEditing={Keyboard.dismiss}
@@ -358,7 +358,7 @@ export default function FormScreen() {
 
                 <View style={s.inputRow}>
                   <Text style={[s.inputLabel, { color: theme.textSecondary }]}>{t(language, 'form_asset')}</Text>
-                  <TextInput style={[s.inputField, { color: theme.text }]} value={asset} onChangeText={setAsset}
+                  <TextInput style={[s.inputField, { color: theme.text }]} defaultValue={asset} onChangeText={setAsset}
                     placeholder={t(language, 'form_asset_placeholder')} placeholderTextColor={theme.textDim}
                     returnKeyType="next" onSubmitEditing={Keyboard.dismiss}
                     maxLength={100}
@@ -396,7 +396,7 @@ export default function FormScreen() {
 
                 <View style={s.inputRow}>
                   <Text style={[s.inputLabel, { color: theme.textSecondary }]}>{t(language, 'form_amount')}</Text>
-                  <TextInput style={[s.inputField, { color: theme.text }]} value={amt}
+                  <TextInput style={[s.inputField, { color: theme.text }]} defaultValue={amt}
                     onChangeText={(v) => { setAmt(v); clearError('amt'); }}
                     placeholder="0" placeholderTextColor={theme.textDim} keyboardType="decimal-pad"
                     returnKeyType="done" maxLength={12}
@@ -560,7 +560,7 @@ export default function FormScreen() {
             <FadeInView delay={250}>
               <Text style={[s.sectionHeader, { color: theme.textSecondary }]}>{t(language, 'form_notes')}</Text>
               <View style={[s.group, { backgroundColor: theme.card }]}>
-                <TextInput style={[s.notesInput, { color: theme.text }]} value={notes} onChangeText={setNotes}
+                <TextInput style={[s.notesInput, { color: theme.text }]} defaultValue={notes} onChangeText={setNotes}
                   placeholder={t(language, 'form_notes_placeholder')} placeholderTextColor={theme.textDim}
                   multiline numberOfLines={4} textAlignVertical="top" maxLength={500} returnKeyType="default"
                   onFocus={() => { if (Platform.OS === 'android') setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 300); }}
