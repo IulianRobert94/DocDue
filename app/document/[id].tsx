@@ -321,7 +321,7 @@ export default function DocumentDetailScreen() {
             </View>
             <AnimatedPressable
               style={s.actionRow}
-              onPress={() => router.push(`/form?dupCat=${doc.cat}&dupType=${encodeURIComponent(doc.type)}&dupTitle=${encodeURIComponent(doc.title)}&dupAsset=${encodeURIComponent(doc.asset || '')}&dupAmt=${doc.amt || ''}&dupRec=${doc.rec}&dupNotes=${encodeURIComponent(doc.notes || '')}`)}
+              onPress={() => router.push(`/form?dupCat=${encodeURIComponent(doc.cat)}&dupType=${encodeURIComponent(doc.type)}&dupTitle=${encodeURIComponent(doc.title)}&dupAsset=${encodeURIComponent(doc.asset || '')}&dupAmt=${doc.amt || ''}&dupRec=${encodeURIComponent(doc.rec)}&dupNotes=${encodeURIComponent(doc.notes || '')}`)}
               accessibilityLabel={t(language, 'detail_duplicate')}
             >
               <Ionicons name="copy-outline" size={18} color="#007AFF" style={{ marginRight: 6 }} />

@@ -182,6 +182,9 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
                         setLocked(false);
                         setFailed(false);
                         setFailCount(0);
+                      } else {
+                        setFailed(true);
+                        setFailCount((c) => c + 1);
                       }
                     } catch {}
                   }}
