@@ -171,22 +171,22 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
                 </AnimatedPressable>
                 <AnimatedPressable
                   style={styles.passcodeBtn}
-                  onPress={async () => {
-                    try {
-                      const result = await LocalAuthentication.authenticateAsync({
-                        promptMessage: t(language, "biometric_enter_passcode"),
-                        fallbackLabel: "",
-                        disableDeviceFallback: false,
-                      });
-                      if (result.success) {
+                  onPress={() => {
+                    // On iOS, authenticateAsync with disableDeviceFallback:false
+                    // shows biometric first, then offers passcode if biometric fails.
+                    // If no security is available (Expo Go), skip the gate.
+                    LocalAuthentication.getEnrolledLevelAsync().then((level) => {
+                      if (level === LocalAuthentication.SecurityLevel.NONE) {
+                        // No security on device — skip gate
                         setLocked(false);
-                        setFailed(false);
-                        setFailCount(0);
-                      } else {
-                        setFailed(true);
-                        setFailCount((c) => c + 1);
+                        return;
                       }
-                    } catch {}
+                      // Trigger system auth dialog (biometric → passcode fallback)
+                      authenticate();
+                    }).catch(() => {
+                      // Can't determine security — skip gate
+                      setLocked(false);
+                    });
                   }}
                   haptic={false}
                   accessibilityLabel={t(language, "biometric_use_passcode")}
