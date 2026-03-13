@@ -248,7 +248,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   currency: "RON",
   language: "ro",
   reminderDays: [7, 3, 1],
-  notificationsEnabled: false,
+  notificationsEnabled: true,
   biometricEnabled: false,
   lastBackupDate: null,
   includeAttachmentsInBackup: false,

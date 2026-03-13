@@ -154,20 +154,43 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
                 {t(language, "biometric_locked_out_dynamic", { time: formatLockoutTime(lockoutSeconds) })}
               </Text>
             ) : (
-              <AnimatedPressable
-                style={styles.retryBtn}
-                onPress={authenticate}
-                hapticStyle="medium"
-                accessibilityLabel={t(language, "biometric_retry")}
-              >
-                <Ionicons
-                  name={Platform.OS === "ios" ? "scan" : "finger-print"}
-                  size={20}
-                  color="#FFF"
-                  style={{ marginRight: 8 }}
-                />
-                <Text style={styles.retryText}>{t(language, "biometric_retry")}</Text>
-              </AnimatedPressable>
+              <>
+                <AnimatedPressable
+                  style={styles.retryBtn}
+                  onPress={authenticate}
+                  hapticStyle="medium"
+                  accessibilityLabel={t(language, "biometric_retry")}
+                >
+                  <Ionicons
+                    name={Platform.OS === "ios" ? "scan" : "finger-print"}
+                    size={20}
+                    color="#FFF"
+                    style={{ marginRight: 8 }}
+                  />
+                  <Text style={styles.retryText}>{t(language, "biometric_retry")}</Text>
+                </AnimatedPressable>
+                <AnimatedPressable
+                  style={styles.passcodeBtn}
+                  onPress={async () => {
+                    try {
+                      const result = await LocalAuthentication.authenticateAsync({
+                        promptMessage: t(language, "biometric_enter_passcode"),
+                        fallbackLabel: "",
+                        disableDeviceFallback: false,
+                      });
+                      if (result.success) {
+                        setLocked(false);
+                        setFailed(false);
+                        setFailCount(0);
+                      }
+                    } catch {}
+                  }}
+                  haptic={false}
+                  accessibilityLabel={t(language, "biometric_use_passcode")}
+                >
+                  <Text style={styles.passcodeText}>{t(language, "biometric_use_passcode")}</Text>
+                </AnimatedPressable>
+              </>
             )}
           </View>
         </View>
@@ -221,5 +244,15 @@ const styles = StyleSheet.create({
     color: "#FFF",
     fontSize: 17,
     fontWeight: "600",
+  },
+  passcodeBtn: {
+    marginTop: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+  },
+  passcodeText: {
+    color: "#007AFF",
+    fontSize: 15,
+    fontWeight: "500",
   },
 });

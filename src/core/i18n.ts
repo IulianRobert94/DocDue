@@ -213,6 +213,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     biometric_section: "Securitate",
     biometric_locked_out: "Prea multe încercări. Încearcă din nou în 30 de secunde.",
     biometric_use_passcode: "Folosește parola",
+    biometric_enter_passcode: "Introdu parola dispozitivului",
     biometric_locked_out_dynamic: "Prea multe încercări. Încearcă în {time}.",
 
     // Attachments
@@ -593,6 +594,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     biometric_section: "Security",
     biometric_locked_out: "Too many attempts. Try again in 30 seconds.",
     biometric_use_passcode: "Use Passcode",
+    biometric_enter_passcode: "Enter device passcode",
     biometric_locked_out_dynamic: "Too many attempts. Try again in {time}.",
 
     // Attachments

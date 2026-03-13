@@ -347,6 +347,8 @@ export default function FormScreen() {
                     placeholder={t(language, 'form_title_placeholder')} placeholderTextColor={theme.textDim}
                     returnKeyType="done" onSubmitEditing={Keyboard.dismiss}
                     maxLength={150}
+                    autoCorrect={false}
+                    autoComplete="off"
                     accessibilityLabel={t(language, 'form_title')}
                     aria-invalid={!!errors.title} />
                 </View>
@@ -359,6 +361,8 @@ export default function FormScreen() {
                     placeholder={t(language, 'form_asset_placeholder')} placeholderTextColor={theme.textDim}
                     returnKeyType="next" onSubmitEditing={Keyboard.dismiss}
                     maxLength={100}
+                    autoCorrect={false}
+                    autoComplete="off"
                     accessibilityLabel={t(language, 'form_asset')} />
                 </View>
                 <View style={s.dividerWrap}><View style={[s.divider, { backgroundColor: theme.divider }]} /></View>
@@ -560,6 +564,7 @@ export default function FormScreen() {
                 <TextInput style={[s.notesInput, { color: theme.text }]} value={notes} onChangeText={setNotes}
                   placeholder={t(language, 'form_notes_placeholder')} placeholderTextColor={theme.textDim}
                   multiline numberOfLines={4} textAlignVertical="top" maxLength={500} returnKeyType="default"
+                  autoComplete="off"
                   onFocus={() => { if (Platform.OS === 'android') setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 300); }}
                   inputAccessoryViewID={Platform.OS === 'ios' ? 'notesKeyboardDone' : undefined}
                   accessibilityLabel={t(language, 'form_notes')} />

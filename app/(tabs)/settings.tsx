@@ -362,7 +362,7 @@ export default function SettingsScreen() {
             style={s.row}
             onPress={() => {
               const url = Platform.OS === 'ios'
-                ? 'https://iulianrobert94.github.io/DocDue/'
+                ? 'https://apps.apple.com/app/id6760433928'
                 : 'https://play.google.com/store/apps/details?id=com.docdueapp';
               Share.share({
                 message: t(language, 'share_app_message') + '\n' + url,

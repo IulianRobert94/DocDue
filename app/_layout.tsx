@@ -27,6 +27,7 @@ import {
   snoozeNotification,
   scheduleMorningDigest,
   scheduleWeeklySummary,
+  requestNotificationPermission,
 } from "../src/services/notifications";
 import { initializeIAP, checkPremiumStatus, isIAPConfigured } from "../src/services/iap";
 import { enrichDocument } from "../src/core/enrichment";
@@ -70,7 +71,15 @@ export default function RootLayout() {
           initializeIAP(),
         ]);
         const onboarded = await AsyncStorage.getItem(STORAGE_KEY_ONBOARDED);
-        setShowOnboarding(!onboarded);
+        // iOS may restore AsyncStorage from iCloud backup after reinstall,
+        // so onboarded flag can persist. Detect fresh installs by checking
+        // if the flag is set but there are zero documents (no real data).
+        const docs = useDocumentStore.getState().documents;
+        const isFreshInstall = !!onboarded && docs.length === 0;
+        if (isFreshInstall) {
+          await AsyncStorage.removeItem(STORAGE_KEY_ONBOARDED);
+        }
+        setShowOnboarding(!onboarded || isFreshInstall);
 
         // Reschedule notifications and update widget after hydration
         const settings = useSettingsStore.getState().settings;
@@ -80,6 +89,8 @@ export default function RootLayout() {
           .catch((e) => { if (__DEV__) console.warn("DocDue: notification category error", e); });
 
         if (settings.notificationsEnabled) {
+          // Request OS permission on first launch (no-op if already granted)
+          requestNotificationPermission().catch(() => {});
           rescheduleAllNotifications(documents, settings.reminderDays, settings.language)
             .catch((e) => { if (__DEV__) console.warn("DocDue: notification schedule error", e); });
           scheduleMorningDigest(documents, settings.language)
