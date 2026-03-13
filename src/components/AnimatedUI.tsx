@@ -8,7 +8,7 @@
  * Compatible with Expo Go (no Reanimated layout animations)
  */
 
-import React, { useCallback, useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, Animated, ViewStyle, StyleProp, Easing, Text, TextStyle } from "react-native";
 import * as Haptics from "expo-haptics";
 
@@ -197,18 +197,17 @@ export function AnimatedCounter({ value, duration = 800, delay = 200, style }: A
   );
 }
 
-// Helper to avoid re-render on every frame
 function AnimatedText({ style, animValue }: { style?: StyleProp<TextStyle>; animValue: Animated.AnimatedInterpolation<number> }) {
-  const textRef = useRef<Text>(null);
+  const [display, setDisplay] = useState(0);
 
   useEffect(() => {
     const id = animValue.addListener(({ value }) => {
-      textRef.current?.setNativeProps({ text: String(Math.round(value)) });
+      setDisplay(Math.round(value));
     });
     return () => animValue.removeListener(id);
   }, [animValue]);
 
-  return <Animated.Text ref={textRef as any} style={style}>0</Animated.Text>;
+  return <Text style={style}>{display}</Text>;
 }
 
 // ─── AnimatedBar (width animates from 0%) ─────────────
