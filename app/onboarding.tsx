@@ -1,6 +1,8 @@
 /**
- * Onboarding Screen — Apple HIG 2025 v13
- * Premium first launch experience with floating icons and glow effects
+ * Onboarding Screen — Apple HIG 2025 v12
+ * First launch experience — swipeable FlatList with pagination
+ * 4th slide: quick-start category picker
+ * Respects user language setting
  */
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
@@ -29,7 +31,7 @@ import type { IconName } from '../src/types';
 interface OnboardingStep {
   icon: IconName;
   iconColor: string;
-  glowColor: string;
+  bgColor: string;
   titleKey: string;
   descKey: string;
 }
@@ -38,28 +40,28 @@ const STEPS: OnboardingStep[] = [
   {
     icon: 'shield-checkmark',
     iconColor: '#007AFF',
-    glowColor: 'rgba(0,122,255,0.12)',
+    bgColor: 'rgba(0,122,255,0.08)',
     titleKey: 'onboarding_slide1_title',
     descKey: 'onboarding_slide1_desc',
   },
   {
     icon: 'color-wand',
     iconColor: '#FF9500',
-    glowColor: 'rgba(255,149,0,0.12)',
+    bgColor: 'rgba(255,149,0,0.08)',
     titleKey: 'onboarding_slide2_title',
     descKey: 'onboarding_slide2_desc',
   },
   {
     icon: 'notifications',
     iconColor: '#FF3B30',
-    glowColor: 'rgba(255,59,48,0.12)',
+    bgColor: 'rgba(255,59,48,0.08)',
     titleKey: 'onboarding_slide3_title',
     descKey: 'onboarding_slide3_desc',
   },
   {
     icon: 'lock-closed',
     iconColor: '#34C759',
-    glowColor: 'rgba(52,199,89,0.12)',
+    bgColor: 'rgba(52,199,89,0.08)',
     titleKey: 'onboarding_slide4_title',
     descKey: 'onboarding_slide4_desc',
   },
@@ -82,47 +84,6 @@ function AnimatedDot({ active, accessibilityLabel }: { active: boolean; accessib
   });
 
   return <Animated.View style={[s.dot, { width, backgroundColor }]} accessibilityLabel={accessibilityLabel} accessibilityRole="tab" />;
-}
-
-function FloatingIcon({ icon, color, glowColor, active }: { icon: IconName; color: string; glowColor: string; active: boolean }) {
-  const floatY = useRef(new Animated.Value(0)).current;
-  const glowScale = useRef(new Animated.Value(1)).current;
-  const glowOpacity = useRef(new Animated.Value(0.6)).current;
-
-  useEffect(() => {
-    if (!active) return;
-    const floatAnim = Animated.loop(
-      Animated.sequence([
-        Animated.timing(floatY, { toValue: -10, duration: 1800, useNativeDriver: true }),
-        Animated.timing(floatY, { toValue: 0, duration: 1800, useNativeDriver: true }),
-      ])
-    );
-    const glowAnim = Animated.loop(
-      Animated.sequence([
-        Animated.timing(glowScale, { toValue: 1.15, duration: 2200, useNativeDriver: true }),
-        Animated.timing(glowScale, { toValue: 1, duration: 2200, useNativeDriver: true }),
-      ])
-    );
-    const opacityAnim = Animated.loop(
-      Animated.sequence([
-        Animated.timing(glowOpacity, { toValue: 1, duration: 2200, useNativeDriver: true }),
-        Animated.timing(glowOpacity, { toValue: 0.6, duration: 2200, useNativeDriver: true }),
-      ])
-    );
-    floatAnim.start();
-    glowAnim.start();
-    opacityAnim.start();
-    return () => { floatAnim.stop(); glowAnim.stop(); opacityAnim.stop(); };
-  }, [active]);
-
-  return (
-    <Animated.View style={[s.iconOuter, { transform: [{ translateY: floatY }] }]}>
-      <Animated.View style={[s.iconGlow, { backgroundColor: glowColor, transform: [{ scale: glowScale }], opacity: glowOpacity }]} />
-      <View style={[s.iconWrap, { backgroundColor: glowColor }]}>
-        <Ionicons name={icon} size={64} color={color} />
-      </View>
-    </Animated.View>
-  );
 }
 
 export default function OnboardingScreen() {
@@ -153,10 +114,12 @@ export default function OnboardingScreen() {
 
   const handleNext = async () => {
     try {
+      // When leaving the notification slide (index 2), request permission
       if (currentIndex === 2) {
         const granted = await requestNotificationPermission();
         if (granted) {
           useSettingsStore.getState().updateSetting('notificationsEnabled', true);
+          // Schedule notifications immediately — _layout.tsx init already ran
           const docs = useDocumentStore.getState().documents;
           const settings = useSettingsStore.getState().settings;
           rescheduleAllNotifications(docs, settings.reminderDays, settings.language).catch(() => {});
@@ -183,14 +146,13 @@ export default function OnboardingScreen() {
     }
   };
 
-  const renderItem = ({ item, index }: { item: OnboardingStep; index: number }) => (
+  const renderItem = ({ item }: { item: OnboardingStep }) => (
     <View style={[s.slide, { width: screenWidth }]}>
-      <FloatingIcon icon={item.icon} color={item.iconColor} glowColor={item.glowColor} active={index === currentIndex} />
+      <View style={[s.iconWrap, { backgroundColor: item.bgColor }]}>
+        <Ionicons name={item.icon} size={56} color={item.iconColor} />
+      </View>
       <Text style={[s.title, { color: theme.text }]}>{t(lang, item.titleKey)}</Text>
       <Text style={[s.desc, { color: theme.textSecondary }]}>{t(lang, item.descKey)}</Text>
-      <Text style={[s.stepIndicator, { color: theme.textDim }]}>
-        {index + 1} / {STEPS.length}
-      </Text>
     </View>
   );
 
@@ -250,37 +212,23 @@ const s = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 40,
   },
-  // Floating icon layers
-  iconOuter: {
-    width: 160,
-    height: 160,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 48,
-  },
-  iconGlow: {
-    position: 'absolute',
-    width: 160,
-    height: 160,
-    borderRadius: 48,
-  },
   iconWrap: {
-    width: 140,
-    height: 140,
-    borderRadius: 40,
+    width: 120,
+    height: 120,
+    borderRadius: 30,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 40,
   },
   title: {
-    fontSize: 30,
-    fontWeight: '800',
+    fontSize: 28,
+    fontWeight: '700',
     textAlign: 'center',
     letterSpacing: 0.35,
-    lineHeight: 38,
-    marginBottom: 14,
+    lineHeight: 36,
+    marginBottom: 16,
   },
-  desc: { fontSize: 17, textAlign: 'center', lineHeight: 26, paddingHorizontal: 8 },
-  stepIndicator: { fontSize: 13, fontWeight: '500', marginTop: 20, letterSpacing: 1 },
+  desc: { fontSize: 17, textAlign: 'center', lineHeight: 24 },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 8, paddingBottom: 32 },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(60,80,120,0.4)' },
   footer: { paddingHorizontal: 20 },

@@ -13,7 +13,6 @@ import * as Notifications from "expo-notifications";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as Application from "expo-application";
 import { useDocumentStore } from "../src/stores/useDocumentStore";
 import { useTheme, useSettingsStore } from "../src/stores/useSettingsStore";
 import { ErrorBoundary } from "../src/components/ErrorBoundary";
@@ -28,7 +27,6 @@ import {
   snoozeNotification,
   scheduleMorningDigest,
   scheduleWeeklySummary,
-  requestNotificationPermission,
 } from "../src/services/notifications";
 import { initializeIAP, checkPremiumStatus, isIAPConfigured } from "../src/services/iap";
 import { enrichDocument } from "../src/core/enrichment";
@@ -71,25 +69,8 @@ export default function RootLayout() {
           useSettingsStore.getState()._hydrate(),
           initializeIAP(),
         ]);
-        // Detect reinstall: compare OS install time with our saved timestamp.
-        // iCloud restores AsyncStorage after delete+reinstall, but the OS
-        // install time resets — so a changed install time means reinstall.
         const onboarded = await AsyncStorage.getItem(STORAGE_KEY_ONBOARDED);
-        const savedInstallTime = await AsyncStorage.getItem("docdue_install_ts");
-        const installTime = await Application.getInstallationTimeAsync();
-        const installTs = installTime ? String(installTime.getTime()) : null;
-
-        // Only detect reinstall when we have BOTH timestamps and they differ.
-        // First launch of new code (no saved timestamp) just saves and continues.
-        const isReinstall = !!(installTs && savedInstallTime && installTs !== savedInstallTime);
-        if (installTs) await AsyncStorage.setItem("docdue_install_ts", installTs);
-
-        if (isReinstall) {
-          await AsyncStorage.removeItem(STORAGE_KEY_ONBOARDED);
-          setShowOnboarding(true);
-        } else {
-          setShowOnboarding(!onboarded);
-        }
+        setShowOnboarding(!onboarded);
 
         // Reschedule notifications and update widget after hydration
         const settings = useSettingsStore.getState().settings;
@@ -99,8 +80,6 @@ export default function RootLayout() {
           .catch((e) => { if (__DEV__) console.warn("DocDue: notification category error", e); });
 
         if (settings.notificationsEnabled) {
-          // Request OS permission on first launch (no-op if already granted)
-          requestNotificationPermission().catch(() => {});
           rescheduleAllNotifications(documents, settings.reminderDays, settings.language)
             .catch((e) => { if (__DEV__) console.warn("DocDue: notification schedule error", e); });
           scheduleMorningDigest(documents, settings.language)

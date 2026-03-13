@@ -318,8 +318,6 @@ const s = StyleSheet.create({
   upgradeBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     backgroundColor: '#007AFF', borderRadius: 14, paddingVertical: 16,
-    shadowColor: '#007AFF', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 12,
-    elevation: 8,
   },
   upgradeBtnText: { color: '#FFF', fontSize: 17, fontWeight: '600' },
   earlyAccessNote: { fontSize: 15, textAlign: 'center', lineHeight: 22, marginBottom: 16 },

@@ -4,7 +4,7 @@
  * Sticky bottom save bar + header cancel/save
  */
 
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TextInput, Alert,
   Platform, Keyboard, InputAccessoryView, BackHandler,
@@ -53,10 +53,7 @@ export default function FormScreen() {
   const language = useLanguage();
   const currency = useCurrency();
 
-  const { editId, cat: catParam, dupCat, dupType, dupTitle, dupAsset, dupAmt, dupRec, dupNotes } = useLocalSearchParams<{
-    editId?: string; cat?: string;
-    dupCat?: string; dupType?: string; dupTitle?: string; dupAsset?: string; dupAmt?: string; dupRec?: string; dupNotes?: string;
-  }>();
+  const { editId, cat: catParam } = useLocalSearchParams<{ editId?: string; cat?: string }>();
   const existingDoc = useEnrichedDocument(editId);
   const addDocument = useDocumentStore((s) => s.addDocument);
   const updateDocument = useDocumentStore((s) => s.updateDocument);
@@ -70,19 +67,19 @@ export default function FormScreen() {
 
   const todayStr = dateToString(new Date());
 
-  const [cat, setCat] = useState<CategoryId>(existingDoc?.cat || (dupCat as CategoryId) || (catParam as CategoryId) || 'vehicule');
+  const [cat, setCat] = useState<CategoryId>(existingDoc?.cat || (catParam as CategoryId) || 'vehicule');
   const initCat = existingDoc?.cat || (catParam as CategoryId) || 'vehicule';
   const initSubtypes = CATEGORIES[initCat]?.subtypes || [];
   const initCustom = customSubtypes?.[initCat] || [];
   const isCustomType = existingDoc?.type ? !initSubtypes.includes(existingDoc.type) && !initCustom.includes(existingDoc.type) : false;
-  const [type, setType] = useState<string>(isCustomType ? 'Altele' : (existingDoc?.type || dupType || ''));
+  const [type, setType] = useState<string>(isCustomType ? 'Altele' : (existingDoc?.type || ''));
   const [customType, setCustomType] = useState<string>(isCustomType ? (existingDoc?.type || '') : '');
-  const [title, setTitle] = useState<string>(existingDoc?.title || (dupTitle ? `${dupTitle} (copy)` : ''));
-  const [asset, setAsset] = useState<string>(existingDoc?.asset || dupAsset || '');
+  const [title, setTitle] = useState<string>(existingDoc?.title || '');
+  const [asset, setAsset] = useState<string>(existingDoc?.asset || '');
   const [due, setDue] = useState<string>(existingDoc?.due || todayStr);
-  const [amt, setAmt] = useState<string>(existingDoc?.amt ? String(existingDoc.amt) : (dupAmt || ''));
-  const [rec, setRec] = useState<RecurrenceValue>(existingDoc?.rec || (dupRec as RecurrenceValue) || 'none');
-  const [notes, setNotes] = useState<string>(existingDoc?.notes || dupNotes || '');
+  const [amt, setAmt] = useState<string>(existingDoc?.amt ? String(existingDoc.amt) : '');
+  const [rec, setRec] = useState<RecurrenceValue>(existingDoc?.rec || 'none');
+  const [notes, setNotes] = useState<string>(existingDoc?.notes || '');
   const [attachments, setAttachments] = useState<Attachment[]>(existingDoc?.attachments || []);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -132,7 +129,7 @@ export default function FormScreen() {
        attachments.length !== (existingDoc?.attachments?.length || 0))
     : (title.trim().length > 0 || asset.trim().length > 0 || amt.trim().length > 0 || notes.trim().length > 0);
 
-  const handleCancel = useCallback(() => {
+  const handleCancel = () => {
     Keyboard.dismiss();
     if (hasUnsavedData) {
       Alert.alert(
@@ -146,7 +143,7 @@ export default function FormScreen() {
     } else {
       router.back();
     }
-  }, [hasUnsavedData, language, router]);
+  };
 
   // Android back button: show unsaved data warning
   useEffect(() => {
@@ -160,7 +157,7 @@ export default function FormScreen() {
     };
     const sub = BackHandler.addEventListener('hardwareBackPress', onBack);
     return () => sub.remove();
-  }, [hasUnsavedData, handleCancel]);
+  }, [hasUnsavedData]);
 
   useEffect(() => {
     if (!isEdit && subtypes.length > 0 && !subtypes.includes(type)) {

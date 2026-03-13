@@ -78,7 +78,7 @@ export default function HomeScreen() {
     );
     anim.start();
     return () => anim.stop();
-  }, [enriched.length]);
+  }, [enriched.length === 0]);
 
   // Demo banner — show only when demo data is present and not dismissed
   const clearAll = useDocumentStore((s) => s.clearAll);
@@ -449,7 +449,7 @@ const styles = StyleSheet.create({
 
   // Category Grid
   catGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
-  catCard: { borderRadius: 14, paddingVertical: 14, paddingHorizontal: 14, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 4 },
+  catCard: { borderRadius: 14, paddingVertical: 14, paddingHorizontal: 14 },
   catCardTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 },
   catIcon: { width: 40, height: 40, borderRadius: 10, alignItems: "center", justifyContent: "center" },
   alertDot: { width: 8, height: 8, borderRadius: 4, marginTop: 2 },

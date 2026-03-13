@@ -154,46 +154,20 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
                 {t(language, "biometric_locked_out_dynamic", { time: formatLockoutTime(lockoutSeconds) })}
               </Text>
             ) : (
-              <>
-                <AnimatedPressable
-                  style={styles.retryBtn}
-                  onPress={authenticate}
-                  hapticStyle="medium"
-                  accessibilityLabel={t(language, "biometric_retry")}
-                >
-                  <Ionicons
-                    name={Platform.OS === "ios" ? "scan" : "finger-print"}
-                    size={20}
-                    color="#FFF"
-                    style={{ marginRight: 8 }}
-                  />
-                  <Text style={styles.retryText}>{t(language, "biometric_retry")}</Text>
-                </AnimatedPressable>
-                <AnimatedPressable
-                  style={styles.passcodeBtn}
-                  onPress={() => {
-                    // On iOS, authenticateAsync with disableDeviceFallback:false
-                    // shows biometric first, then offers passcode if biometric fails.
-                    // If no security is available (Expo Go), skip the gate.
-                    LocalAuthentication.getEnrolledLevelAsync().then((level) => {
-                      if (level === LocalAuthentication.SecurityLevel.NONE) {
-                        // No security on device — skip gate
-                        setLocked(false);
-                        return;
-                      }
-                      // Trigger system auth dialog (biometric → passcode fallback)
-                      authenticate();
-                    }).catch(() => {
-                      // Can't determine security — skip gate
-                      setLocked(false);
-                    });
-                  }}
-                  haptic={false}
-                  accessibilityLabel={t(language, "biometric_use_passcode")}
-                >
-                  <Text style={styles.passcodeText}>{t(language, "biometric_use_passcode")}</Text>
-                </AnimatedPressable>
-              </>
+              <AnimatedPressable
+                style={styles.retryBtn}
+                onPress={authenticate}
+                hapticStyle="medium"
+                accessibilityLabel={t(language, "biometric_retry")}
+              >
+                <Ionicons
+                  name={Platform.OS === "ios" ? "scan" : "finger-print"}
+                  size={20}
+                  color="#FFF"
+                  style={{ marginRight: 8 }}
+                />
+                <Text style={styles.retryText}>{t(language, "biometric_retry")}</Text>
+              </AnimatedPressable>
             )}
           </View>
         </View>
@@ -247,15 +221,5 @@ const styles = StyleSheet.create({
     color: "#FFF",
     fontSize: 17,
     fontWeight: "600",
-  },
-  passcodeBtn: {
-    marginTop: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-  },
-  passcodeText: {
-    color: "#007AFF",
-    fontSize: 15,
-    fontWeight: "500",
   },
 });

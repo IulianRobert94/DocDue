@@ -66,7 +66,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     detail_due: "Scadență", detail_amount: "Sumă", detail_recurrence: "Recurență",
     detail_type: "Tip", detail_notes: "Note",
     detail_pay_next: "Plătit — Următoarea scadență", detail_resolved: "Rezolvat",
-    detail_edit: "Editează", detail_duplicate: "Duplică", detail_delete: "Șterge",
+    detail_edit: "Editează", detail_delete: "Șterge",
 
     // Document form
     form_add_title: "Document nou", form_edit_title: "Editează",
@@ -213,7 +213,6 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     biometric_section: "Securitate",
     biometric_locked_out: "Prea multe încercări. Încearcă din nou în 30 de secunde.",
     biometric_use_passcode: "Folosește parola",
-    biometric_enter_passcode: "Introdu parola dispozitivului",
     biometric_locked_out_dynamic: "Prea multe încercări. Încearcă în {time}.",
 
     // Attachments
@@ -457,7 +456,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     detail_due: "Due date", detail_amount: "Amount", detail_recurrence: "Recurrence",
     detail_type: "Type", detail_notes: "Notes",
     detail_pay_next: "Paid — Generate next due", detail_resolved: "Resolved",
-    detail_edit: "Edit", detail_duplicate: "Duplicate", detail_delete: "Delete",
+    detail_edit: "Edit", detail_delete: "Delete",
 
     form_add_title: "New document", form_edit_title: "Edit",
     form_category: "Category", form_type: "Type", form_title: "Title",
@@ -594,7 +593,6 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     biometric_section: "Security",
     biometric_locked_out: "Too many attempts. Try again in 30 seconds.",
     biometric_use_passcode: "Use Passcode",
-    biometric_enter_passcode: "Enter device passcode",
     biometric_locked_out_dynamic: "Too many attempts. Try again in {time}.",
 
     // Attachments

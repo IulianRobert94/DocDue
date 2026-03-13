@@ -321,17 +321,6 @@ export default function DocumentDetailScreen() {
             </View>
             <AnimatedPressable
               style={s.actionRow}
-              onPress={() => router.push(`/form?dupCat=${encodeURIComponent(doc.cat)}&dupType=${encodeURIComponent(doc.type)}&dupTitle=${encodeURIComponent(doc.title)}&dupAsset=${encodeURIComponent(doc.asset || '')}&dupAmt=${doc.amt || ''}&dupRec=${encodeURIComponent(doc.rec)}&dupNotes=${encodeURIComponent(doc.notes || '')}`)}
-              accessibilityLabel={t(language, 'detail_duplicate')}
-            >
-              <Ionicons name="copy-outline" size={18} color="#007AFF" style={{ marginRight: 6 }} />
-              <Text style={[s.actionText, { color: '#007AFF' }]}>{t(language, 'detail_duplicate')}</Text>
-            </AnimatedPressable>
-            <View style={{ paddingLeft: 16 }}>
-              <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: theme.divider }} />
-            </View>
-            <AnimatedPressable
-              style={s.actionRow}
               onPress={() => {
                 const catLabel = t(language, category?.labelKey || '');
                 const summary = t(language, 'share_summary', {
