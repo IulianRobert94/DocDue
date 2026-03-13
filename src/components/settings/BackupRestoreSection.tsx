@@ -104,7 +104,7 @@ export function BackupRestoreSection({
       Alert.alert(t(language, 'alert_success'), successMsg);
     } catch (e: unknown) {
       if (__DEV__) console.error('DocDue backup error:', e);
-      Alert.alert(t(language, 'backup_error'), (e as Error)?.message || String(e));
+      Alert.alert(t(language, 'backup_error'), t(language, 'generic_error'));
     } finally {
       setIsLoading(false);
     }

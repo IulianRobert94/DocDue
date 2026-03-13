@@ -661,7 +661,7 @@ const s = StyleSheet.create({
   pickerRowText: { fontSize: 17 },
   group: { marginHorizontal: 16, borderRadius: 12, overflow: 'hidden' },
   inputRow: { flexDirection: 'row', alignItems: 'center', minHeight: 44, paddingHorizontal: 16 },
-  inputLabel: { fontSize: 17, width: 100 },
+  inputLabel: { fontSize: 17, minWidth: 100 },
   inputField: { flex: 1, fontSize: 17, paddingVertical: 11, textAlign: 'right' },
   datePickerContainer: { paddingHorizontal: 16, paddingBottom: 12 },
   datePickerHeader: { flexDirection: 'row', justifyContent: 'flex-end', paddingTop: 8, paddingBottom: 4, paddingHorizontal: 4 },
