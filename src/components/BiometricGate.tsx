@@ -37,11 +37,18 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
   const authenticate = useCallback(async () => {
     setFailed(false);
     try {
+      // In Expo Go, biometric hardware isn't available — skip lock
+      // In production builds, Face ID / Touch ID works normally
+      const enrolled = await LocalAuthentication.isEnrolledAsync();
+      if (!enrolled) {
+        setLocked(false);
+        return;
+      }
+
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: t(language, "biometric_unlock"),
         fallbackLabel: t(language, "biometric_use_passcode"),
         cancelLabel: t(language, "confirm_cancel"),
-        // Allow device passcode as fallback on both platforms
         disableDeviceFallback: false,
       });
       if (result.success) {
