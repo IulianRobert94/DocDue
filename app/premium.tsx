@@ -225,7 +225,7 @@ export default function PremiumScreen() {
                   <Ionicons name="lock-open" size={20} color="#FFF" style={{ marginRight: 8 }} />
                 )}
                 <Text style={s.upgradeBtnText}>
-                  {t(language, 'premium_subscribe')}
+                  {t(language, 'premium_subscribe')}{selectedPkg?.price ? ` — ${selectedPkg.price}` : ''}
                 </Text>
               </AnimatedPressable>
 
