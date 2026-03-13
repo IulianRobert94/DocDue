@@ -36,6 +36,8 @@ export default function DocumentDetailScreen() {
   const congratsScale = useRef(new Animated.Value(0)).current;
   const congratsOpacity = useRef(new Animated.Value(0)).current;
 
+  const markingRef = useRef(false);
+
   const playCongrats = () => {
     setShowCongrats(true);
     congratsScale.setValue(0);
@@ -76,7 +78,6 @@ export default function DocumentDetailScreen() {
     );
   };
 
-  const markingRef = useRef(false);
   const handleMarkPaid = () => {
     if (markingRef.current) return;
     markingRef.current = true;
