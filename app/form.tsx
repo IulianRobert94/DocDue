@@ -4,7 +4,7 @@
  * Sticky bottom save bar + header cancel/save
  */
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TextInput, Alert,
   Platform, Keyboard, InputAccessoryView, BackHandler,
@@ -132,7 +132,7 @@ export default function FormScreen() {
        attachments.length !== (existingDoc?.attachments?.length || 0))
     : (title.trim().length > 0 || asset.trim().length > 0 || amt.trim().length > 0 || notes.trim().length > 0);
 
-  const handleCancel = () => {
+  const handleCancel = useCallback(() => {
     Keyboard.dismiss();
     if (hasUnsavedData) {
       Alert.alert(
@@ -146,7 +146,7 @@ export default function FormScreen() {
     } else {
       router.back();
     }
-  };
+  }, [hasUnsavedData, language, router]);
 
   // Android back button: show unsaved data warning
   useEffect(() => {
@@ -160,7 +160,7 @@ export default function FormScreen() {
     };
     const sub = BackHandler.addEventListener('hardwareBackPress', onBack);
     return () => sub.remove();
-  }, [hasUnsavedData]);
+  }, [hasUnsavedData, handleCancel]);
 
   useEffect(() => {
     if (!isEdit && subtypes.length > 0 && !subtypes.includes(type)) {
@@ -351,7 +351,6 @@ export default function FormScreen() {
                     returnKeyType="done" onSubmitEditing={Keyboard.dismiss}
                     maxLength={150}
                     autoCorrect={false}
-                    autoComplete="off"
                     accessibilityLabel={t(language, 'form_title')}
                     aria-invalid={!!errors.title} />
                 </View>
@@ -365,7 +364,6 @@ export default function FormScreen() {
                     returnKeyType="next" onSubmitEditing={Keyboard.dismiss}
                     maxLength={100}
                     autoCorrect={false}
-                    autoComplete="off"
                     accessibilityLabel={t(language, 'form_asset')} />
                 </View>
                 <View style={s.dividerWrap}><View style={[s.divider, { backgroundColor: theme.divider }]} /></View>
@@ -567,7 +565,7 @@ export default function FormScreen() {
                 <TextInput style={[s.notesInput, { color: theme.text }]} value={notes} onChangeText={setNotes}
                   placeholder={t(language, 'form_notes_placeholder')} placeholderTextColor={theme.textDim}
                   multiline numberOfLines={4} textAlignVertical="top" maxLength={500} returnKeyType="default"
-                  autoComplete="off"
+                  autoCorrect={true}
                   onFocus={() => { if (Platform.OS === 'android') setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 300); }}
                   inputAccessoryViewID={Platform.OS === 'ios' ? 'notesKeyboardDone' : undefined}
                   accessibilityLabel={t(language, 'form_notes')} />

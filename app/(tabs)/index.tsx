@@ -78,7 +78,7 @@ export default function HomeScreen() {
     );
     anim.start();
     return () => anim.stop();
-  }, [enriched.length === 0]);
+  }, [enriched.length]);
 
   // Demo banner — show only when demo data is present and not dismissed
   const clearAll = useDocumentStore((s) => s.clearAll);

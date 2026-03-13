@@ -8,7 +8,7 @@
  * Compatible with Expo Go (no Reanimated layout animations)
  */
 
-import React, { useCallback, useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, Animated, ViewStyle, StyleProp, Easing, Text, TextStyle } from "react-native";
 import * as Haptics from "expo-haptics";
 
@@ -168,13 +168,12 @@ interface AnimatedCounterProps {
 }
 
 export function AnimatedCounter({ value, duration = 800, delay = 200, style }: AnimatedCounterProps) {
+  const [display, setDisplay] = useState(0);
   const anim = useRef(new Animated.Value(0)).current;
-  const displayRef = useRef<Text>(null);
-  const valueRef = useRef(value);
-  valueRef.current = value;
 
   useEffect(() => {
     anim.setValue(0);
+    const id = anim.addListener(({ value: v }) => setDisplay(Math.round(v)));
     const timer = setTimeout(() => {
       Animated.timing(anim, {
         toValue: value,
@@ -183,32 +182,10 @@ export function AnimatedCounter({ value, duration = 800, delay = 200, style }: A
         useNativeDriver: false,
       }).start();
     }, delay);
-    return () => clearTimeout(timer);
+    return () => { clearTimeout(timer); anim.removeListener(id); };
   }, [value]);
 
-  const animValue = anim.interpolate({
-    inputRange: [0, value || 1],
-    outputRange: [0, value || 1],
-    extrapolate: "clamp",
-  });
-
-  return (
-    <AnimatedText style={style} animValue={animValue} />
-  );
-}
-
-// Helper to avoid re-render on every frame
-function AnimatedText({ style, animValue }: { style?: StyleProp<TextStyle>; animValue: Animated.AnimatedInterpolation<number> }) {
-  const textRef = useRef<Text>(null);
-
-  useEffect(() => {
-    const id = animValue.addListener(({ value }) => {
-      textRef.current?.setNativeProps({ text: String(Math.round(value)) });
-    });
-    return () => animValue.removeListener(id);
-  }, [animValue]);
-
-  return <Animated.Text ref={textRef as any} style={style}>0</Animated.Text>;
+  return <Text style={style}>{display}</Text>;
 }
 
 // ─── AnimatedBar (width animates from 0%) ─────────────
