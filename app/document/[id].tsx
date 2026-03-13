@@ -3,7 +3,7 @@
  * Modal with animated entrance, premium info card
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, Alert, Image, Share, ActivityIndicator, Animated } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -37,16 +37,29 @@ export default function DocumentDetailScreen() {
   const congratsOpacity = useRef(new Animated.Value(0)).current;
 
   const markingRef = useRef(false);
+  const congratsAnimRef = useRef<Animated.CompositeAnimation | null>(null);
+
+  // Stop congrats animation on unmount to prevent background resource usage
+  useEffect(() => {
+    return () => {
+      if (congratsAnimRef.current) congratsAnimRef.current.stop();
+    };
+  }, []);
 
   const playCongrats = () => {
     setShowCongrats(true);
     congratsScale.setValue(0);
     congratsOpacity.setValue(1);
-    Animated.sequence([
+    const anim = Animated.sequence([
       Animated.spring(congratsScale, { toValue: 1, friction: 4, tension: 60, useNativeDriver: true }),
       Animated.delay(1200),
       Animated.timing(congratsOpacity, { toValue: 0, duration: 400, useNativeDriver: true }),
-    ]).start(() => setShowCongrats(false));
+    ]);
+    congratsAnimRef.current = anim;
+    anim.start(() => {
+      congratsAnimRef.current = null;
+      setShowCongrats(false);
+    });
   };
 
   if (!doc) {

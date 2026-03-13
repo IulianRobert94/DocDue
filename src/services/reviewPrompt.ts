@@ -38,6 +38,7 @@ export async function maybeRequestReview(documentCount?: number): Promise<void> 
   if (docCount < MIN_DOCS) return;
 
   // Check minimum days since first open
+  // calculateDaysUntil returns negative for past dates, so negate to get positive days elapsed
   const daysSinceOpen = -calculateDaysUntil(settings.firstOpenDate);
   if (daysSinceOpen < MIN_DAYS) return;
 

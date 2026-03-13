@@ -69,20 +69,24 @@ interface DocumentsState {
 // ─── Persist helper ─────────────────────────────────────
 
 let _lastPersistedDocs: RawDocument[] | null = null;
+let _persistChain: Promise<void> = Promise.resolve();
 
 function persistDocs(documents: RawDocument[]) {
   const lang = useSettingsStore?.getState?.()?.settings?.language || "en";
-  const payload = { version: DATA_VERSION, documents };
-  AsyncStorage.setItem(STORAGE_KEY_DOCUMENTS, JSON.stringify(payload))
-    .then(() => { _lastPersistedDocs = documents; })
-    .catch((e) => {
-      if (__DEV__) console.warn("DocDue: persist error", e);
-      // Revert in-memory state to last successfully persisted version
-      if (_lastPersistedDocs !== null) {
-        useDocumentStore.setState({ documents: _lastPersistedDocs });
-      }
-      Alert.alert(t(lang, "save_error_title"), t(lang, "save_error_msg"));
-    });
+  // Serialize writes: each persist waits for the previous one to finish,
+  // so the last write always wins and we never lose data from race conditions.
+  _persistChain = _persistChain.then(() => {
+    const payload = { version: DATA_VERSION, documents };
+    return AsyncStorage.setItem(STORAGE_KEY_DOCUMENTS, JSON.stringify(payload))
+      .then(() => { _lastPersistedDocs = documents; })
+      .catch((e) => {
+        if (__DEV__) console.warn("DocDue: persist error", e);
+        if (_lastPersistedDocs !== null) {
+          useDocumentStore.setState({ documents: _lastPersistedDocs });
+        }
+        Alert.alert(t(lang, "save_error_title"), t(lang, "save_error_msg"));
+      });
+  });
 }
 
 // ─── Attachment cleanup helper ──────────────────────────
@@ -97,24 +101,35 @@ function cleanupAttachments(doc: RawDocument) {
 // ─── Notification reschedule helper ──────────────────────
 
 let _rescheduleTimer: ReturnType<typeof setTimeout> | null = null;
+let _rescheduleRunning = false;
 
 async function doReschedule(documents: RawDocument[], attempt = 1) {
-  const settings = useSettingsStore?.getState?.()?.settings;
-  if (settings?.notificationsEnabled) {
-    try {
-      await rescheduleAllNotifications(documents, settings.reminderDays, settings.language);
-      await scheduleMorningDigest(documents, settings.language);
-      await scheduleWeeklySummary(documents, settings.language);
-    } catch (e) {
-      if (__DEV__) console.warn("DocDue: notification reschedule error", e);
-      if (attempt < 3) {
-        setTimeout(() => doReschedule(documents, attempt + 1), attempt * 2000);
-      } else if (__DEV__) {
-        console.warn("DocDue: notification reschedule failed after 3 attempts — notifications may be stale");
+  // Prevent concurrent reschedule calls (e.g. rapid immediate mutations)
+  // to avoid duplicate notification scheduling
+  if (_rescheduleRunning && attempt === 1) return;
+  _rescheduleRunning = true;
+  try {
+    const settings = useSettingsStore?.getState?.()?.settings;
+    if (settings?.notificationsEnabled) {
+      try {
+        await rescheduleAllNotifications(documents, settings.reminderDays, settings.language);
+        await scheduleMorningDigest(documents, settings.language);
+        await scheduleWeeklySummary(documents, settings.language);
+      } catch (e) {
+        if (__DEV__) console.warn("DocDue: notification reschedule error", e);
+        if (attempt < 3) {
+          _rescheduleRunning = false;
+          setTimeout(() => doReschedule(documents, attempt + 1), attempt * 2000);
+          return;
+        } else if (__DEV__) {
+          console.warn("DocDue: notification reschedule failed after 3 attempts — notifications may be stale");
+        }
       }
     }
+    updateWidgetData(documents);
+  } finally {
+    _rescheduleRunning = false;
   }
-  updateWidgetData(documents);
 }
 
 function triggerNotificationReschedule(documents: RawDocument[], immediate = false) {

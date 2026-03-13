@@ -107,7 +107,20 @@ export async function purchasePackage(productId: string): Promise<PurchaseResult
     // Android returns array, iOS returns single object
     const p = Array.isArray(purchase) ? purchase[0] : purchase;
     if (p) {
-      await finishTransaction({ purchase: p, isConsumable: false });
+      try {
+        await finishTransaction({ purchase: p, isConsumable: false });
+      } catch (finishError) {
+        // finishTransaction failure is critical — the purchase may be refunded
+        // if not acknowledged. Retry once before giving up.
+        if (__DEV__) console.warn("DocDue: finishTransaction failed, retrying", finishError);
+        try {
+          await finishTransaction({ purchase: p, isConsumable: false });
+        } catch {
+          // Even if finish fails, the purchase went through on the store side.
+          // The store will retry acknowledgment automatically on next app launch.
+          if (__DEV__) console.warn("DocDue: finishTransaction retry failed — store will auto-retry");
+        }
+      }
       return { success: true };
     }
     return { success: false, cancelled: false, error: "No purchase returned" };

@@ -102,9 +102,14 @@ export function extractDate(text: string): string | null {
     return futureDates[0].date;
   }
 
-  // No future dates — return the latest past date
-  matches.sort((a, b) => parseLocalDate(b.date).getTime() - parseLocalDate(a.date).getTime());
-  return matches[0].date;
+  // No future dates — return the latest past date, but only if within 1 year
+  // (older dates are likely irrelevant and would confuse the user)
+  const oneYearAgo = new Date();
+  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+  const recentPast = matches.filter((m) => parseLocalDate(m.date) >= oneYearAgo);
+  if (recentPast.length === 0) return null;
+  recentPast.sort((a, b) => parseLocalDate(b.date).getTime() - parseLocalDate(a.date).getTime());
+  return recentPast[0].date;
 }
 
 // ─── Amount Extraction ──────────────────────────────────

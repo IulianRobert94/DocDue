@@ -48,7 +48,10 @@ export function migrateData(stored: StoredData | RawDocument[] | null): RawDocum
     // Filter to only valid document objects (skip corrupted entries)
     const valid = stored.filter(
       (item): item is RawDocument =>
-        typeof item === "object" && item !== null && "id" in item && "due" in item && "cat" in item
+        typeof item === "object" && item !== null &&
+        "id" in item && typeof (item as any).id === "string" &&
+        "due" in item && typeof (item as any).due === "string" &&
+        "cat" in item && typeof (item as any).cat === "string"
     );
     return valid.map(migrateRecurrence);
   }
@@ -63,7 +66,10 @@ export function migrateData(stored: StoredData | RawDocument[] | null): RawDocum
     // Filter to only valid document objects
     const valid = stored.documents.filter(
       (item): item is RawDocument =>
-        typeof item === "object" && item !== null && "id" in item && "due" in item && "cat" in item
+        typeof item === "object" && item !== null &&
+        "id" in item && typeof (item as any).id === "string" &&
+        "due" in item && typeof (item as any).due === "string" &&
+        "cat" in item && typeof (item as any).cat === "string"
     );
     return valid.map(migrateRecurrence);
   }

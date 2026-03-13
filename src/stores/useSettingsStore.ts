@@ -59,13 +59,20 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
         }
       }
       if (raw) {
-        const parsed = JSON.parse(raw);
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(raw);
+        } catch {
+          if (__DEV__) console.warn("DocDue: corrupted settings JSON, resetting to defaults");
+          parsed = null;
+        }
         if (parsed && typeof parsed === "object") {
           // Only pick keys that exist in DEFAULT_SETTINGS to prevent unknown field injection
           const validKeys = Object.keys(DEFAULT_SETTINGS) as (keyof AppSettings)[];
+          const obj = parsed as Record<string, unknown>;
           const cleaned = {} as Record<string, unknown>;
           for (const key of validKeys) {
-            if (key in parsed) cleaned[key] = parsed[key];
+            if (key in obj) cleaned[key] = obj[key];
           }
           set({ settings: { ...DEFAULT_SETTINGS, ...cleaned } as AppSettings, _hydrated: true });
           return;

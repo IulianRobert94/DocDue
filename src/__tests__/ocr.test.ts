@@ -83,9 +83,18 @@ Suma: 1.250,00 RON`;
     expect(result).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
-  it("returns latest past date when no future dates exist", () => {
-    const result = extractDate("Date1: 01.06.2021\nDate2: 15.03.2022");
-    expect(result).toBe("2022-03-15");
+  it("returns latest past date when within 1 year, null when older", () => {
+    // Dates older than 1 year should return null (irrelevant for document tracking)
+    const oldResult = extractDate("Date1: 01.06.2021\nDate2: 15.03.2022");
+    expect(oldResult).toBeNull();
+
+    // Recent past date (within 1 year) should be returned
+    const now = new Date();
+    const recentMonth = String(now.getMonth() + 1).padStart(2, "0");
+    const lastYear = now.getFullYear() - 1;
+    const recentResult = extractDate(`Date: 15.${recentMonth}.${lastYear + 1}`);
+    // This date is in the current year — should be found (either future or recent past)
+    expect(recentResult).not.toBeNull();
   });
 });
 

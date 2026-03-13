@@ -138,9 +138,11 @@ describe("useDocumentStore", () => {
       expect(docs[0].id).not.toBe(docs[1].id);
     });
 
-    it("persists to AsyncStorage after add", () => {
+    it("persists to AsyncStorage after add", async () => {
       useDocumentStore.getState().addDocument(makeDoc());
-      // addDocument calls persistDocs synchronously (the AsyncStorage.setItem is async but called immediately)
+      // persistDocs uses a serialized promise chain — flush microtasks
+      await Promise.resolve();
+      await Promise.resolve();
       expect(AsyncStorage.setItem).toHaveBeenCalled();
     });
   });
