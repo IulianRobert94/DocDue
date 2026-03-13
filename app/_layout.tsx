@@ -13,7 +13,7 @@ import * as Notifications from "expo-notifications";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { File, Paths } from "expo-file-system/next";
+import * as Application from "expo-application";
 import { useDocumentStore } from "../src/stores/useDocumentStore";
 import { useTheme, useSettingsStore } from "../src/stores/useSettingsStore";
 import { ErrorBoundary } from "../src/components/ErrorBoundary";
@@ -74,14 +74,29 @@ export default function RootLayout() {
         // Detect fresh install using a Caches marker file.
         // iOS restores AsyncStorage from iCloud backup after reinstall,
         // but Caches directory is NOT restored — so a missing marker = fresh install.
-        const marker = new File(Paths.cache, "docdue_installed");
+        // Detect reinstall: compare OS install time with our saved timestamp.
+        // iCloud can restore AsyncStorage after delete+reinstall, but the OS
+        // install time resets — so a newer install time means reinstall.
         const onboarded = await AsyncStorage.getItem(STORAGE_KEY_ONBOARDED);
-        if (!marker.exists) {
-          // Fresh install or reinstall — Caches dir is NOT restored from iCloud.
-          // Clear any stale iCloud-restored onboarding flag.
-          if (onboarded) await AsyncStorage.removeItem(STORAGE_KEY_ONBOARDED);
+        const savedInstallTime = await AsyncStorage.getItem("docdue_install_ts");
+        const installTime = await Application.getInstallationTimeAsync();
+        const installTs = installTime ? String(installTime.getTime()) : null;
+
+        let isReinstall = false;
+        if (installTs && savedInstallTime && installTs !== savedInstallTime) {
+          // Install time changed — app was deleted and reinstalled
+          isReinstall = true;
+        }
+        if (installTs && !savedInstallTime && onboarded) {
+          // No saved timestamp but onboarded flag exists — iCloud restored stale data
+          isReinstall = true;
+        }
+        // Save current install time
+        if (installTs) await AsyncStorage.setItem("docdue_install_ts", installTs);
+
+        if (isReinstall) {
+          await AsyncStorage.removeItem(STORAGE_KEY_ONBOARDED);
           setShowOnboarding(true);
-          marker.create();
         } else {
           setShowOnboarding(!onboarded);
         }
