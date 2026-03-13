@@ -1,7 +1,7 @@
 ╔══════════════════════════════════════════════════════════════╗
 ║             DocDue v1.0.0 — Complete Source Code           ║
 ║     React Native / Expo Router / TypeScript / Zustand     ║
-║     Generated: 2026-03-07 21:12                            ║
+║     Generated: 2026-03-13                                  ║
 ╚══════════════════════════════════════════════════════════════╝
 
 Files included: 54
@@ -106,8 +106,9 @@ Files included: 54
     "react": "19.1.0",
     "react-native": "0.81.5",
     "react-native-gesture-handler": "~2.28.0",
+    "react-native-iap": "^14.7.17",
     "react-native-mlkit-ocr": "^0.3.0",
-    "react-native-purchases": "^9.11.1",
+    "react-native-nitro-modules": "^0.35.0",
     "react-native-reanimated": "~4.1.1",
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",
@@ -129,12 +130,13 @@ Files included: 54
   "expo": {
     "doctor": {
       "reactNativeDirectoryCheck": {
-        "exclude": ["react-native-mlkit-ocr"]
+        "exclude": [
+          "react-native-mlkit-ocr"
+        ]
       }
     }
   }
 }
-
 
 ════════════════════════════════════════════════════════════
   FILE: tsconfig.json
@@ -161,7 +163,6 @@ Files included: 54
     "src/widgets/**"
   ]
 }
-
 
 ════════════════════════════════════════════════════════════
   FILE: app.json
@@ -192,7 +193,8 @@ Files included: 54
         "NSPhotoLibraryUsageDescription": "DocDue needs access to your photos to attach them to documents.",
         "NSCameraUsageDescription": "DocDue needs access to the camera to take photos for documents.",
         "NSCalendarsFullAccessUsageDescription": "DocDue can add document due dates to your calendar.",
-        "NSCalendarsWriteOnlyAccessUsageDescription": "DocDue can add document due dates to your calendar."
+        "NSCalendarsWriteOnlyAccessUsageDescription": "DocDue can add document due dates to your calendar.",
+        "ITSAppUsesNonExemptEncryption": false
       },
       "privacyManifests": {
         "NSPrivacyTracking": false,
@@ -238,7 +240,8 @@ Files included: 54
         "android.permission.USE_FINGERPRINT",
         "android.permission.SCHEDULE_EXACT_ALARM",
         "android.permission.READ_CALENDAR",
-        "android.permission.WRITE_CALENDAR"
+        "android.permission.WRITE_CALENDAR",
+        "android.permission.POST_NOTIFICATIONS"
       ]
     },
     "experiments": {
@@ -261,40 +264,23 @@ Files included: 54
         {
           "image": "./assets/splash-icon.png",
           "backgroundColor": "#0A0E17",
-          "imageWidth": 200
+          "imageWidth": 280
         }
       ],
       "@react-native-community/datetimepicker",
       "expo-calendar",
-      "expo-notifications"
+      "expo-notifications",
+      "react-native-iap"
     ],
     "extra": {
       "router": {},
       "eas": {
-        "build": {
-          "experimental": {
-            "ios": {
-              "appExtensions": [
-                {
-                  "targetName": "ExpoWidgetsTarget",
-                  "bundleIdentifier": "com.docdueapp.ExpoWidgetsTarget",
-                  "entitlements": {
-                    "com.apple.security.application-groups": [
-                      "group.com.docdueapp"
-                    ]
-                  }
-                }
-              ]
-            }
-          }
-        },
         "projectId": "033e3e3b-42eb-4150-8c0a-22345bd353ab"
       }
     },
     "owner": "iulianrobert94"
   }
 }
-
 
 ════════════════════════════════════════════════════════════
   FILE: babel.config.js
@@ -311,7 +297,6 @@ module.exports = function (api) {
   };
 };
 
-
 ════════════════════════════════════════════════════════════
   FILE: jest.config.js
 ════════════════════════════════════════════════════════════
@@ -325,7 +310,6 @@ module.exports = {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
 };
-
 
 ════════════════════════════════════════════════════════════
   FILE: eas.json
@@ -357,8 +341,8 @@ module.exports = {
   "submit": {
     "production": {
       "ios": {
-        "ascAppId": "YOUR_APP_STORE_CONNECT_APP_ID",
-        "appleTeamId": "YOUR_APPLE_TEAM_ID"
+        "ascAppId": "6760433928",
+        "appleTeamId": "4SL9XA9VF7"
       },
       "android": {
         "track": "internal",
@@ -367,7 +351,6 @@ module.exports = {
     }
   }
 }
-
 
 ════════════════════════════════════════════════════════════
   FILE: src/core/constants.ts
@@ -396,6 +379,7 @@ export const STORAGE_KEY_DOCUMENTS = "dt12_docs";
 export const STORAGE_KEY_SETTINGS = "dt12_settings";
 export const STORAGE_KEY_DOCUMENTS_LEGACY = "dt11_docs";
 export const STORAGE_KEY_SETTINGS_LEGACY = "dt11_settings";
+export const STORAGE_KEY_ONBOARDED = "dt_onboarded";
 export const MAX_ATTACHMENTS = 5;
 
 // ─── TypeScript Types ───────────────────────────────────
@@ -501,6 +485,7 @@ export interface AppSettings {
   isPremium: boolean;
   firstOpenDate: string | null;
   reviewPrompted: boolean;
+  customSubtypes: Record<CategoryId, string[]>;
 }
 
 // ─── Recurrence Options ─────────────────────────────────
@@ -621,15 +606,15 @@ export const DEFAULT_SETTINGS: AppSettings = {
   currency: "RON",
   language: "ro",
   reminderDays: [7, 3, 1],
-  notificationsEnabled: false,
+  notificationsEnabled: true,
   biometricEnabled: false,
   lastBackupDate: null,
   includeAttachmentsInBackup: false,
   isPremium: false,
   firstOpenDate: null,
   reviewPrompted: false,
+  customSubtypes: { vehicule: [], personal: [], casa: [], financiar: [] },
 };
-
 
 ════════════════════════════════════════════════════════════
   FILE: src/core/dateUtils.ts
@@ -758,7 +743,6 @@ export function addMonthsToDate(dateString: string, monthsToAdd: number): string
   return `${y}-${m}-${d}`;
 }
 
-
 ════════════════════════════════════════════════════════════
   FILE: src/core/enrichment.ts
 ════════════════════════════════════════════════════════════
@@ -843,7 +827,6 @@ export function sortDocumentsByField(
       return sorted.sort((a, b) => dir * (a._daysUntil - b._daysUntil));
   }
 }
-
 
 
 ════════════════════════════════════════════════════════════
@@ -940,7 +923,6 @@ export function getStatusLabel(status: DocumentStatus, lang: LanguageCode): stri
   return t(lang, STATUS_DISPLAY[status].labelKey);
 }
 
-
 ════════════════════════════════════════════════════════════
   FILE: src/core/helpers.ts
 ════════════════════════════════════════════════════════════
@@ -964,7 +946,6 @@ export function generateId(): string {
   // Fallback pentru medii mai vechi
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
-
 
 ════════════════════════════════════════════════════════════
   FILE: src/core/healthScore.ts
@@ -1041,7 +1022,6 @@ export function getHealthScoreLabel(score: number): string {
   if (score <= 70) return "health_attention";
   return "health_good";
 }
-
 
 ════════════════════════════════════════════════════════════
   FILE: src/core/smartDefaults.ts
@@ -1139,7 +1119,6 @@ export function getSmartDefaults(subtype: string): SmartDefault | null {
   return SUBTYPE_DEFAULTS[subtype] || null;
 }
 
-
 ════════════════════════════════════════════════════════════
   FILE: src/core/i18n.ts
 ════════════════════════════════════════════════════════════
@@ -1212,7 +1191,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     detail_due: "Scadență", detail_amount: "Sumă", detail_recurrence: "Recurență",
     detail_type: "Tip", detail_notes: "Note",
     detail_pay_next: "Plătit — Următoarea scadență", detail_resolved: "Rezolvat",
-    detail_edit: "Editează", detail_delete: "Șterge",
+    detail_edit: "Editează", detail_duplicate: "Duplică", detail_delete: "Șterge",
 
     // Document form
     form_add_title: "Document nou", form_edit_title: "Editează",
@@ -1237,6 +1216,8 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     confirm_discard_btn: "Renunță",
     confirm_delete_title: "Șterge document",
     confirm_delete_msg: "Sigur vrei să ștergi \"{title}\"? Acțiunea este ireversibilă.",
+    confirm_delete_type_title: "Șterge tip",
+    confirm_delete_type_msg: "Ștergi \"{name}\" din lista de tipuri?",
     confirm_cancel: "Anulează",
     confirm_delete_btn: "Șterge",
     confirm_paid_title: "Marchează ca plătit?",
@@ -1356,6 +1337,10 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     biometric_not_available: "Biometria nu e disponibilă pe acest dispozitiv",
     biometric_section: "Securitate",
     biometric_locked_out: "Prea multe încercări. Încearcă din nou în 30 de secunde.",
+    biometric_use_passcode: "Folosește parola",
+    biometric_passcode_hint_ios: "Privește în altă parte la Face ID, apoi apasă 'Folosește parola'",
+    biometric_passcode_hint_android: "Apasă pentru a introduce PIN-ul dispozitivului",
+    biometric_locked_out_dynamic: "Prea multe încercări. Încearcă în {time}.",
 
     // Attachments
     attachments: "Atașamente",
@@ -1376,7 +1361,9 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     backup_include_attachments: "Include atașamente",
     backup_include_desc: "Fișier mai mare",
     backup_success: "Backup creat cu succes",
+    attachments_skipped: "atașamente nu au putut fi incluse",
     backup_error: "Eroare la crearea backup-ului",
+    generic_error: "A apărut o eroare. Vă rugăm încercați din nou.",
     sharing_unavailable: "Partajarea nu este disponibilă pe acest dispozitiv.",
     all_docs_exist: "Toate documentele există deja.",
     duplicates_skipped: "duplicate omise",
@@ -1432,7 +1419,8 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     premium_feature_analytics: "Analiză cheltuieli",
     premium_feature_backup: "Backup și restaurare",
     premium_feature_widgets: "Widget-uri home screen",
-    premium_feature_notifications: "Notificări avansate",
+    premium_feature_export: "Export Excel și import",
+    settings_contact_support: "Contactează suportul",
     premium_upgrade: "Upgrade la Pro",
     premium_restore: "Restaurare achiziție",
     premium_limit_title: "Limită atinsă",
@@ -1452,6 +1440,10 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     // Notification actions
     notif_action_renewed: "Reînnoit ✓",
     notif_action_tomorrow: "Mâine",
+
+    // Demo banner
+    demo_banner_text: "Acestea sunt documente demonstrative. Adaugă-le pe ale tale!",
+    demo_banner_dismiss: "Șterge exemplele",
 
     // Health Score
     health_score: "Scor sănătate",
@@ -1482,7 +1474,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
 
     // Review prompt
     review_enjoying: "Îți place DocDue?",
-    review_rate: "Lasă un review pe App Store",
+    review_rate: "Lasă un review",
 
     // ErrorBoundary
     error_title: "Ceva nu a funcționat",
@@ -1492,6 +1484,8 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     // ImageViewer
     a11y_close_image: "Închide previzualizarea",
     a11y_image_preview: "Previzualizare atașament",
+    a11y_clear_search: "Șterge căutarea",
+    a11y_delete_custom_type: "Șterge tipul {name}",
 
     // HealthScoreArc
     a11y_health_score: "Scor sănătate: {score} din 100",
@@ -1501,7 +1495,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     premium_unlock_free: "Activează gratuit",
 
     // Purchase terms
-    premium_terms: "Plata se va debita din contul Apple ID sau Google Play. Achiziție unică — fără abonament, fără plăți recurente.",
+    premium_terms: "Achiziție unică — fără abonament, fără plăți recurente.",
     premium_terms_of_use: "Termenii de utilizare",
     premium_privacy_link: "Politica de confidențialitate",
 
@@ -1524,7 +1518,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     privacy_data_collected_title: "Date colectate",
     privacy_data_collected_body: "DocDue NU colectează, transmite sau stochează date personale pe servere externe. Toate documentele și preferințele sunt stocate exclusiv pe dispozitivul tău, folosind AsyncStorage.",
     privacy_permissions_title: "Permisiuni",
-    privacy_permissions_body: "Aplicația solicită acces la cameră și galeria foto doar pentru a atașa documente. Face ID / amprentă se folosește doar pentru deblocarea aplicației. Nu se solicită acces la locație sau contacte. Nu se fac cereri de rețea către servere terțe.",
+    privacy_permissions_body: "Aplicația solicită acces la cameră și galeria foto doar pentru a atașa documente. Face ID / amprentă se folosește doar pentru deblocarea aplicației. Nu se solicită acces la locație sau contacte. Singura conexiune la internet este pentru achiziții in-app prin Apple App Store sau Google Play, gestionate direct de platforma dispozitivului tău.",
     privacy_storage_title: "Stocare locală",
     privacy_storage_body: "Toate documentele, atașamentele și preferințele sunt stocate exclusiv pe dispozitivul tău. Backup-urile pot fi create manual și salvate unde dorești (iCloud Drive, Google Drive, email etc.).",
     privacy_sharing_title: "Partajare date",
@@ -1589,7 +1583,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     detail_due: "Due date", detail_amount: "Amount", detail_recurrence: "Recurrence",
     detail_type: "Type", detail_notes: "Notes",
     detail_pay_next: "Paid — Generate next due", detail_resolved: "Resolved",
-    detail_edit: "Edit", detail_delete: "Delete",
+    detail_edit: "Edit", detail_duplicate: "Duplicate", detail_delete: "Delete",
 
     form_add_title: "New document", form_edit_title: "Edit",
     form_category: "Category", form_type: "Type", form_title: "Title",
@@ -1611,6 +1605,8 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     confirm_discard_btn: "Discard",
     confirm_delete_title: "Delete document",
     confirm_delete_msg: "Are you sure you want to delete \"{title}\"? This cannot be undone.",
+    confirm_delete_type_title: "Delete type",
+    confirm_delete_type_msg: "Remove \"{name}\" from the type list?",
     confirm_cancel: "Cancel",
     confirm_delete_btn: "Delete",
     confirm_paid_title: "Mark as paid?",
@@ -1723,6 +1719,10 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     biometric_not_available: "Biometrics not available on this device",
     biometric_section: "Security",
     biometric_locked_out: "Too many attempts. Try again in 30 seconds.",
+    biometric_use_passcode: "Use Passcode",
+    biometric_passcode_hint_ios: "Look away from Face ID, then tap \"Use Passcode\"",
+    biometric_passcode_hint_android: "Tap to enter your device PIN",
+    biometric_locked_out_dynamic: "Too many attempts. Try again in {time}.",
 
     // Attachments
     attachments: "Attachments",
@@ -1743,7 +1743,9 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     backup_include_attachments: "Include attachments",
     backup_include_desc: "Larger file size",
     backup_success: "Backup created successfully",
+    attachments_skipped: "attachments could not be included",
     backup_error: "Error creating backup",
+    generic_error: "An error occurred. Please try again.",
     sharing_unavailable: "Sharing is not available on this device.",
     all_docs_exist: "All documents already exist.",
     duplicates_skipped: "duplicates skipped",
@@ -1799,7 +1801,8 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     premium_feature_analytics: "Spending analytics",
     premium_feature_backup: "Backup & restore",
     premium_feature_widgets: "Home screen widgets",
-    premium_feature_notifications: "Advanced notifications",
+    premium_feature_export: "Excel export & import",
+    settings_contact_support: "Contact support",
     premium_upgrade: "Upgrade to Pro",
     premium_restore: "Restore purchase",
     premium_limit_title: "Limit reached",
@@ -1819,6 +1822,10 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     // Notification actions
     notif_action_renewed: "Renewed ✓",
     notif_action_tomorrow: "Tomorrow",
+
+    // Demo banner
+    demo_banner_text: "These are demo documents. Add your own!",
+    demo_banner_dismiss: "Remove examples",
 
     // Health Score
     health_score: "Health Score",
@@ -1849,7 +1856,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
 
     // Review prompt
     review_enjoying: "Enjoying DocDue?",
-    review_rate: "Leave a review on the App Store",
+    review_rate: "Leave a review",
 
     // ErrorBoundary
     error_title: "Something went wrong",
@@ -1859,6 +1866,8 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     // ImageViewer
     a11y_close_image: "Close preview",
     a11y_image_preview: "Attachment preview",
+    a11y_clear_search: "Clear search",
+    a11y_delete_custom_type: "Delete type {name}",
 
     // HealthScoreArc
     a11y_health_score: "Health score: {score} out of 100",
@@ -1868,7 +1877,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     premium_unlock_free: "Unlock for free",
 
     // Purchase terms
-    premium_terms: "Payment will be charged to your Apple ID or Google Play account. One-time purchase — no subscription, no recurring charges.",
+    premium_terms: "One-time purchase — no subscription, no recurring charges.",
     premium_terms_of_use: "Terms of Use",
     premium_privacy_link: "Privacy Policy",
 
@@ -1891,7 +1900,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     privacy_data_collected_title: "Data collected",
     privacy_data_collected_body: "DocDue does NOT collect, transmit, or store personal data on external servers. All documents and preferences are stored exclusively on your device using AsyncStorage.",
     privacy_permissions_title: "Permissions",
-    privacy_permissions_body: "The app requests access to camera and photo library only to attach documents. Face ID / fingerprint is used only for app unlock. No access to location or contacts is requested. No network requests are made to third-party servers.",
+    privacy_permissions_body: "The app requests access to camera and photo library only to attach documents. Face ID / fingerprint is used only for app unlock. No access to location or contacts is requested. The only internet connection is for in-app purchases through Apple App Store or Google Play, managed directly by your device platform.",
     privacy_storage_title: "Local storage",
     privacy_storage_body: "All documents, attachments, and preferences are stored exclusively on your device. Backups can be created manually and saved wherever you choose (iCloud Drive, Google Drive, email, etc.).",
     privacy_sharing_title: "Data sharing",
@@ -1927,6 +1936,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
 const SUBTYPE_TRANSLATIONS: Record<string, Record<string, string>> = {
   en: {
     // Vehicule
+    "RCA": "Liability insurance (RCA)", "ITP": "Technical inspection (ITP)", "CASCO": "Comprehensive insurance",
     "Rovignetă": "Road vignette", "Impozit auto": "Vehicle tax", "Revizie service": "Service check",
     "Tahograf calibrare": "Tachograph calibration", "Licență transport": "Transport license",
     "Copie conformă": "Certified copy", "Verificare ADR": "ADR inspection",
@@ -1937,6 +1947,7 @@ const SUBTYPE_TRANSLATIONS: Record<string, Record<string, string>> = {
     "Asigurare facultativă": "Optional insurance", "Contract chirie": "Rental contract",
     "Impozit locuință": "Property tax", "Revizie centrală": "Heating inspection",
     "Verificare gaze": "Gas inspection",
+    "Internet": "Internet", "TV": "TV", "Cloud storage": "Cloud storage", "Hosting": "Hosting",
     // Personal
     "Permis conducere": "Driver's license", "Carte de identitate": "National ID",
     "Pașaport": "Passport", "Atestat profesional": "Professional certificate",
@@ -1990,7 +2001,6 @@ export function translateSubtype(subtype: string, lang: LanguageCode): string {
   if (lang === "ro" || !SUBTYPE_TRANSLATIONS[lang]) return subtype;
   return SUBTYPE_TRANSLATIONS[lang][subtype] || subtype;
 }
-
 
 ════════════════════════════════════════════════════════════
   FILE: src/core/migration.ts
@@ -2048,7 +2058,7 @@ export function migrateData(stored: StoredData | RawDocument[] | null): RawDocum
       (item): item is RawDocument =>
         typeof item === "object" && item !== null && "id" in item && "due" in item && "cat" in item
     );
-    return valid.length > 0 ? valid.map(migrateRecurrence) : null;
+    return valid.map(migrateRecurrence);
   }
 
   // Must be an object at this point
@@ -2069,7 +2079,6 @@ export function migrateData(stored: StoredData | RawDocument[] | null): RawDocum
   return null; // unrecognized format, treat as first launch
 }
 
-
 ════════════════════════════════════════════════════════════
   FILE: src/core/demo.ts
 ════════════════════════════════════════════════════════════
@@ -2077,63 +2086,103 @@ export function migrateData(stored: StoredData | RawDocument[] | null): RawDocum
 /**
  * DocDue — Demo Data
  *
- * Date demonstrative pentru prima rulare a aplicației.
- * Conțin exemple realiste din toate cele 4 categorii:
+ * Bilingual demo documents for first launch.
+ * Realistic examples across all 4 categories:
  *   vehicule, casa, personal, financiar
  */
 
-import type { RawDocument } from "./constants";
+import type { RawDocument, LanguageCode } from "./constants";
 import { getTodayString, addDaysToDate } from "./dateUtils";
 import { generateId } from "./helpers";
 
-/**
- * Generează un set complet de documente demonstrative.
- *
- * Fiecare document are o scadență relativă la ziua curentă
- * (ex: offset(-5) = expirat de 5 zile, offset(22) = peste 22 de zile).
- */
-export function createDemoDocuments(): RawDocument[] {
-  const offset = (days: number) => addDaysToDate(getTodayString(), days);
+export const DEMO_ID_PREFIX = "demo_";
 
-  return [
-    // ─── Vehicule ─────────────────────────────────────
-    { id: generateId(), cat: "vehicule", type: "RCA", title: "RCA — Dacia Duster", asset: "B-99-ABC", due: offset(-5), amt: 1850, rec: "annual", notes: "Omniasig, poliță RCA-2024-88431" },
-    { id: generateId(), cat: "vehicule", type: "ITP", title: "ITP — Dacia Duster", asset: "B-99-ABC", due: offset(22), amt: 180, rec: "annual", notes: "Stație AutoCheck, Bd. Timișoara" },
-    { id: generateId(), cat: "vehicule", type: "Rovignetă", title: "Rovignetă 12 luni", asset: "B-99-ABC", due: offset(95), amt: 28, rec: "annual", notes: "erovinieta.ro" },
-    { id: generateId(), cat: "vehicule", type: "CASCO", title: "CASCO — Dacia Duster", asset: "B-99-ABC", due: offset(180), amt: 3200, rec: "annual", notes: "Allianz, franșiză 300€" },
-    { id: generateId(), cat: "vehicule", type: "RCA", title: "RCA — Volvo FH 500", asset: "B-55-TIR", due: offset(8), amt: 6500, rec: "annual", notes: "Euroins, flotă" },
-    { id: generateId(), cat: "vehicule", type: "Revizie service", title: "Revizie 100k km — Volvo FH", asset: "B-55-TIR", due: offset(12), amt: 4500, rec: "none", notes: "Volvo Truck Center" },
-    { id: generateId(), cat: "vehicule", type: "Tahograf calibrare", title: "Calibrare tahograf", asset: "B-55-TIR", due: offset(45), amt: 650, rec: "annual", notes: "Service autorizat RAR" },
+const DEMO_TEXT: Record<string, Record<LanguageCode, string>> = {
+  // Titles
+  t_rca: { ro: "RCA — Dacia Duster", en: "Car Insurance — Dacia Duster" },
+  t_itp: { ro: "ITP — Dacia Duster", en: "Vehicle Inspection — Dacia Duster" },
+  t_casco: { ro: "CASCO — Dacia Duster", en: "Comprehensive Insurance — Dacia Duster" },
+  t_rovig: { ro: "Rovignetă 12 luni", en: "Road Tax 12 months" },
+  t_intret: { ro: "Întreținere bloc", en: "Building maintenance" },
+  t_curent: { ro: "Factură curent Enel", en: "Electricity bill Enel" },
+  t_internet: { ro: "Internet + TV Digi", en: "Internet + TV Digi" },
+  t_pad: { ro: "Asigurare PAD locuință", en: "Home insurance PAD" },
+  t_ci: { ro: "Carte de identitate", en: "National ID card" },
+  t_permis: { ro: "Permis auto cat. B", en: "Driver's license cat. B" },
+  t_fisa: { ro: "Fișă medicală", en: "Medical certificate" },
+  t_anaf: { ro: "Impozit venit trimestrial", en: "Quarterly income tax" },
+  t_leasing: { ro: "Leasing auto — rata 31/48", en: "Car leasing — payment 31/48" },
+  t_contract: { ro: "Contract servicii IT", en: "IT services contract" },
+  // Notes
+  n_rca: { ro: "Omniasig, poliță RCA-2024-88431", en: "Omniasig, policy RCA-2024-88431" },
+  n_itp: { ro: "Stație AutoCheck, Bd. Timișoara", en: "AutoCheck station, Timișoara Blvd." },
+  n_casco: { ro: "Allianz, franșiză 300€", en: "Allianz, 300€ deductible" },
+  n_rovig: { ro: "erovinieta.ro", en: "erovinieta.ro" },
+  n_intret: { ro: "Asociația sc. B, et. 3", en: "Building association B, floor 3" },
+  n_curent: { ro: "Contract Enel", en: "Enel contract" },
+  n_internet: { ro: "Digi Fiberlink 1000", en: "Digi Fiberlink 1000" },
+  n_pad: { ro: "PAID România", en: "PAID Romania" },
+  n_ci: { ro: "Programare Ev. Populației, sector 3", en: "Appointment at Population Office, district 3" },
+  n_permis: { ro: "Valabil 10 ani", en: "Valid for 10 years" },
+  n_fisa: { ro: "Medicina muncii — dr. Ionescu", en: "Occupational medicine — Dr. Ionescu" },
+  n_anaf: { ro: "Declarația 100, trim. I", en: "Tax declaration 100, Q1" },
+  n_leasing: { ro: "BT Leasing", en: "BT Leasing" },
+  n_contract: { ro: "Reînnoire anuală — Client ABC", en: "Annual renewal — Client ABC" },
+  // Assets
+  a_apt: { ro: "Apartament Titan", en: "Titan Apartment" },
+  a_owner: { ro: "Titular", en: "Owner" },
+  a_biz: { ro: "PFA Demo", en: "Freelance Demo" },
+};
 
-    // ─── Casă & Utilități ─────────────────────────────
-    { id: generateId(), cat: "casa", type: "Curent electric", title: "Factură curent", asset: "Apartament 1", due: offset(4), amt: 320, rec: "monthly", notes: "Enel, contract activ", paymentHistory: [
-      { date: addDaysToDate(getTodayString(), -90), dueDate: addDaysToDate(getTodayString(), -87), amt: 295 },
-      { date: addDaysToDate(getTodayString(), -59), dueDate: addDaysToDate(getTodayString(), -57), amt: 310 },
-      { date: addDaysToDate(getTodayString(), -28), dueDate: addDaysToDate(getTodayString(), -26), amt: 320 },
-    ] },
-    { id: generateId(), cat: "casa", type: "Gaz", title: "Factură gaz", asset: "Apartament 1", due: offset(11), amt: 185, rec: "monthly", notes: "E.ON" },
-    { id: generateId(), cat: "casa", type: "Internet", title: "Internet + TV", asset: "Apartament 1", due: offset(18), amt: 55, rec: "monthly", notes: "Digi 1Gbps" },
-    { id: generateId(), cat: "casa", type: "Asigurare PAD", title: "Asigurare PAD", asset: "Apartament 1", due: offset(62), amt: 130, rec: "annual", notes: "PAID România" },
-    { id: generateId(), cat: "casa", type: "Întreținere", title: "Întreținere bloc", asset: "Apartament 1", due: offset(-2), amt: 480, rec: "monthly", notes: "Asociația sc. B" },
-    { id: generateId(), cat: "casa", type: "Telefonie mobilă", title: "Vodafone RED", asset: "Telefon personal", due: offset(9), amt: 45, rec: "monthly", notes: "30GB" },
-    { id: generateId(), cat: "casa", type: "Domeniu web", title: "example-site.ro", asset: "Website", due: offset(72), amt: 55, rec: "annual", notes: "ROTLD" },
-
-    // ─── Personal ─────────────────────────────────────
-    { id: generateId(), cat: "personal", type: "Permis conducere", title: "Permis cat. B", asset: "Titular", due: offset(340), amt: null, rec: "none", notes: "Reînnoire la 10 ani" },
-    { id: generateId(), cat: "personal", type: "Carte de identitate", title: "Carte de identitate", asset: "Titular", due: offset(28), amt: null, rec: "none", notes: "Programare Ev. Populației" },
-    { id: generateId(), cat: "personal", type: "Fișă medicală", title: "Fișă medicală — Angajat 1", asset: "Angajat 1 (șofer)", due: offset(5), amt: 250, rec: "annual", notes: "Medicina muncii" },
-
-    // ─── Business & Financiar ─────────────────────────
-    { id: generateId(), cat: "financiar", type: "Licență transport", title: "Licență transport marfă", asset: "Firma Demo SRL", due: offset(200), amt: null, rec: "none", notes: "ARR, valabilă 10 ani" },
-    { id: generateId(), cat: "financiar", type: "Contract client", title: "Contract — Client principal", asset: "Firma Demo SRL", due: offset(35), amt: null, rec: "annual", notes: "Reînnoire anuală" },
-    { id: generateId(), cat: "financiar", type: "Rată leasing", title: "Leasing Volvo FH 500", asset: "B-55-TIR", due: offset(6), amt: 2800, rec: "monthly", notes: "Leasing, rata 31/48", paymentHistory: [
-      { date: addDaysToDate(getTodayString(), -60), dueDate: addDaysToDate(getTodayString(), -55), amt: 2800 },
-      { date: addDaysToDate(getTodayString(), -29), dueDate: addDaysToDate(getTodayString(), -24), amt: 2800 },
-    ] },
-    { id: generateId(), cat: "financiar", type: "Impozit ANAF", title: "Impozit venit trim.", asset: "Firma Demo SRL", due: offset(-1), amt: 4200, rec: "monthly", notes: "Declarația 100" },
-  ];
+function d(key: string, lang: LanguageCode): string {
+  return DEMO_TEXT[key]?.[lang] ?? DEMO_TEXT[key]?.ro ?? key;
 }
 
+/**
+ * Generate a complete set of demo documents in the given language.
+ * Each document has a due date relative to today.
+ */
+export function createDemoDocuments(lang: LanguageCode = "ro"): RawDocument[] {
+  const today = getTodayString();
+  const offset = (days: number) => addDaysToDate(today, days);
+
+  const plate = "B-99-ABC";
+  const apt = d("a_apt", lang);
+  const owner = d("a_owner", lang);
+  const biz = d("a_biz", lang);
+
+  const demoId = () => `${DEMO_ID_PREFIX}${generateId()}`;
+
+  return [
+    // ─── Vehicule (blue) ──────────────────────────────
+    { id: demoId(), cat: "vehicule", type: "RCA", title: d("t_rca", lang), asset: plate, due: offset(-3), amt: 1850, rec: "annual", notes: d("n_rca", lang) },
+    { id: demoId(), cat: "vehicule", type: "ITP", title: d("t_itp", lang), asset: plate, due: offset(18), amt: 180, rec: "annual", notes: d("n_itp", lang) },
+    { id: demoId(), cat: "vehicule", type: "CASCO", title: d("t_casco", lang), asset: plate, due: offset(145), amt: 3200, rec: "annual", notes: d("n_casco", lang) },
+    { id: demoId(), cat: "vehicule", type: "Rovignetă", title: d("t_rovig", lang), asset: plate, due: offset(85), amt: 28, rec: "annual", notes: d("n_rovig", lang) },
+
+    // ─── Casă & Utilități (green) ─────────────────────
+    { id: demoId(), cat: "casa", type: "Întreținere", title: d("t_intret", lang), asset: apt, due: offset(-1), amt: 480, rec: "monthly", notes: d("n_intret", lang) },
+    { id: demoId(), cat: "casa", type: "Curent electric", title: d("t_curent", lang), asset: apt, due: offset(5), amt: 295, rec: "monthly", notes: d("n_curent", lang), paymentHistory: [
+      { date: offset(-62), dueDate: offset(-60), amt: 280 },
+      { date: offset(-31), dueDate: offset(-29), amt: 295 },
+    ] },
+    { id: demoId(), cat: "casa", type: "Internet", title: d("t_internet", lang), asset: apt, due: offset(21), amt: 55, rec: "monthly", notes: d("n_internet", lang) },
+    { id: demoId(), cat: "casa", type: "Asigurare PAD", title: d("t_pad", lang), asset: apt, due: offset(68), amt: 130, rec: "annual", notes: d("n_pad", lang) },
+
+    // ─── Personal (purple) ────────────────────────────
+    { id: demoId(), cat: "personal", type: "Carte de identitate", title: d("t_ci", lang), asset: owner, due: offset(25), amt: null, rec: "none", notes: d("n_ci", lang) },
+    { id: demoId(), cat: "personal", type: "Permis conducere", title: d("t_permis", lang), asset: owner, due: offset(290), amt: null, rec: "none", notes: d("n_permis", lang) },
+    { id: demoId(), cat: "personal", type: "Fișă medicală", title: d("t_fisa", lang), asset: owner, due: offset(3), amt: 250, rec: "annual", notes: d("n_fisa", lang) },
+
+    // ─── Financiar (orange) ───────────────────────────
+    { id: demoId(), cat: "financiar", type: "Impozit ANAF", title: d("t_anaf", lang), asset: biz, due: offset(-2), amt: 4200, rec: "monthly", notes: d("n_anaf", lang) },
+    { id: demoId(), cat: "financiar", type: "Rată leasing", title: d("t_leasing", lang), asset: plate, due: offset(7), amt: 1450, rec: "monthly", notes: d("n_leasing", lang), paymentHistory: [
+      { date: offset(-61), dueDate: offset(-58), amt: 1450 },
+      { date: offset(-30), dueDate: offset(-27), amt: 1450 },
+    ] },
+    { id: demoId(), cat: "financiar", type: "Contract client", title: d("t_contract", lang), asset: biz, due: offset(42), amt: null, rec: "annual", notes: d("n_contract", lang) },
+  ];
+}
 
 ════════════════════════════════════════════════════════════
   FILE: src/core/validators.ts
@@ -2176,6 +2225,11 @@ export function validateDocument(doc: Partial<RawDocument>, lang: LanguageCode =
     const parsed = parseLocalDate(doc.due);
     if (isNaN(parsed.getTime())) {
       errors.push(t(lang, "val_date_invalid"));
+    } else {
+      const y = parsed.getFullYear();
+      if (y < 2000 || y > 2099) {
+        errors.push(t(lang, "val_date_invalid"));
+      }
     }
   }
 
@@ -2198,7 +2252,6 @@ export function validateDocument(doc: Partial<RawDocument>, lang: LanguageCode =
 
   return errors;
 }
-
 
 ════════════════════════════════════════════════════════════
   FILE: src/core/confirmActions.ts
@@ -2242,7 +2295,6 @@ export function buildMarkAsPaidAction(
     },
   };
 }
-
 
 ════════════════════════════════════════════════════════════
   FILE: src/stores/useDocumentStore.ts
@@ -2318,15 +2370,21 @@ interface DocumentsState {
 
 // ─── Persist helper ─────────────────────────────────────
 
+let _lastPersistedDocs: RawDocument[] | null = null;
+
 function persistDocs(documents: RawDocument[]) {
   const lang = useSettingsStore?.getState?.()?.settings?.language || "en";
   const payload = { version: DATA_VERSION, documents };
-  AsyncStorage.setItem(STORAGE_KEY_DOCUMENTS, JSON.stringify(payload)).catch(
-    (e) => {
+  AsyncStorage.setItem(STORAGE_KEY_DOCUMENTS, JSON.stringify(payload))
+    .then(() => { _lastPersistedDocs = documents; })
+    .catch((e) => {
       if (__DEV__) console.warn("DocDue: persist error", e);
+      // Revert in-memory state to last successfully persisted version
+      if (_lastPersistedDocs !== null) {
+        useDocumentStore.setState({ documents: _lastPersistedDocs });
+      }
       Alert.alert(t(lang, "save_error_title"), t(lang, "save_error_msg"));
-    }
-  );
+    });
 }
 
 // ─── Attachment cleanup helper ──────────────────────────
@@ -2342,13 +2400,21 @@ function cleanupAttachments(doc: RawDocument) {
 
 let _rescheduleTimer: ReturnType<typeof setTimeout> | null = null;
 
-function doReschedule(documents: RawDocument[]) {
+async function doReschedule(documents: RawDocument[], attempt = 1) {
   const settings = useSettingsStore?.getState?.()?.settings;
   if (settings?.notificationsEnabled) {
-    rescheduleAllNotifications(documents, settings.reminderDays, settings.language)
-      .then(() => scheduleMorningDigest(documents, settings.language))
-      .then(() => scheduleWeeklySummary(documents, settings.language))
-      .catch((e) => { if (__DEV__) console.warn("DocDue: notification reschedule error", e); });
+    try {
+      await rescheduleAllNotifications(documents, settings.reminderDays, settings.language);
+      await scheduleMorningDigest(documents, settings.language);
+      await scheduleWeeklySummary(documents, settings.language);
+    } catch (e) {
+      if (__DEV__) console.warn("DocDue: notification reschedule error", e);
+      if (attempt < 3) {
+        setTimeout(() => doReschedule(documents, attempt + 1), attempt * 2000);
+      } else if (__DEV__) {
+        console.warn("DocDue: notification reschedule failed after 3 attempts — notifications may be stale");
+      }
+    }
   }
   updateWidgetData(documents);
 }
@@ -2382,28 +2448,39 @@ export const useDocumentStore = create<DocumentsState>()((set, get) => ({
 
   _hydrate: async () => {
     if (get()._hydrated) return;
+    const withTimeout = <T,>(promise: Promise<T>, ms: number): Promise<T | null> =>
+      Promise.race([promise, new Promise<null>((resolve) => setTimeout(() => resolve(null), ms))]);
     try {
-      let raw = await AsyncStorage.getItem(STORAGE_KEY_DOCUMENTS);
+      let raw = await withTimeout(AsyncStorage.getItem(STORAGE_KEY_DOCUMENTS), 5000);
       // Migrate from legacy key if needed
       if (!raw) {
-        raw = await AsyncStorage.getItem(STORAGE_KEY_DOCUMENTS_LEGACY);
+        raw = await withTimeout(AsyncStorage.getItem(STORAGE_KEY_DOCUMENTS_LEGACY), 5000);
         if (raw) {
           await AsyncStorage.setItem(STORAGE_KEY_DOCUMENTS, raw);
           await AsyncStorage.removeItem(STORAGE_KEY_DOCUMENTS_LEGACY);
         }
       }
       if (raw) {
-        const parsed = JSON.parse(raw);
-        const migrated = migrateData(parsed);
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(raw);
+        } catch {
+          if (__DEV__) console.warn("DocDue: corrupted JSON in AsyncStorage, resetting");
+          parsed = null;
+        }
+        const migrated = migrateData(parsed as Parameters<typeof migrateData>[0]);
         if (migrated) {
           // migrated can be [] (user deleted all docs) — that's valid
+          _lastPersistedDocs = migrated;
           set({ documents: migrated, _hydrated: true });
           if (migrated.length > 0) triggerNotificationReschedule(migrated);
           return;
         }
       }
-      // First launch — persist demo data
-      const demo = createDemoDocuments();
+      // First launch — persist demo data in current language
+      const lang = useSettingsStore?.getState?.()?.settings?.language || "ro";
+      const demo = createDemoDocuments(lang);
+      _lastPersistedDocs = demo;
       persistDocs(demo);
       set({ documents: demo, _hydrated: true });
     } catch (e) {
@@ -2443,23 +2520,23 @@ export const useDocumentStore = create<DocumentsState>()((set, get) => ({
   },
 
   markAsPaid: (doc) => {
-    // Safety: verify document still exists
-    const exists = get().documents.some((d) => d.id === doc.id);
-    if (!exists) return "resolved";
+    // Safety: fetch fresh state to prevent stale-doc double-tap
+    const fresh = get().documents.find((d) => d.id === doc.id);
+    if (!fresh) return "resolved";
 
     // Snapshot the payment before advancing/deleting
-    const payment = { date: getTodayString(), dueDate: doc.due, amt: doc.amt };
-    const history = [...(doc.paymentHistory || []), payment];
+    const payment = { date: getTodayString(), dueDate: fresh.due, amt: fresh.amt };
+    const history = [...(fresh.paymentHistory || []), payment];
 
-    const recDays = getRecurrenceDays(doc.rec);
+    const recDays = getRecurrenceDays(fresh.rec);
     if (recDays > 0) {
       const MONTH_MAP: Record<string, number> = {
         monthly: 1, annual: 12,
       };
-      const months = MONTH_MAP[doc.rec];
+      const months = MONTH_MAP[fresh.rec];
       const nextDue = months
-        ? addMonthsToDate(doc.due, months)
-        : addDaysToDate(doc.due, recDays);
+        ? addMonthsToDate(fresh.due, months)
+        : addDaysToDate(fresh.due, recDays);
       set((state) => ({
         documents: state.documents.map((d) =>
           d.id === doc.id ? { ...d, due: nextDue, paymentHistory: history } : d
@@ -2481,7 +2558,8 @@ export const useDocumentStore = create<DocumentsState>()((set, get) => ({
   },
 
   resetToDemo: () => {
-    const demo = createDemoDocuments();
+    const lang = useSettingsStore?.getState?.()?.settings?.language || "ro";
+    const demo = createDemoDocuments(lang);
     set({ documents: demo });
     afterMutation(demo);
   },
@@ -2517,8 +2595,9 @@ export function useEnrichedDocument(id: string | undefined): EnrichedDocument | 
   }, [doc]);
 }
 
-export function useGlobalStats(): GlobalStats {
-  const enriched = useEnrichedDocuments();
+export function useGlobalStats(precomputed?: EnrichedDocument[]): GlobalStats {
+  const fallback = useEnrichedDocuments();
+  const enriched = precomputed ?? fallback;
   return useMemo(() => {
     let expired = 0, warning = 0, ok = 0, totalDue = 0;
     for (const d of enriched) {
@@ -2533,8 +2612,9 @@ export function useGlobalStats(): GlobalStats {
   }, [enriched]);
 }
 
-export function useCategoryStats(): Record<CategoryId, CategoryStats> {
-  const enriched = useEnrichedDocuments();
+export function useCategoryStats(precomputed?: EnrichedDocument[]): Record<CategoryId, CategoryStats> {
+  const fallback = useEnrichedDocuments();
+  const enriched = precomputed ?? fallback;
   return useMemo(() => {
     const result = {} as Record<CategoryId, CategoryStats>;
     (Object.keys(CATEGORIES) as CategoryId[]).forEach((catId) => {
@@ -2554,7 +2634,6 @@ export function useCategoryStats(): Record<CategoryId, CategoryStats> {
     return result;
   }, [enriched]);
 }
-
 
 ════════════════════════════════════════════════════════════
   FILE: src/stores/useSettingsStore.ts
@@ -2608,11 +2687,13 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
 
   _hydrate: async () => {
     if (get()._hydrated) return;
+    const withTimeout = <T,>(promise: Promise<T>, ms: number): Promise<T | null> =>
+      Promise.race([promise, new Promise<null>((resolve) => setTimeout(() => resolve(null), ms))]);
     try {
-      let raw = await AsyncStorage.getItem(STORAGE_KEY_SETTINGS);
+      let raw = await withTimeout(AsyncStorage.getItem(STORAGE_KEY_SETTINGS), 5000);
       // Migrate from legacy key if needed
       if (!raw) {
-        raw = await AsyncStorage.getItem(STORAGE_KEY_SETTINGS_LEGACY);
+        raw = await withTimeout(AsyncStorage.getItem(STORAGE_KEY_SETTINGS_LEGACY), 5000);
         if (raw) {
           await AsyncStorage.setItem(STORAGE_KEY_SETTINGS, raw);
           await AsyncStorage.removeItem(STORAGE_KEY_SETTINGS_LEGACY);
@@ -2659,7 +2740,6 @@ export function useLanguage(): LanguageCode {
 export function useCurrency(): CurrencyCode {
   return useSettingsStore((s) => s.settings.currency);
 }
-
 
 ════════════════════════════════════════════════════════════
   FILE: src/services/notifications.ts
@@ -2847,8 +2927,8 @@ export async function rescheduleAllNotifications(
         },
       });
     } catch {
-      // Exact alarm scheduling may fail on Android without SCHEDULE_EXACT_ALARM permission
-      break;
+      // Exact alarm scheduling may fail on Android — skip this one, try the rest
+      continue;
     }
   }
 }
@@ -3084,7 +3164,6 @@ export function getDocumentIdFromNotification(
   return null;
 }
 
-
 ════════════════════════════════════════════════════════════
   FILE: src/services/calendar.ts
 ════════════════════════════════════════════════════════════
@@ -3182,7 +3261,6 @@ export async function addDocumentToCalendar(
   }
 }
 
-
 ════════════════════════════════════════════════════════════
   FILE: src/services/ocr.ts
 ════════════════════════════════════════════════════════════
@@ -3268,7 +3346,10 @@ export function extractDate(text: string): string | null {
     const year = parseInt(yearStr, 10);
 
     // Validate ranges
-    if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 2020 && year <= 2040) {
+    const currentYear = new Date().getFullYear();
+    // Validate day range per month (accounts for leap years)
+    const maxDay = new Date(year, month, 0).getDate();
+    if (month >= 1 && month <= 12 && day >= 1 && day <= maxDay && year >= currentYear - 5 && year <= currentYear + 30) {
       const mm = String(month).padStart(2, "0");
       const dd = String(day).padStart(2, "0");
       matches.push({ date: `${year}-${mm}-${dd}`, original: match[0] });
@@ -3430,139 +3511,127 @@ export function extractTitle(text: string, detectedType: string | null): string 
   return detectedType || null;
 }
 
-
 ════════════════════════════════════════════════════════════
   FILE: src/services/iap.ts
 ════════════════════════════════════════════════════════════
 
 /**
- * DocDue — In-App Purchase Service (RevenueCat)
+ * DocDue — In-App Purchase Service (react-native-iap)
  *
- * Manages one-time PRO purchase (non-consumable) via RevenueCat.
- * Call initializeIAP() on app launch.
+ * Manages one-time PRO purchase (non-consumable).
+ * Connects directly to Apple StoreKit / Google Play Billing.
+ * No external service needed — all communication is direct.
  *
  * Setup:
- * 1. Create a RevenueCat account at https://app.revenuecat.com
- * 2. Add your iOS/Android app and create a non-consumable product (lifetime)
- * 3. Set real API keys in .env file
- * 4. Configure a single offering with the lifetime product in RevenueCat dashboard
+ * 1. Create the product in App Store Connect (Non-Consumable)
+ * 2. Create the product in Google Play Console (In-app product)
+ * 3. Both with Product ID: com.docdueapp.pro.lifetime
  */
 
-import Purchases, {
-  LOG_LEVEL,
-  type CustomerInfo,
-  type PurchasesPackage,
-} from "react-native-purchases";
-import { Platform } from "react-native";
+import {
+  initConnection,
+  endConnection,
+  fetchProducts,
+  getAvailablePurchases,
+  requestPurchase,
+  finishTransaction,
+  type Product,
+  type Purchase,
+} from "react-native-iap";
 
 // ─── Configuration ───────────────────────────────────────
-// Set real keys in .env file (never commit .env to git)
 
-const REVENUECAT_IOS_KEY = process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY ?? "YOUR_REVENUECAT_IOS_API_KEY";
-const REVENUECAT_ANDROID_KEY = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY ?? "YOUR_REVENUECAT_ANDROID_API_KEY";
+const PRODUCT_ID = "com.docdueapp.pro.lifetime";
 
-// Entitlement ID configured in RevenueCat dashboard
-const PRO_ENTITLEMENT = "pro";
-
-// ─── Initialization ─────────────────────────────────────
+// ─── State ──────────────────────────────────────────────
 
 let _initialized = false;
+
+// ─── Initialization ─────────────────────────────────────
+// Connects to Apple/Google billing servers.
+// In Expo Go this will fail (no native module) — that's expected.
 
 export async function initializeIAP(): Promise<void> {
   if (_initialized) return;
   try {
-    const apiKey = Platform.OS === "ios" ? REVENUECAT_IOS_KEY : REVENUECAT_ANDROID_KEY;
-
-    // Skip initialization if API keys aren't set yet
-    if (apiKey.startsWith("YOUR_")) {
-      if (__DEV__) console.log("DocDue: RevenueCat not configured — using early access mode");
-      return;
-    }
-
-    Purchases.configure({ apiKey });
-    if (__DEV__) {
-      Purchases.setLogLevel(LOG_LEVEL.DEBUG);
-    }
+    await initConnection();
     _initialized = true;
+    if (__DEV__) console.log("DocDue: IAP connected to store");
   } catch (e) {
-    if (__DEV__) console.warn("DocDue: IAP init error", e);
+    // Expected in Expo Go or when store is unavailable
+    if (__DEV__) console.log("DocDue: IAP not available — using early access mode");
   }
 }
 
 // ─── Check Premium Status ────────────────────────────────
+// Checks if user has previously purchased the PRO product.
 
 export async function checkPremiumStatus(): Promise<boolean> {
   if (!_initialized) return false;
   try {
-    const customerInfo = await Purchases.getCustomerInfo();
-    return customerInfo.entitlements.active[PRO_ENTITLEMENT] !== undefined;
+    const purchases = await getAvailablePurchases();
+    return purchases.some((p) => p.productId === PRODUCT_ID);
   } catch {
     return false;
   }
 }
 
-// ─── Get Offerings (Packages) ────────────────────────────
+// ─── Get Products (replaces RevenueCat "offerings") ──────
+// Fetches product info (price, title) from the store.
 
 export interface IAPPackage {
   id: string;
   type: "monthly" | "annual" | "lifetime";
   price: string;
   pricePerMonth?: string;
-  package: PurchasesPackage;
+  productId: string;
 }
 
 export async function getOfferings(): Promise<IAPPackage[]> {
   if (!_initialized) return [];
   try {
-    const offerings = await Purchases.getOfferings();
-    const current = offerings.current;
-    if (!current) return [];
-
-    const packages: IAPPackage[] = [];
-    for (const pkg of current.availablePackages) {
-      const product = pkg.product;
-      const id = pkg.identifier;
-
-      let type: IAPPackage["type"] = "monthly";
-      if (id.includes("annual") || id.includes("yearly")) type = "annual";
-      else if (id.includes("lifetime")) type = "lifetime";
-
-      packages.push({
-        id,
-        type,
-        price: product.priceString,
-        pricePerMonth: type === "annual"
-          ? `${(product.price / 12).toFixed(2)} ${product.currencyCode}`
-          : undefined,
-        package: pkg,
-      });
-    }
-
-    // Sort: annual first, then monthly, then lifetime
-    const order = { annual: 0, monthly: 1, lifetime: 2 };
-    return packages.sort((a, b) => order[a.type] - order[b.type]);
+    const products = (await fetchProducts({ skus: [PRODUCT_ID], type: "in-app" })) as Product[] | null;
+    if (!products) return [];
+    return products.map((product) => ({
+      id: product.id,
+      type: "lifetime" as const,
+      price: product.displayPrice,
+      productId: product.id,
+    }));
   } catch {
     return [];
   }
 }
 
 // ─── Purchase ────────────────────────────────────────────
+// Initiates purchase flow. Apple/Google shows their native payment sheet.
+// CRITICAL: finishTransaction() must be called or the purchase gets refunded.
 
 export type PurchaseResult =
-  | { success: true; customerInfo: CustomerInfo }
+  | { success: true }
   | { success: false; cancelled: boolean; error?: string };
 
-export async function purchasePackage(pkg: PurchasesPackage): Promise<PurchaseResult> {
+export async function purchasePackage(productId: string): Promise<PurchaseResult> {
   try {
-    const { customerInfo } = await Purchases.purchasePackage(pkg);
-    const isPro = customerInfo.entitlements.active[PRO_ENTITLEMENT] !== undefined;
-    if (isPro) {
-      return { success: true, customerInfo };
+    const purchase = await requestPurchase({
+      request: {
+        apple: { sku: productId, andDangerouslyFinishTransactionAutomatically: false },
+        google: { skus: [productId] },
+      },
+      type: "in-app",
+    }) as Purchase | Purchase[] | null;
+
+    // Android returns array, iOS returns single object
+    const p = Array.isArray(purchase) ? purchase[0] : purchase;
+    if (p) {
+      await finishTransaction({ purchase: p, isConsumable: false });
+      return { success: true };
     }
-    return { success: false, cancelled: false, error: "Entitlement not granted" };
+    return { success: false, cancelled: false, error: "No purchase returned" };
   } catch (e: unknown) {
-    const err = e as { userCancelled?: boolean; message?: string };
-    if (err.userCancelled) {
+    const err = e as { code?: string; message?: string };
+    // User cancelled — not an error
+    if (err.code === "E_USER_CANCELLED" || err.message?.includes("cancel")) {
       return { success: false, cancelled: true };
     }
     return { success: false, cancelled: false, error: err.message || "Purchase failed" };
@@ -3570,23 +3639,36 @@ export async function purchasePackage(pkg: PurchasesPackage): Promise<PurchaseRe
 }
 
 // ─── Restore Purchases ──────────────────────────────────
+// Checks Apple/Google for previous purchases on this account.
+// Required by Apple App Store guidelines.
 
 export async function restorePurchases(): Promise<boolean> {
   if (!_initialized) return false;
   try {
-    const customerInfo = await Purchases.restorePurchases();
-    return customerInfo.entitlements.active[PRO_ENTITLEMENT] !== undefined;
+    const purchases = await getAvailablePurchases();
+    return purchases.some((p) => p.productId === PRODUCT_ID);
   } catch {
     return false;
   }
 }
 
-// ─── Check if RevenueCat is configured ──────────────────
+// ─── Check if IAP is available ──────────────────────────
 
 export function isIAPConfigured(): boolean {
   return _initialized;
 }
 
+// ─── Cleanup (optional, called on app unmount) ──────────
+
+export async function endIAP(): Promise<void> {
+  if (!_initialized) return;
+  try {
+    await endConnection();
+    _initialized = false;
+  } catch {
+    // Ignore cleanup errors
+  }
+}
 
 ════════════════════════════════════════════════════════════
   FILE: src/services/reviewPrompt.ts
@@ -3643,7 +3725,6 @@ export async function maybeRequestReview(documentCount?: number): Promise<void> 
   await StoreReview.requestReview();
   useSettingsStore.getState().updateSetting("reviewPrompted", true);
 }
-
 
 ════════════════════════════════════════════════════════════
   FILE: src/services/widgetService.ts
@@ -3706,7 +3787,6 @@ export function updateWidgetData(documents: RawDocument[]): void {
     // Silent — widget native module unavailable
   }
 }
-
 
 ════════════════════════════════════════════════════════════
   FILE: src/theme/colors.ts
@@ -3771,7 +3851,6 @@ export function createTheme(_mode?: ThemeMode): AppTheme {
   };
 }
 
-
 ════════════════════════════════════════════════════════════
   FILE: src/types.ts
 ════════════════════════════════════════════════════════════
@@ -3784,7 +3863,6 @@ import { Ionicons } from '@expo/vector-icons';
 
 /** Valid Ionicons icon name — derived from the glyph map */
 export type IconName = React.ComponentProps<typeof Ionicons>['name'];
-
 
 ════════════════════════════════════════════════════════════
   FILE: src/components/AnimatedUI.tsx
@@ -3800,8 +3878,8 @@ export type IconName = React.ComponentProps<typeof Ionicons>['name'];
  * Compatible with Expo Go (no Reanimated layout animations)
  */
 
-import React, { useCallback, useEffect, useRef } from "react";
-import { Pressable, Animated, ViewStyle, StyleProp, Easing } from "react-native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Pressable, Animated, ViewStyle, StyleProp, Easing, Text, TextStyle } from "react-native";
 import * as Haptics from "expo-haptics";
 
 // ─── AnimatedPressable (scale on press) ──────────────
@@ -3950,6 +4028,81 @@ export function AnimatedSection({ index, children, style }: AnimatedSectionProps
   );
 }
 
+// ─── AnimatedCounter (number counting up) ─────────────
+
+interface AnimatedCounterProps {
+  value: number;
+  duration?: number;
+  delay?: number;
+  style?: StyleProp<TextStyle>;
+}
+
+export function AnimatedCounter({ value, duration = 800, delay = 200, style }: AnimatedCounterProps) {
+  const [display, setDisplay] = useState(0);
+
+  useEffect(() => {
+    setDisplay(0);
+    let interval: ReturnType<typeof setInterval> | undefined;
+    const timer = setTimeout(() => {
+      const steps = Math.max(1, Math.round(duration / 16));
+      let step = 0;
+      interval = setInterval(() => {
+        step++;
+        if (step >= steps) {
+          setDisplay(value);
+          clearInterval(interval!);
+        } else {
+          // Cubic ease-out: 1 - (1 - t)^3
+          const t = step / steps;
+          const eased = 1 - Math.pow(1 - t, 3);
+          setDisplay(Math.round(value * eased));
+        }
+      }, 16);
+    }, delay);
+    return () => {
+      clearTimeout(timer);
+      if (interval) clearInterval(interval);
+    };
+  }, [value, duration, delay]);
+
+  return <Text style={style}>{display}</Text>;
+}
+
+// ─── AnimatedBar (width animates from 0%) ─────────────
+
+interface AnimatedBarProps {
+  percentage: number;
+  color: string;
+  delay?: number;
+  style?: StyleProp<ViewStyle>;
+}
+
+export function AnimatedBar({ percentage, color, delay = 300, style }: AnimatedBarProps) {
+  const width = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    width.setValue(0);
+    const timer = setTimeout(() => {
+      Animated.spring(width, {
+        toValue: percentage,
+        useNativeDriver: false,
+        speed: 8,
+        bounciness: 3,
+      }).start();
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [percentage]);
+
+  const animWidth = width.interpolate({
+    inputRange: [0, 100],
+    outputRange: ["0%", "100%"],
+    extrapolate: "clamp",
+  });
+
+  return (
+    <Animated.View style={[{ width: animWidth, backgroundColor: color }, style]} />
+  );
+}
 
 ════════════════════════════════════════════════════════════
   FILE: src/components/AttachmentPicker.tsx
@@ -4158,9 +4311,9 @@ export function AttachmentPicker({
           {attachments.map((att) => (
             <View key={att.id} style={styles.thumbnailWrap}>
               {att.type === "image" ? (
-                <Image source={{ uri: att.uri }} style={styles.thumbnail} />
+                <Image source={{ uri: att.uri }} style={styles.thumbnail} accessibilityLabel={att.name} accessibilityRole="image" />
               ) : (
-                <View style={[styles.thumbnail, styles.fileThumbnail, { backgroundColor: theme.inputFill }]}>
+                <View style={[styles.thumbnail, styles.fileThumbnail, { backgroundColor: theme.inputFill }]} accessibilityLabel={att.name}>
                   <Ionicons
                     name={att.type === "pdf" ? "document-text" : "document-outline"}
                     size={24}
@@ -4291,7 +4444,6 @@ const styles = StyleSheet.create({
   },
 });
 
-
 ════════════════════════════════════════════════════════════
   FILE: src/components/BiometricGate.tsx
 ════════════════════════════════════════════════════════════
@@ -4303,9 +4455,7 @@ const styles = StyleSheet.create({
  * - Shows lock screen on app open
  * - Re-locks when app returns from background (after 5s away)
  * - Uses Face ID / Touch ID / fingerprint via expo-local-authentication
- *
- * NOTE: Face ID only works in production/dev builds.
- * In Expo Go, falls back to device passcode.
+ * - "Use Passcode" button: triggers auth → Face ID first, then iOS shows passcode option
  */
 
 import React, { useEffect, useRef, useState, useCallback } from "react";
@@ -4318,6 +4468,7 @@ import { t } from "../core/i18n";
 import { AnimatedPressable } from "./AnimatedUI";
 
 const MAX_ATTEMPTS = 5;
+const LOCKOUT_DURATIONS = [30_000, 60_000, 300_000]; // 30s, 60s, 5min
 
 export function BiometricGate({ children }: { children: React.ReactNode }) {
   const biometricEnabled = useSettingsStore((s) => s.settings.biometricEnabled);
@@ -4326,24 +4477,29 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
   const [locked, setLocked] = useState(biometricEnabled);
   const [failed, setFailed] = useState(false);
   const [failCount, setFailCount] = useState(0);
+  const [lockoutSeconds, setLockoutSeconds] = useState(0);
+  const lockoutRound = useRef(0);
   const backgroundTime = useRef<number>(0);
   const appState = useRef(AppState.currentState);
+  const authInProgress = useRef(false);
+  const justUnlocked = useRef(false);
 
   const authenticate = useCallback(async () => {
+    if (authInProgress.current) return;
+    authInProgress.current = true;
     setFailed(false);
     try {
-      // Check what biometric types are available
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: t(language, "biometric_unlock"),
-        fallbackLabel: t(language, "biometric_retry"),
-        cancelLabel: t(language, "confirm_cancel"),
-        // On iOS, allow device passcode as fallback if biometric fails
+        fallbackLabel: t(language, "biometric_use_passcode"),
         disableDeviceFallback: false,
       });
       if (result.success) {
+        justUnlocked.current = true;
         setLocked(false);
         setFailed(false);
         setFailCount(0);
+        setTimeout(() => { justUnlocked.current = false; }, 3000);
       } else {
         setFailed(true);
         setFailCount((c) => c + 1);
@@ -4351,14 +4507,15 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
     } catch {
       setFailed(true);
       setFailCount((c) => c + 1);
+    } finally {
+      authInProgress.current = false;
     }
   }, [language]);
 
   // Auto-authenticate on mount if locked
   useEffect(() => {
     if (locked) {
-      // Small delay to let the UI render before showing the biometric prompt
-      const timer = setTimeout(() => authenticate(), 300);
+      const timer = setTimeout(() => authenticate(), 500);
       return () => clearTimeout(timer);
     }
   }, [locked, authenticate]);
@@ -4373,7 +4530,7 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
       }
       if (appState.current.match(/inactive|background/) && nextState === "active") {
         const elapsed = Date.now() - backgroundTime.current;
-        if (elapsed > 5000) {
+        if (elapsed > 5000 && !authInProgress.current && !justUnlocked.current) {
           setLocked(true);
         }
       }
@@ -4392,65 +4549,96 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
     }
   }, [biometricEnabled]);
 
-  // Auto-reset lockout after 30 seconds
+  // Escalating lockout: 30s → 60s → 5min with visible countdown
   useEffect(() => {
     if (failCount >= MAX_ATTEMPTS) {
-      const timer = setTimeout(() => setFailCount(0), 30_000);
-      return () => clearTimeout(timer);
+      const durationMs = LOCKOUT_DURATIONS[Math.min(lockoutRound.current, LOCKOUT_DURATIONS.length - 1)];
+      lockoutRound.current++;
+      setLockoutSeconds(Math.round(durationMs / 1000));
+
+      const interval = setInterval(() => {
+        setLockoutSeconds((prev) => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            setFailCount(0);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      return () => clearInterval(interval);
     }
   }, [failCount]);
 
-  if (!locked) {
-    return <>{children}</>;
-  }
+  const formatLockoutTime = (seconds: number): string => {
+    if (seconds >= 60) {
+      const min = Math.ceil(seconds / 60);
+      return `${min} min`;
+    }
+    return `${seconds}s`;
+  };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <View style={styles.content}>
-        <View style={[styles.iconCircle, { backgroundColor: "rgba(0,122,255,0.15)" }]}>
-          <Ionicons name="lock-closed" size={44} color="#007AFF" />
+    <View style={{ flex: 1 }}>
+      {children}
+      {locked && (
+        <View style={[styles.overlay, { backgroundColor: theme.background }]}>
+          <View style={styles.content}>
+            <View style={[styles.iconCircle, { backgroundColor: "rgba(0,122,255,0.15)" }]}>
+              <Ionicons name="lock-closed" size={44} color="#007AFF" />
+            </View>
+            <Text style={[styles.title, { color: theme.text }]}>
+              DocDue
+            </Text>
+            <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
+              {t(language, "biometric_unlock")}
+            </Text>
+            {failed && failCount < MAX_ATTEMPTS && (
+              <Text style={styles.failedText}>
+                {t(language, "biometric_failed")}
+              </Text>
+            )}
+            {failCount >= MAX_ATTEMPTS ? (
+              <Text style={styles.failedText}>
+                {t(language, "biometric_locked_out_dynamic", { time: formatLockoutTime(lockoutSeconds) })}
+              </Text>
+            ) : (
+              <>
+                <AnimatedPressable
+                  style={styles.retryBtn}
+                  onPress={authenticate}
+                  hapticStyle="medium"
+                  accessibilityLabel={t(language, "biometric_retry")}
+                >
+                  <Ionicons
+                    name={Platform.OS === "ios" ? "scan" : "finger-print"}
+                    size={20}
+                    color="#FFF"
+                    style={{ marginRight: 8 }}
+                  />
+                  <Text style={styles.retryText}>{t(language, "biometric_retry")}</Text>
+                </AnimatedPressable>
+                <Text style={[styles.passcodeHint, { color: theme.textDim }]}>
+                  {Platform.OS === "ios"
+                    ? t(language, "biometric_passcode_hint_ios")
+                    : t(language, "biometric_passcode_hint_android")}
+                </Text>
+              </>
+            )}
+          </View>
         </View>
-        <Text style={[styles.title, { color: theme.text }]}>
-          DocDue
-        </Text>
-        <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
-          {t(language, "biometric_unlock")}
-        </Text>
-        {failed && failCount < MAX_ATTEMPTS && (
-          <Text style={styles.failedText}>
-            {t(language, "biometric_failed")}
-          </Text>
-        )}
-        {failCount >= MAX_ATTEMPTS ? (
-          <Text style={styles.failedText}>
-            {t(language, "biometric_locked_out")}
-          </Text>
-        ) : (
-          <AnimatedPressable
-            style={styles.retryBtn}
-            onPress={authenticate}
-            hapticStyle="medium"
-            accessibilityLabel={t(language, "biometric_retry")}
-          >
-            <Ionicons
-              name={Platform.OS === "ios" ? "scan" : "finger-print"}
-              size={20}
-              color="#FFF"
-              style={{ marginRight: 8 }}
-            />
-            <Text style={styles.retryText}>{t(language, "biometric_retry")}</Text>
-          </AnimatedPressable>
-        )}
-      </View>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
     justifyContent: "center",
     alignItems: "center",
+    zIndex: 999,
   },
   content: {
     alignItems: "center",
@@ -4486,13 +4674,18 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 22,
   },
+  passcodeHint: {
+    fontSize: 12,
+    textAlign: "center",
+    marginTop: 8,
+    lineHeight: 16,
+  },
   retryText: {
     color: "#FFF",
     fontSize: 17,
     fontWeight: "600",
   },
 });
-
 
 ════════════════════════════════════════════════════════════
   FILE: src/components/ErrorBoundary.tsx
@@ -4627,7 +4820,6 @@ const s = StyleSheet.create({
   },
 });
 
-
 ════════════════════════════════════════════════════════════
   FILE: src/components/ImageViewer.tsx
 ════════════════════════════════════════════════════════════
@@ -4754,6 +4946,7 @@ export function ImageViewer({ visible, uri, onClose }: ImageViewerProps) {
       animationType="fade"
       onRequestClose={handleClose}
       statusBarTranslucent
+      accessibilityViewIsModal
     >
       <View style={styles.overlay}>
         <StatusBar barStyle="light-content" />
@@ -4774,6 +4967,7 @@ export function ImageViewer({ visible, uri, onClose }: ImageViewerProps) {
             style={[{ width, height: height * 0.75 }, animatedStyle]}
             resizeMode="contain"
             accessibilityLabel={t(language, 'a11y_image_preview')}
+            accessibilityRole="image"
           />
         </GestureDetector>
       </View>
@@ -4802,7 +4996,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 });
-
 
 ════════════════════════════════════════════════════════════
   FILE: src/components/SwipeableRow.tsx
@@ -4993,7 +5186,6 @@ const s = StyleSheet.create({
   },
 });
 
-
 ════════════════════════════════════════════════════════════
   FILE: src/components/settings/SettingsUI.tsx
 ════════════════════════════════════════════════════════════
@@ -5115,7 +5307,6 @@ const s = StyleSheet.create({
   },
 });
 
-
 ════════════════════════════════════════════════════════════
   FILE: src/components/settings/DataSection.tsx
 ════════════════════════════════════════════════════════════
@@ -5131,7 +5322,12 @@ import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
-import * as XLSX from 'xlsx';
+// Lazy-loaded to save ~1MB from initial bundle
+let _xlsx: typeof import('xlsx') | null = null;
+async function getXLSX() {
+  if (!_xlsx) _xlsx = await import('xlsx');
+  return _xlsx;
+}
 
 import { t, translateSubtype } from '../../core/i18n';
 import { CATEGORIES, FREE_DOCUMENT_LIMIT, MAX_IMPORT_LIMIT } from '../../core/constants';
@@ -5172,6 +5368,7 @@ export function DataSection({
     if (!isPremium) { onPremiumGate(); return; }
     setIsLoading(true);
     try {
+      const XLSX = await getXLSX();
       const rows = documents.map((doc) => ({
         [t(language, 'form_category')]: t(language, CATEGORIES[doc.cat]?.labelKey || '') || doc.cat,
         [t(language, 'form_type')]: translateSubtype(doc.type, language),
@@ -5228,6 +5425,7 @@ export function DataSection({
       });
       if (result.canceled || !result.assets?.[0]) return;
       const fileUri = result.assets[0].uri;
+      const XLSX = await getXLSX();
       const fileContent = await FileSystem.readAsStringAsync(fileUri, { encoding: FileSystem.EncodingType.Base64 });
       const wb = XLSX.read(fileContent, { type: 'base64', cellDates: true });
       const ws = wb.Sheets[wb.SheetNames[0]];
@@ -5239,9 +5437,12 @@ export function DataSection({
         return;
       }
 
+      const isValidYear = (y: number) => y >= 2000 && y <= 2099;
+
       const parseDateValue = (raw: unknown): string => {
         if (raw instanceof Date && !isNaN(raw.getTime())) {
           const y = raw.getFullYear();
+          if (!isValidYear(y)) return '';
           const m = String(raw.getMonth() + 1).padStart(2, '0');
           const d = String(raw.getDate()).padStart(2, '0');
           return `${y}-${m}-${d}`;
@@ -5249,16 +5450,26 @@ export function DataSection({
         if (typeof raw === 'number' && raw > 0) {
           const epoch = new Date((raw - 25569) * 86400 * 1000);
           const y = epoch.getUTCFullYear();
+          if (!isValidYear(y)) return '';
           const m = String(epoch.getUTCMonth() + 1).padStart(2, '0');
           const d = String(epoch.getUTCDate()).padStart(2, '0');
           return `${y}-${m}-${d}`;
         }
         const str = String(raw || '');
-        if (str.match(/^\d{4}-\d{2}-\d{2}$/)) return str;
+        if (str.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          const y = parseInt(str.slice(0, 4), 10);
+          return isValidYear(y) ? str : '';
+        }
         const euMatch = str.match(/^(\d{2})[./](\d{2})[./](\d{4})$/);
-        if (euMatch) return `${euMatch[3]}-${euMatch[2]}-${euMatch[1]}`;
+        if (euMatch) {
+          const y = parseInt(euMatch[3], 10);
+          return isValidYear(y) ? `${euMatch[3]}-${euMatch[2]}-${euMatch[1]}` : '';
+        }
         const usMatch = str.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-        if (usMatch) return `${usMatch[3]}-${usMatch[1]}-${usMatch[2]}`;
+        if (usMatch) {
+          const y = parseInt(usMatch[3], 10);
+          return isValidYear(y) ? `${usMatch[3]}-${usMatch[1]}-${usMatch[2]}` : '';
+        }
         return '';
       };
 
@@ -5445,7 +5656,6 @@ const styles = StyleSheet.create({
   footerText: { fontSize: 13, lineHeight: 18 },
 });
 
-
 ════════════════════════════════════════════════════════════
   FILE: src/components/settings/BackupRestoreSection.tsx
 ════════════════════════════════════════════════════════════
@@ -5464,8 +5674,8 @@ import * as DocumentPicker from 'expo-document-picker';
 import Constants from 'expo-constants';
 
 import { t } from '../../core/i18n';
-import { DATA_VERSION, MAX_IMPORT_LIMIT } from '../../core/constants';
-import type { RawDocument, AppSettings } from '../../core/constants';
+import { DATA_VERSION, MAX_IMPORT_LIMIT, DEFAULT_SETTINGS } from '../../core/constants';
+import type { RawDocument, AppSettings, LanguageCode, CurrencyCode, ThemeMode } from '../../core/constants';
 import type { AppTheme } from '../../theme/colors';
 import { AnimatedPressable } from '../AnimatedUI';
 import { RowDivider } from './SettingsUI';
@@ -5504,6 +5714,7 @@ export function BackupRestoreSection({
     try {
       const includeAttachments = settings.includeAttachmentsInBackup;
       const attachmentsData: Record<string, string> = {};
+      let skippedAttachments = 0;
 
       if (includeAttachments) {
         for (const doc of documents) {
@@ -5514,9 +5725,11 @@ export function BackupRestoreSection({
                 if (info.exists) {
                   const base64 = await FileSystem.readAsStringAsync(att.uri, { encoding: FileSystem.EncodingType.Base64 });
                   attachmentsData[`${doc.id}_${att.id}`] = base64;
+                } else {
+                  skippedAttachments++;
                 }
               } catch {
-                // Skip unreadable files
+                skippedAttachments++;
               }
             }
           }
@@ -5547,10 +5760,13 @@ export function BackupRestoreSection({
         dialogTitle: t(language, 'backup_create'),
       });
       updateSetting('lastBackupDate', new Date().toISOString());
-      Alert.alert(t(language, 'alert_success'), t(language, 'backup_success'));
+      const successMsg = skippedAttachments > 0
+        ? `${t(language, 'backup_success')}\n(${skippedAttachments} ${t(language, 'attachments_skipped')})`
+        : t(language, 'backup_success');
+      Alert.alert(t(language, 'alert_success'), successMsg);
     } catch (e: unknown) {
       if (__DEV__) console.error('DocDue backup error:', e);
-      Alert.alert(t(language, 'backup_error'), (e as Error)?.message || String(e));
+      Alert.alert(t(language, 'backup_error'), t(language, 'generic_error'));
     } finally {
       setIsLoading(false);
     }
@@ -5672,12 +5888,18 @@ export function BackupRestoreSection({
                 });
                 addDocuments(docsWithoutId);
                 if (backup.settings) {
-                  const { biometricEnabled, lastBackupDate, isPremium, ...restoreSettings } = backup.settings;
-                  Object.entries(restoreSettings).forEach(([key, value]) => {
-                    if (key in settings) {
-                      updateSetting(key as keyof AppSettings, value as never);
-                    }
-                  });
+                  const s = backup.settings;
+                  // Validate each setting type before applying — skip biometricEnabled, lastBackupDate, isPremium
+                  if (s.theme === 'dark') updateSetting('theme', s.theme as ThemeMode);
+                  if (s.currency && ['RON', 'EUR', 'USD'].includes(s.currency)) updateSetting('currency', s.currency as CurrencyCode);
+                  if (s.language && ['ro', 'en'].includes(s.language)) updateSetting('language', s.language as LanguageCode);
+                  if (Array.isArray(s.reminderDays) && s.reminderDays.every((d: unknown) => typeof d === 'number' && [1, 3, 7, 14].includes(d as number))) {
+                    updateSetting('reminderDays', s.reminderDays as number[]);
+                  }
+                  if (typeof s.notificationsEnabled === 'boolean') updateSetting('notificationsEnabled', s.notificationsEnabled);
+                  if (typeof s.includeAttachmentsInBackup === 'boolean') updateSetting('includeAttachmentsInBackup', s.includeAttachmentsInBackup);
+                  if (typeof s.firstOpenDate === 'string' || s.firstOpenDate === null) updateSetting('firstOpenDate', s.firstOpenDate ?? null);
+                  if (typeof s.reviewPrompted === 'boolean') updateSetting('reviewPrompted', s.reviewPrompted);
                 }
                 if (backup.attachments) {
                   await restoreAttachmentFiles(backupDocs, backup.attachments);
@@ -5774,7 +5996,6 @@ const styles = StyleSheet.create({
   rowLabel: { fontSize: 17 },
   footerText: { fontSize: 13, lineHeight: 18 },
 });
-
 
 ════════════════════════════════════════════════════════════
   FILE: src/widgets/DocDueWidget.tsx
@@ -5978,7 +6199,6 @@ const DocDueWidget = createWidget<DocDueWidgetProps>(
 
 export default DocDueWidget;
 
-
 ════════════════════════════════════════════════════════════
   FILE: app/_layout.tsx
 ════════════════════════════════════════════════════════════
@@ -6003,7 +6223,7 @@ import { useTheme, useSettingsStore } from "../src/stores/useSettingsStore";
 import { ErrorBoundary } from "../src/components/ErrorBoundary";
 import { BiometricGate } from "../src/components/BiometricGate";
 import * as QuickActions from "expo-quick-actions";
-import { FREE_DOCUMENT_LIMIT } from "../src/core/constants";
+import { FREE_DOCUMENT_LIMIT, STORAGE_KEY_ONBOARDED } from "../src/core/constants";
 import {
   configureNotifications,
   rescheduleAllNotifications,
@@ -6054,7 +6274,7 @@ export default function RootLayout() {
           useSettingsStore.getState()._hydrate(),
           initializeIAP(),
         ]);
-        const onboarded = await AsyncStorage.getItem("dt_onboarded");
+        const onboarded = await AsyncStorage.getItem(STORAGE_KEY_ONBOARDED);
         setShowOnboarding(!onboarded);
 
         // Reschedule notifications and update widget after hydration
@@ -6073,7 +6293,7 @@ export default function RootLayout() {
             .catch((e) => { if (__DEV__) console.warn("DocDue: weekly summary error", e); });
         }
 
-        // Sync premium status from RevenueCat if configured
+        // Sync premium status from store if configured
         if (isIAPConfigured()) {
           checkPremiumStatus().then((isPro) => {
             if (isPro !== settings.isPremium) {
@@ -6114,7 +6334,12 @@ export default function RootLayout() {
         await SplashScreen.hideAsync();
       }
     }
-    init();
+    // Safety net: hide splash after 8s even if init stalls
+    const splashTimeout = setTimeout(() => {
+      setReady(true);
+      SplashScreen.hideAsync();
+    }, 8000);
+    init().finally(() => clearTimeout(splashTimeout));
   }, []);
 
   // Handle notification taps and action buttons
@@ -6212,7 +6437,6 @@ export default function RootLayout() {
     </ErrorBoundary>
   );
 }
-
 
 ════════════════════════════════════════════════════════════
   FILE: app/(tabs)/_layout.tsx
@@ -6345,7 +6569,6 @@ const addStyles = StyleSheet.create({
   },
 });
 
-
 ════════════════════════════════════════════════════════════
   FILE: app/(tabs)/index.tsx
 ════════════════════════════════════════════════════════════
@@ -6361,16 +6584,18 @@ const addStyles = StyleSheet.create({
  * - "+" button moved to center tab (not in header)
  */
 
-import React, { useRef, useMemo } from "react";
+import React, { useRef, useMemo, useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
   StyleSheet,
   Animated as RNAnimated,
   useWindowDimensions,
+  Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useTheme, useLanguage } from "../../src/stores/useSettingsStore";
@@ -6378,12 +6603,13 @@ import {
   useEnrichedDocuments,
   useGlobalStats,
   useCategoryStats,
+  useDocumentStore,
 } from "../../src/stores/useDocumentStore";
 import { t } from "../../src/core/i18n";
 import { CATEGORIES, QUICK_PREVIEW_LIMIT } from "../../src/core/constants";
 import type { CategoryId, IconName } from "../../src/core/constants";
 import { formatDaysRemaining, getCategoryLabel } from "../../src/core/formatters";
-import { AnimatedPressable, AnimatedSection } from "../../src/components/AnimatedUI";
+import { AnimatedPressable, AnimatedSection, AnimatedCounter, AnimatedBar } from "../../src/components/AnimatedUI";
 import { calculateHealthScore, getHealthScoreColor } from "../../src/core/healthScore";
 
 const COLLAPSE_START = 30;
@@ -6402,8 +6628,8 @@ export default function HomeScreen() {
   const CARD_WIDTH = (screenWidth - CARD_PADDING * 2 - CARD_GAP) / 2;
 
   const enriched = useEnrichedDocuments();
-  const stats = useGlobalStats();
-  const catStats = useCategoryStats();
+  const stats = useGlobalStats(enriched);
+  const catStats = useCategoryStats(enriched);
   const urgentDocs = useMemo(
     () => enriched.filter((d) => d._status === "expired" || d._status === "warning"),
     [enriched]
@@ -6414,6 +6640,52 @@ export default function HomeScreen() {
     () => calculateHealthScore(enriched),
     [enriched]
   );
+
+  // Floating animation for empty state icon
+  const floatAnim = useRef(new RNAnimated.Value(0)).current;
+  useEffect(() => {
+    if (enriched.length > 0) return;
+    const anim = RNAnimated.loop(
+      RNAnimated.sequence([
+        RNAnimated.timing(floatAnim, { toValue: -8, duration: 1500, useNativeDriver: true }),
+        RNAnimated.timing(floatAnim, { toValue: 0, duration: 1500, useNativeDriver: true }),
+      ])
+    );
+    anim.start();
+    return () => anim.stop();
+  }, [enriched.length === 0]);
+
+  // Demo banner — show only when demo data is present and not dismissed
+  const clearAll = useDocumentStore((s) => s.clearAll);
+  const [showDemoBanner, setShowDemoBanner] = useState(false);
+  useEffect(() => {
+    AsyncStorage.getItem("dt_demo_dismissed").then((val) => {
+      if (!val && enriched.length > 0) {
+        // Check if first doc looks like demo (has demo-style titles)
+        const hasDemo = enriched.some((d) => d.id.startsWith("demo_"));
+        setShowDemoBanner(hasDemo);
+      }
+    }).catch(() => {});
+  }, [enriched.length]);
+
+  const handleDismissDemo = useCallback(() => {
+    Alert.alert(
+      t(lang, "demo_banner_dismiss"),
+      t(lang, "demo_banner_text"),
+      [
+        { text: t(lang, "confirm_cancel"), style: "cancel" },
+        {
+          text: t(lang, "demo_banner_dismiss"),
+          style: "destructive",
+          onPress: () => {
+            clearAll();
+            AsyncStorage.setItem("dt_demo_dismissed", "1").catch(() => {});
+            setShowDemoBanner(false);
+          },
+        },
+      ]
+    );
+  }, [lang, clearAll]);
 
   // ─── Scroll-driven collapse ────────────────────────
   const scrollY = useRef(new RNAnimated.Value(0)).current;
@@ -6487,6 +6759,22 @@ export default function HomeScreen() {
           </View>
         </RNAnimated.View>
 
+        {/* ─── Demo Banner ───────────────────────────── */}
+        {showDemoBanner && (
+          <AnimatedSection index={0} style={{ marginHorizontal: 16, marginBottom: 12 }}>
+            <View style={[styles.demoBanner, { backgroundColor: '#007AFF14', borderColor: '#007AFF33' }]}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.demoBannerText, { color: theme.textSecondary }]}>
+                  {t(lang, "demo_banner_text")}
+                </Text>
+              </View>
+              <AnimatedPressable onPress={handleDismissDemo} hapticStyle="selection" style={styles.demoBannerBtn}>
+                <Ionicons name="trash-outline" size={16} color="#FF3B30" />
+              </AnimatedPressable>
+            </View>
+          </AnimatedSection>
+        )}
+
         {/* ─── Status Summary ───────────────────────── */}
         <AnimatedSection index={0} style={{ marginHorizontal: 16, marginBottom: 0 }}>
           <View style={[styles.statusCard, { backgroundColor: theme.card }]}>
@@ -6512,9 +6800,7 @@ export default function HomeScreen() {
               accessibilityLabel={t(lang, "a11y_health_score", { score: healthScore })}
             >
               <View style={[styles.scoreCard, { backgroundColor: theme.card }]}>
-                <Text style={[styles.scoreNumber, { color: getHealthScoreColor(healthScore) }]}>
-                  {healthScore}
-                </Text>
+                <AnimatedCounter value={healthScore} style={[styles.scoreNumber, { color: getHealthScoreColor(healthScore) }]} />
                 <View style={styles.scoreBarWrap}>
                   <View style={styles.scoreLabelRow}>
                     <Text style={[styles.scoreLabel, { color: theme.textSecondary }]}>
@@ -6529,7 +6815,7 @@ export default function HomeScreen() {
                     )}
                   </View>
                   <View style={[styles.scoreTrack, { backgroundColor: theme.border }]}>
-                    <View style={[styles.scoreFill, { width: `${healthScore}%`, backgroundColor: getHealthScoreColor(healthScore) }]} />
+                    <AnimatedBar percentage={healthScore} color={getHealthScoreColor(healthScore)} style={styles.scoreFill} />
                   </View>
                 </View>
                 <Ionicons name="chevron-forward" size={14} color={theme.textDim} />
@@ -6563,6 +6849,7 @@ export default function HomeScreen() {
                     {hasAlert && (
                       <View
                         style={[styles.alertDot, { backgroundColor: catStat.expired > 0 ? "#FF3B30" : "#FF9500" }]}
+                        accessibilityLabel={catStat.expired > 0 ? `${catStat.expired} ${t(lang, "status_expired")}` : `${catStat.warning} ${t(lang, "status_warning")}`}
                       />
                     )}
                   </View>
@@ -6630,9 +6917,9 @@ export default function HomeScreen() {
         {/* ─── Empty State ──────────────────────────── */}
         {enriched.length === 0 && (
           <AnimatedSection index={1} style={styles.emptyState}>
-            <View style={styles.emptyIconWrap}>
+            <RNAnimated.View style={[styles.emptyIconWrap, { transform: [{ translateY: floatAnim }] }]}>
               <Ionicons name="documents-outline" size={44} color={theme.textDim} />
-            </View>
+            </RNAnimated.View>
             <Text style={[styles.emptyTitle, { color: theme.text }]}>
               {t(lang, "home_welcome")}
             </Text>
@@ -6737,7 +7024,7 @@ const styles = StyleSheet.create({
 
   // Category Grid
   catGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
-  catCard: { borderRadius: 14, paddingVertical: 14, paddingHorizontal: 14 },
+  catCard: { borderRadius: 14, paddingVertical: 14, paddingHorizontal: 14, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 4 },
   catCardTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 },
   catIcon: { width: 40, height: 40, borderRadius: 10, alignItems: "center", justifyContent: "center" },
   alertDot: { width: 8, height: 8, borderRadius: 4, marginTop: 2 },
@@ -6751,7 +7038,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingRight: 20,
   },
-  seeAll: { color: "#007AFF", fontSize: 15 },
+  seeAll: { color: "#007AFF", fontSize: 15, fontWeight: "500" },
 
   // Compact doc row (single line per doc)
   docRow: {
@@ -6784,8 +7071,12 @@ const styles = StyleSheet.create({
   },
   emptyTitle: { fontSize: 20, fontWeight: "600" },
   emptySub: { fontSize: 15, lineHeight: 22, marginTop: 8, textAlign: "center" },
-});
 
+  // Demo banner
+  demoBanner: { flexDirection: "row", alignItems: "center", padding: 12, borderRadius: 10, borderWidth: 1 },
+  demoBannerText: { fontSize: 14, lineHeight: 20 },
+  demoBannerBtn: { padding: 8, marginLeft: 8 },
+});
 
 ════════════════════════════════════════════════════════════
   FILE: app/(tabs)/alerts.tsx
@@ -6844,6 +7135,9 @@ export default function AlertsScreen() {
         sections={sections}
         stickySectionHeadersEnabled={false}
         keyExtractor={(item) => item.id}
+        maxToRenderPerBatch={15}
+        windowSize={7}
+        removeClippedSubviews
         ListHeaderComponent={
           <FadeInView delay={0} style={s.titleContainer}>
             <Text style={[s.largeTitle, { color: theme.text }]} accessibilityRole="header">
@@ -6861,7 +7155,7 @@ export default function AlertsScreen() {
             <Ionicons
               name={STATUS_DISPLAY[status]?.icon || 'ellipse'}
               size={14}
-              color={STATUS_DISPLAY[status]?.color}
+              color={STATUS_DISPLAY[status]?.color || '#999'}
             />
             <Text style={[s.sectionTitle, { color: theme.textSecondary }]}>
               {title} ({data.length})
@@ -6872,10 +7166,10 @@ export default function AlertsScreen() {
           const isFirst = index === 0;
           const isLast = index === section.data.length - 1;
           const statusColor = STATUS_DISPLAY[item._status]?.color || '#999';
-          const category = CATEGORIES[item.cat];
+          const category = CATEGORIES[item.cat] ?? CATEGORIES.vehicule;
 
           return (
-            <View style={{ marginHorizontal: 16 }}>
+            <FadeInView delay={index * 40} style={{ marginHorizontal: 16 }}>
               <SwipeableRow
                 onDelete={() => deleteDocument(item.id)}
                 confirmTitle={t(language, 'confirm_delete_title')}
@@ -6933,7 +7227,7 @@ export default function AlertsScreen() {
                   )}
                 </AnimatedPressable>
               </SwipeableRow>
-            </View>
+            </FadeInView>
           );
         }}
         ListEmptyComponent={
@@ -6976,7 +7270,6 @@ const s = StyleSheet.create({
   emptyTitle: { fontSize: 20, fontWeight: '600', marginBottom: 8 },
   emptyText: { fontSize: 15, textAlign: 'center', lineHeight: 22 },
 });
-
 
 ════════════════════════════════════════════════════════════
   FILE: app/(tabs)/search.tsx
@@ -7044,6 +7337,7 @@ export default function SearchScreen() {
       setScopeFilter('all');
       setSearchQuery('');
       setDebouncedQuery('');
+      inputRef.current?.clear();
     });
     return unsubscribe;
   }, [navigation]);
@@ -7066,6 +7360,7 @@ export default function SearchScreen() {
     setSearchQuery('');
     setDebouncedQuery('');
     setIsFocused(false);
+    inputRef.current?.clear();
     inputRef.current?.blur();
     Keyboard.dismiss();
     RNAnimated.parallel([
@@ -7082,14 +7377,15 @@ export default function SearchScreen() {
       return true;
     });
     if (debouncedQuery.length === 0) return baseDocs;
-    const query = debouncedQuery.toLowerCase();
+    const query = debouncedQuery.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const normalize = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
     return baseDocs.filter((doc) => {
-      const subName = translateSubtype(doc.type, language).toLowerCase();
+      const subName = normalize(translateSubtype(doc.type, language));
       return (
-        doc.title.toLowerCase().includes(query) ||
+        normalize(doc.title).includes(query) ||
         subName.includes(query) ||
-        (doc.asset && doc.asset.toLowerCase().includes(query)) ||
-        (doc.notes && doc.notes.toLowerCase().includes(query))
+        (doc.asset && normalize(doc.asset).includes(query)) ||
+        (doc.notes && normalize(doc.notes).includes(query))
       );
     });
   }, [enrichedDocs, statusFilter, scopeFilter, debouncedQuery, language]);
@@ -7112,7 +7408,7 @@ export default function SearchScreen() {
               style={[s.searchInput, { color: theme.text }]}
               placeholder={t(language, 'search_placeholder')}
               placeholderTextColor={theme.textMuted}
-              value={searchQuery}
+              defaultValue=""
               onChangeText={setSearchQuery}
               onFocus={handleFocus}
               autoCapitalize="none"
@@ -7238,9 +7534,10 @@ export default function SearchScreen() {
           const isFirst = index === 0;
           const isLast = index === filteredDocs.length - 1;
           const statusColor = STATUS_DISPLAY[item._status]?.color || '#999';
-          const category = CATEGORIES[item.cat];
+          const category = CATEGORIES[item.cat] ?? CATEGORIES.vehicule;
 
           return (
+            <FadeInView delay={index * 40}>
             <SwipeableRow
               onDelete={() => deleteDocument(item.id)}
               confirmTitle={t(language, 'confirm_delete_title')}
@@ -7284,6 +7581,7 @@ export default function SearchScreen() {
                 {!isLast && <View style={{ position: 'absolute', bottom: 0, left: 56, right: 0, height: StyleSheet.hairlineWidth, backgroundColor: theme.divider }} />}
               </AnimatedPressable>
             </SwipeableRow>
+            </FadeInView>
           );
         }}
         ListEmptyComponent={
@@ -7353,7 +7651,6 @@ const s = StyleSheet.create({
   emptyText: { fontSize: 15, textAlign: 'center' },
 });
 
-
 ════════════════════════════════════════════════════════════
   FILE: app/(tabs)/add.tsx
 ════════════════════════════════════════════════════════════
@@ -7368,7 +7665,6 @@ import { Redirect } from 'expo-router';
 export default function AddScreen() {
   return <Redirect href="/form" />;
 }
-
 
 ════════════════════════════════════════════════════════════
   FILE: app/(tabs)/settings.tsx
@@ -7390,6 +7686,7 @@ import {
   ActivityIndicator,
   Share,
   Platform,
+  Linking,
 } from 'react-native';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as Haptics from 'expo-haptics';
@@ -7714,6 +8011,18 @@ export default function SettingsScreen() {
             </Text>
             <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
           </AnimatedPressable>
+          <RowDivider theme={theme} />
+          <AnimatedPressable
+            style={s.row}
+            onPress={() => Linking.openURL('mailto:andreiiulianrobert@gmail.com?subject=DocDue%20Support').catch(() => {})}
+            accessibilityLabel={t(language, 'settings_contact_support')}
+          >
+            <Ionicons name="mail-outline" size={18} color="#007AFF" style={{ marginRight: 8 }} />
+            <Text style={[s.rowLabel, { color: '#007AFF', flex: 1 }]}>
+              {t(language, 'settings_contact_support')}
+            </Text>
+            <Ionicons name="open-outline" size={16} color={theme.textMuted} />
+          </AnimatedPressable>
         </View>
         <Text style={[s.footerText, { color: theme.textSecondary, marginHorizontal: 20, marginTop: 6 }]}>
           {t(language, 'settings_privacy_footer')}
@@ -7725,7 +8034,7 @@ export default function SettingsScreen() {
             style={s.row}
             onPress={() => {
               const url = Platform.OS === 'ios'
-                ? 'https://iulianrobert94.github.io/DocDue/'
+                ? 'https://apps.apple.com/app/id6760433928'
                 : 'https://play.google.com/store/apps/details?id=com.docdueapp';
               Share.share({
                 message: t(language, 'share_app_message') + '\n' + url,
@@ -7819,7 +8128,6 @@ const s = StyleSheet.create({
   footerText: { fontSize: 13, lineHeight: 18 },
 });
 
-
 ════════════════════════════════════════════════════════════
   FILE: app/form.tsx
 ════════════════════════════════════════════════════════════
@@ -7830,11 +8138,11 @@ const s = StyleSheet.create({
  * Sticky bottom save bar + header cancel/save
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TextInput, Alert,
   Platform, Keyboard, InputAccessoryView, BackHandler,
-  ActivityIndicator, Modal,
+  ActivityIndicator, Modal, KeyboardAvoidingView, Animated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -7842,8 +8150,8 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
-import { useTheme, useLanguage, useCurrency } from '../src/stores/useSettingsStore';
-import { useDocumentStore, useEnrichedDocuments } from '../src/stores/useDocumentStore';
+import { useTheme, useLanguage, useCurrency, useSettingsStore } from '../src/stores/useSettingsStore';
+import { useDocumentStore, useEnrichedDocument } from '../src/stores/useDocumentStore';
 import { t, translateSubtype } from '../src/core/i18n';
 import { parseLocalDate } from '../src/core/dateUtils';
 import { formatDate, formatMoney } from '../src/core/formatters';
@@ -7879,38 +8187,60 @@ export default function FormScreen() {
   const language = useLanguage();
   const currency = useCurrency();
 
-  const { editId, cat: catParam } = useLocalSearchParams<{ editId?: string; cat?: string }>();
-  const enrichedDocs = useEnrichedDocuments();
+  const { editId, cat: catParam, dupCat, dupType, dupTitle, dupAsset, dupAmt, dupRec, dupNotes } = useLocalSearchParams<{
+    editId?: string; cat?: string;
+    dupCat?: string; dupType?: string; dupTitle?: string; dupAsset?: string; dupAmt?: string; dupRec?: string; dupNotes?: string;
+  }>();
+  const existingDoc = useEnrichedDocument(editId);
   const addDocument = useDocumentStore((s) => s.addDocument);
   const updateDocument = useDocumentStore((s) => s.updateDocument);
+  const customSubtypes = useSettingsStore((s) => s.settings.customSubtypes);
+  const updateSetting = useSettingsStore((s) => s.updateSetting);
 
   const isEdit = !!editId;
-  const existingDoc = isEdit ? enrichedDocs.find((d) => d.id === editId) : null;
 
   // If editing a document that no longer exists, fall back to add mode
   const effectiveEdit = isEdit && !!existingDoc;
 
   const todayStr = dateToString(new Date());
 
-  const [cat, setCat] = useState<CategoryId>(existingDoc?.cat || (catParam as CategoryId) || 'vehicule');
-  const initSubtypes = CATEGORIES[existingDoc?.cat || (catParam as CategoryId) || 'vehicule']?.subtypes || [];
-  const isCustomType = existingDoc?.type ? !initSubtypes.includes(existingDoc.type) : false;
-  const [type, setType] = useState<string>(isCustomType ? 'Altele' : (existingDoc?.type || ''));
+  const [cat, setCat] = useState<CategoryId>(existingDoc?.cat || (dupCat as CategoryId) || (catParam as CategoryId) || 'vehicule');
+  const initCat = existingDoc?.cat || (catParam as CategoryId) || 'vehicule';
+  const initSubtypes = CATEGORIES[initCat]?.subtypes || [];
+  const initCustom = customSubtypes?.[initCat] || [];
+  const isCustomType = existingDoc?.type ? !initSubtypes.includes(existingDoc.type) && !initCustom.includes(existingDoc.type) : false;
+  const [type, setType] = useState<string>(isCustomType ? 'Altele' : (existingDoc?.type || dupType || ''));
   const [customType, setCustomType] = useState<string>(isCustomType ? (existingDoc?.type || '') : '');
-  const [title, setTitle] = useState<string>(existingDoc?.title || '');
-  const [asset, setAsset] = useState<string>(existingDoc?.asset || '');
+  const [title, setTitle] = useState<string>(existingDoc?.title || (dupTitle ? `${dupTitle} (copy)` : ''));
+  const [asset, setAsset] = useState<string>(existingDoc?.asset || dupAsset || '');
   const [due, setDue] = useState<string>(existingDoc?.due || todayStr);
-  const [amt, setAmt] = useState<string>(existingDoc?.amt ? String(existingDoc.amt) : '');
-  const [rec, setRec] = useState<RecurrenceValue>(existingDoc?.rec || 'none');
-  const [notes, setNotes] = useState<string>(existingDoc?.notes || '');
+  const [amt, setAmt] = useState<string>(existingDoc?.amt ? String(existingDoc.amt) : (dupAmt || ''));
+  const [rec, setRec] = useState<RecurrenceValue>(existingDoc?.rec || (dupRec as RecurrenceValue) || 'none');
+  const [notes, setNotes] = useState<string>(existingDoc?.notes || dupNotes || '');
+  // Refs hold current text during typing — no re-renders, fixes Fabric space key bug
+  const titleRef = useRef(title);
+  const assetRef = useRef(asset);
+  const amtRef = useRef(amt);
+  const notesRef = useRef(notes);
   const [attachments, setAttachments] = useState<Attachment[]>(existingDoc?.attachments || []);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const successScale = useRef(new Animated.Value(0)).current;
+  const successOpacity = useRef(new Animated.Value(0)).current;
   const [recAutoSet, setRecAutoSet] = useState(false);
   const recAutoSetTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [showTypePicker, setShowTypePicker] = useState(false);
   const [typeSearch, setTypeSearch] = useState('');
   const savingRef = useRef(false); // Guard against rapid double-taps
+  const scrollRef = useRef<ScrollView>(null);
+
+  // Cleanup recurrence auto-set timer on unmount
+  useEffect(() => {
+    return () => {
+      if (recAutoSetTimer.current) clearTimeout(recAutoSetTimer.current);
+    };
+  }, []);
 
   // Toggle date picker dialog (both platforms now)
   const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
@@ -7919,24 +8249,31 @@ export default function FormScreen() {
   );
 
   const category = CATEGORIES[cat];
-  const subtypes = category?.subtypes || [];
+  const presetSubtypes = category?.subtypes || [];
+  // Merge custom subtypes before "Altele" (Other)
+  const savedCustom = customSubtypes?.[cat] || [];
+  const subtypes = useMemo(() => {
+    const withoutAltele = presetSubtypes.filter((s) => s !== 'Altele');
+    const uniqueCustom = savedCustom.filter((c) => !withoutAltele.includes(c));
+    return [...withoutAltele, ...uniqueCustom, 'Altele'];
+  }, [presetSubtypes, savedCustom]);
 
-  // Check if user has entered any data (to warn before discarding)
-  const hasUnsavedData = isEdit
-    ? (title.trim() !== (existingDoc?.title || '') ||
-       asset.trim() !== (existingDoc?.asset || '') ||
-       amt.trim() !== (existingDoc?.amt ? String(existingDoc.amt) : '') ||
-       notes.trim() !== (existingDoc?.notes || '') ||
+  // Check if user has entered any data (reads from refs for current typing values)
+  const getHasUnsavedData = () => isEdit
+    ? (titleRef.current.trim() !== (existingDoc?.title || '') ||
+       assetRef.current.trim() !== (existingDoc?.asset || '') ||
+       amtRef.current.trim() !== (existingDoc?.amt ? String(existingDoc.amt) : '') ||
+       notesRef.current.trim() !== (existingDoc?.notes || '') ||
        cat !== (existingDoc?.cat || 'vehicule') ||
        type !== (existingDoc?.type || '') ||
        due !== (existingDoc?.due || todayStr) ||
        rec !== (existingDoc?.rec || 'none') ||
        attachments.length !== (existingDoc?.attachments?.length || 0))
-    : (title.trim().length > 0 || asset.trim().length > 0 || amt.trim().length > 0 || notes.trim().length > 0);
+    : (titleRef.current.trim().length > 0 || assetRef.current.trim().length > 0 || amtRef.current.trim().length > 0 || notesRef.current.trim().length > 0);
 
   const handleCancel = () => {
     Keyboard.dismiss();
-    if (hasUnsavedData) {
+    if (getHasUnsavedData()) {
       Alert.alert(
         t(language, 'confirm_discard_title'),
         t(language, 'confirm_discard_msg'),
@@ -7954,15 +8291,15 @@ export default function FormScreen() {
   useEffect(() => {
     if (Platform.OS !== 'android') return;
     const onBack = () => {
-      if (hasUnsavedData) {
+      if (getHasUnsavedData()) {
         handleCancel();
-        return true; // prevent default back
+        return true;
       }
-      return false; // allow default back
+      return false;
     };
     const sub = BackHandler.addEventListener('hardwareBackPress', onBack);
     return () => sub.remove();
-  }, [hasUnsavedData]);
+  }, []);
 
   useEffect(() => {
     if (!isEdit && subtypes.length > 0 && !subtypes.includes(type)) {
@@ -7972,6 +8309,7 @@ export default function FormScreen() {
   }, [cat]);
 
   const handleDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
+    Keyboard.dismiss();
     if (Platform.OS === 'android' && event.type === 'set') {
       setShowDatePicker(false);
     }
@@ -8006,11 +8344,17 @@ export default function FormScreen() {
 
   const validate = (): boolean => {
     const e: Record<string, string> = {};
-    if (!title.trim()) e.title = t(language, 'val_title_required');
+    if (!titleRef.current.trim()) e.title = t(language, 'val_title_required');
     if (!due.trim()) e.due = t(language, 'val_date_required');
     else if (!/^\d{4}-\d{2}-\d{2}$/.test(due)) e.due = t(language, 'val_date_invalid');
     else if (isNaN(parseLocalDate(due).getTime())) e.due = t(language, 'val_date_invalid');
-    if (amt.trim() && (isNaN(Number(amt)) || Number(amt) < 0)) e.amt = t(language, 'val_amount_positive');
+    else {
+      const y = parseLocalDate(due).getFullYear();
+      if (y < 2000 || y > 2099) e.due = t(language, 'val_date_invalid');
+    }
+    const normalizedAmt = amtRef.current.trim().replace(',', '.');
+    const amtNum = Number(normalizedAmt);
+    if (normalizedAmt && (isNaN(amtNum) || amtNum < 0 || amtNum > 999_999_999 || !/^\d{1,9}(\.\d{1,2})?$/.test(normalizedAmt))) e.amt = t(language, 'val_amount_positive');
     setErrors(e);
     if (Object.keys(e).length > 0) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
@@ -8027,11 +8371,18 @@ export default function FormScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     const sanitizedCustomType = customType.trim().replace(/[^\p{L}\p{N}\s\-.,()]/gu, '').trim();
     const finalType = type === 'Altele' ? (sanitizedCustomType || 'Altele') : (type || subtypes[0] || '');
+    // Auto-save new custom subtype for future use
+    if (type === 'Altele' && sanitizedCustomType && sanitizedCustomType !== 'Altele') {
+      const existing = customSubtypes?.[cat] || [];
+      if (!existing.includes(sanitizedCustomType) && !presetSubtypes.includes(sanitizedCustomType)) {
+        updateSetting('customSubtypes', { ...customSubtypes, [cat]: [...existing, sanitizedCustomType] });
+      }
+    }
     const docData: Omit<RawDocument, 'id'> = {
-      cat, type: finalType, title: title.trim(),
-      asset: asset.trim() || undefined, due,
-      amt: amt.trim() ? Number(amt) : null, rec,
-      notes: notes.trim() || undefined,
+      cat, type: finalType, title: titleRef.current.trim(),
+      asset: assetRef.current.trim() || undefined, due,
+      amt: amtRef.current.trim() ? Number(amtRef.current.trim().replace(',', '.')) : null, rec,
+      notes: notesRef.current.trim() || undefined,
       attachments: attachments.length > 0 ? attachments : undefined,
     };
     try {
@@ -8040,8 +8391,16 @@ export default function FormScreen() {
       } else {
         addDocument(docData);
       }
-      router.back();
-    } finally {
+      // Show success animation then navigate back
+      setShowSuccess(true);
+      successScale.setValue(0);
+      successOpacity.setValue(1);
+      Animated.sequence([
+        Animated.spring(successScale, { toValue: 1, speed: 12, bounciness: 8, useNativeDriver: true }),
+        Animated.delay(400),
+        Animated.timing(successOpacity, { toValue: 0, duration: 200, useNativeDriver: true }),
+      ]).start(() => router.back());
+    } catch {
       savingRef.current = false;
       setSaving(false);
     }
@@ -8050,13 +8409,18 @@ export default function FormScreen() {
   const categoryIds = Object.keys(CATEGORIES) as CategoryId[];
 
   return (
-      <View style={[s.container, { backgroundColor: theme.background }]}>
+      <KeyboardAvoidingView
+        style={[s.container, { backgroundColor: theme.background }]}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      >
           <ScrollView
+            ref={scrollRef}
             style={{ flex: 1 }}
             contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: 160 }}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
-            automaticallyAdjustKeyboardInsets
+            automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
           >
             {/* Modal header — Cancel | grabber | title */}
             <FadeInView delay={0} style={s.modalHeader}>
@@ -8120,21 +8484,25 @@ export default function FormScreen() {
 
                 <View style={s.inputRow}>
                   <Text style={[s.inputLabel, { color: theme.textSecondary }]}>{t(language, 'form_title')}</Text>
-                  <TextInput style={[s.inputField, { color: theme.text }]} value={title}
-                    onChangeText={(v) => { setTitle(v); clearError('title'); }}
+                  <TextInput style={[s.inputField, { color: theme.text }]} defaultValue={title}
+                    onChangeText={(v) => { titleRef.current = v; }}
+                    onBlur={() => { setTitle(titleRef.current); clearError('title'); }}
                     placeholder={t(language, 'form_title_placeholder')} placeholderTextColor={theme.textDim}
                     returnKeyType="done" onSubmitEditing={Keyboard.dismiss}
                     maxLength={150}
-                    accessibilityLabel={t(language, 'form_title')} />
+                    accessibilityLabel={t(language, 'form_title')}
+                    aria-invalid={!!errors.title} />
                 </View>
-                {errors.title ? <Text style={s.errorText}>{errors.title}</Text> : null}
+                {errors.title ? <Text style={s.errorText} accessibilityLiveRegion="polite" accessibilityRole="alert">{errors.title}</Text> : null}
                 <View style={s.dividerWrap}><View style={[s.divider, { backgroundColor: theme.divider }]} /></View>
 
                 <View style={s.inputRow}>
                   <Text style={[s.inputLabel, { color: theme.textSecondary }]}>{t(language, 'form_asset')}</Text>
-                  <TextInput style={[s.inputField, { color: theme.text }]} value={asset} onChangeText={setAsset}
+                  <TextInput style={[s.inputField, { color: theme.text }]} defaultValue={asset}
+                    onChangeText={(v) => { assetRef.current = v; }}
+                    onBlur={() => setAsset(assetRef.current)}
                     placeholder={t(language, 'form_asset_placeholder')} placeholderTextColor={theme.textDim}
-                    returnKeyType="done" onSubmitEditing={Keyboard.dismiss}
+                    returnKeyType="next" onSubmitEditing={Keyboard.dismiss}
                     maxLength={100}
                     accessibilityLabel={t(language, 'form_asset')} />
                 </View>
@@ -8150,7 +8518,8 @@ export default function FormScreen() {
                 {showDatePicker && (
                   <View style={s.datePickerContainer}>
                     <View style={s.datePickerHeader}>
-                      <AnimatedPressable onPress={() => setShowDatePicker(false)} haptic={false}>
+                      <AnimatedPressable onPress={() => setShowDatePicker(false)} haptic={false}
+                        accessibilityLabel={t(language, 'form_done')} accessibilityRole="button">
                         <Text style={s.doneText}>{t(language, 'form_done')}</Text>
                       </AnimatedPressable>
                     </View>
@@ -8164,22 +8533,22 @@ export default function FormScreen() {
                     />
                   </View>
                 )}
-                {errors.due ? <Text style={s.errorText}>{errors.due}</Text> : null}
+                {errors.due ? <Text style={s.errorText} accessibilityLiveRegion="polite" accessibilityRole="alert">{errors.due}</Text> : null}
                 <View style={s.dividerWrap}><View style={[s.divider, { backgroundColor: theme.divider }]} /></View>
 
                 <View style={s.inputRow}>
                   <Text style={[s.inputLabel, { color: theme.textSecondary }]}>{t(language, 'form_amount')}</Text>
-                  <TextInput style={[s.inputField, { color: theme.text }]} value={amt}
-                    onChangeText={(v) => { setAmt(v); clearError('amt'); }}
+                  <TextInput style={[s.inputField, { color: theme.text }]} defaultValue={amt}
+                    onChangeText={(v) => { amtRef.current = v; }}
+                    onBlur={() => { setAmt(amtRef.current); clearError('amt'); }}
                     placeholder="0" placeholderTextColor={theme.textDim} keyboardType="decimal-pad"
-                    maxLength={12}
+                    returnKeyType="done" maxLength={12}
                     inputAccessoryViewID={Platform.OS === 'ios' ? 'amtKeyboardDone' : undefined}
-                    accessibilityLabel={t(language, 'form_amount')} />
-                  {amt.trim().length > 0 && (
-                    <Text style={{ fontSize: 15, color: theme.textMuted, marginLeft: 6 }}>{currency}</Text>
-                  )}
+                    accessibilityLabel={t(language, 'form_amount')}
+                    aria-invalid={!!errors.amt} />
+                  <Text style={{ fontSize: 15, color: theme.textMuted, marginLeft: 6 }}>{currency}</Text>
                 </View>
-                {errors.amt ? <Text style={s.errorText}>{errors.amt}</Text> : null}
+                {errors.amt ? <Text style={s.errorText} accessibilityLiveRegion="polite" accessibilityRole="alert">{errors.amt}</Text> : null}
                 <View style={s.dividerWrap}><View style={[s.divider, { backgroundColor: theme.divider }]} /></View>
 
                 {/* Recurrence — label + SegmentedControl stacked */}
@@ -8211,14 +8580,16 @@ export default function FormScreen() {
               transparent
               onRequestClose={() => setShowTypePicker(false)}
               statusBarTranslucent
+              accessibilityViewIsModal
             >
               <View style={[s.pickerOverlay, { backgroundColor: theme.background }]}>
                 {/* Modal header */}
                 <View style={[s.pickerHeader, { paddingTop: insets.top + 8 }]}>
-                  <AnimatedPressable onPress={() => setShowTypePicker(false)} haptic={false}>
+                  <AnimatedPressable onPress={() => setShowTypePicker(false)} haptic={false}
+                    accessibilityLabel={t(language, 'confirm_cancel')} accessibilityRole="button">
                     <Text style={s.cancelText}>{t(language, 'confirm_cancel')}</Text>
                   </AnimatedPressable>
-                  <Text style={[s.pickerTitle, { color: theme.text }]}>{t(language, 'form_type')}</Text>
+                  <Text style={[s.pickerTitle, { color: theme.text }]} accessibilityRole="header">{t(language, 'form_type')}</Text>
                   <View style={{ width: 60 }} />
                 </View>
 
@@ -8232,9 +8603,11 @@ export default function FormScreen() {
                     placeholder={t(language, 'form_search_type')}
                     placeholderTextColor={theme.textDim}
                     returnKeyType="done"
+                    accessibilityLabel={t(language, 'form_search_type')}
                   />
                   {typeSearch.length > 0 && (
-                    <AnimatedPressable onPress={() => setTypeSearch('')} haptic={false}>
+                    <AnimatedPressable onPress={() => setTypeSearch('')} haptic={false}
+                      accessibilityLabel={t(language, 'a11y_clear_search')} accessibilityRole="button">
                       <Ionicons name="close-circle" size={18} color={theme.textMuted} />
                     </AnimatedPressable>
                   )}
@@ -8264,11 +8637,36 @@ export default function FormScreen() {
                           accessibilityLabel={t(language, 'a11y_select_type', { name: translateSubtype(sub, language) })}
                           accessibilityState={{ selected: type === sub }}
                         >
-                          <Text style={[s.pickerRowText, { color: theme.text }]}>
+                          <Text style={[s.pickerRowText, { color: theme.text, flex: 1 }]}>
                             {translateSubtype(sub, language)}
                           </Text>
                           {type === sub && (
                             <Ionicons name="checkmark" size={20} color="#007AFF" />
+                          )}
+                          {savedCustom.includes(sub) && (
+                            <AnimatedPressable
+                              onPress={() => {
+                                Alert.alert(
+                                  t(language, 'confirm_delete_type_title'),
+                                  t(language, 'confirm_delete_type_msg', { name: sub }),
+                                  [
+                                    { text: t(language, 'confirm_cancel'), style: 'cancel' },
+                                    { text: t(language, 'confirm_delete_btn'), style: 'destructive', onPress: () => {
+                                      const updated = savedCustom.filter((c) => c !== sub);
+                                      updateSetting('customSubtypes', { ...customSubtypes, [cat]: updated });
+                                      if (type === sub) { setType(''); setCustomType(''); }
+                                    }},
+                                  ]
+                                );
+                              }}
+                              haptic={false}
+                              accessibilityLabel={t(language, 'a11y_delete_custom_type', { name: sub })}
+                              accessibilityRole="button"
+                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                              style={{ marginLeft: 12 }}
+                            >
+                              <Ionicons name="close-circle" size={20} color={theme.textMuted} />
+                            </AnimatedPressable>
                           )}
                         </AnimatedPressable>
                         {idx < arr.length - 1 && <RowDivider theme={theme} />}
@@ -8289,6 +8687,7 @@ export default function FormScreen() {
                         onSubmitEditing={() => setShowTypePicker(false)}
                         maxLength={100}
                         autoFocus
+                        accessibilityLabel={t(language, 'form_custom_type_placeholder')}
                       />
                     </View>
                   )}
@@ -8302,9 +8701,12 @@ export default function FormScreen() {
             <FadeInView delay={250}>
               <Text style={[s.sectionHeader, { color: theme.textSecondary }]}>{t(language, 'form_notes')}</Text>
               <View style={[s.group, { backgroundColor: theme.card }]}>
-                <TextInput style={[s.notesInput, { color: theme.text }]} value={notes} onChangeText={setNotes}
+                <TextInput style={[s.notesInput, { color: theme.text }]} defaultValue={notes}
+                  onChangeText={(v) => { notesRef.current = v; }}
+                  onBlur={() => setNotes(notesRef.current)}
                   placeholder={t(language, 'form_notes_placeholder')} placeholderTextColor={theme.textDim}
-                  multiline numberOfLines={4} textAlignVertical="top" maxLength={500}
+                  multiline numberOfLines={4} textAlignVertical="top" maxLength={500} returnKeyType="default"
+                  onFocus={() => { if (Platform.OS === 'android') setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 300); }}
                   inputAccessoryViewID={Platform.OS === 'ios' ? 'notesKeyboardDone' : undefined}
                   accessibilityLabel={t(language, 'form_notes')} />
               </View>
@@ -8356,7 +8758,8 @@ export default function FormScreen() {
           <InputAccessoryView nativeID="notesKeyboardDone">
             <View style={[s.keyboardToolbar, { backgroundColor: theme.card, borderTopColor: theme.divider }]}>
               <View style={{ flex: 1 }} />
-              <AnimatedPressable onPress={Keyboard.dismiss} haptic={false}>
+              <AnimatedPressable onPress={Keyboard.dismiss} haptic={false}
+                accessibilityLabel={t(language, 'form_done')} accessibilityRole="button">
                 <Text style={s.doneText}>{t(language, 'form_done')}</Text>
               </AnimatedPressable>
             </View>
@@ -8366,13 +8769,22 @@ export default function FormScreen() {
           <InputAccessoryView nativeID="amtKeyboardDone">
             <View style={[s.keyboardToolbar, { backgroundColor: theme.card, borderTopColor: theme.divider }]}>
               <View style={{ flex: 1 }} />
-              <AnimatedPressable onPress={Keyboard.dismiss} haptic={false}>
+              <AnimatedPressable onPress={Keyboard.dismiss} haptic={false}
+                accessibilityLabel={t(language, 'form_done')} accessibilityRole="button">
                 <Text style={s.doneText}>{t(language, 'form_done')}</Text>
               </AnimatedPressable>
             </View>
           </InputAccessoryView>
         )}
-      </View>
+      {/* Success overlay */}
+      {showSuccess && (
+        <Animated.View style={[s.successOverlay, { opacity: successOpacity }]} pointerEvents="none">
+          <Animated.View style={[s.successCircle, { transform: [{ scale: successScale }] }]}>
+            <Ionicons name="checkmark" size={44} color="#FFF" />
+          </Animated.View>
+        </Animated.View>
+      )}
+      </KeyboardAvoidingView>
   );
 }
 
@@ -8395,8 +8807,8 @@ const s = StyleSheet.create({
   pickerRowText: { fontSize: 17 },
   group: { marginHorizontal: 16, borderRadius: 12, overflow: 'hidden' },
   inputRow: { flexDirection: 'row', alignItems: 'center', minHeight: 44, paddingHorizontal: 16 },
-  inputLabel: { fontSize: 17, width: 100 },
-  inputField: { flex: 1, fontSize: 17, paddingVertical: 11, textAlign: 'right' },
+  inputLabel: { fontSize: 17, minWidth: 100 },
+  inputField: { flex: 1, fontSize: 17, paddingVertical: 11 },
   datePickerContainer: { paddingHorizontal: 16, paddingBottom: 12 },
   datePickerHeader: { flexDirection: 'row', justifyContent: 'flex-end', paddingTop: 8, paddingBottom: 4, paddingHorizontal: 4 },
   doneText: { color: '#007AFF', fontSize: 17, fontWeight: '600' },
@@ -8428,8 +8840,22 @@ const s = StyleSheet.create({
     fontSize: 17,
     fontWeight: '600',
   },
+  successOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(10,14,23,0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 100,
+  },
+  successCircle: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: '#34C759',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });
-
 
 ════════════════════════════════════════════════════════════
   FILE: app/document/[id].tsx
@@ -8473,6 +8899,8 @@ export default function DocumentDetailScreen() {
   const congratsScale = useRef(new Animated.Value(0)).current;
   const congratsOpacity = useRef(new Animated.Value(0)).current;
 
+  const markingRef = useRef(false);
+
   const playCongrats = () => {
     setShowCongrats(true);
     congratsScale.setValue(0);
@@ -8490,7 +8918,7 @@ export default function DocumentDetailScreen() {
         <View style={{ paddingTop: insets.top + 16, alignItems: 'center', paddingVertical: 80 }}>
           <Ionicons name="document-outline" size={40} color={theme.textDim} style={{ marginBottom: 12 }} />
           <Text style={[s.emptyText, { color: theme.textMuted }]}>{t(language, 'doc_not_found')}</Text>
-          <AnimatedPressable onPress={() => router.back()} style={{ marginTop: 20 }}>
+          <AnimatedPressable onPress={() => router.back()} style={{ marginTop: 20 }} accessibilityLabel={t(language, 'btn_close')}>
             <Text style={{ color: '#007AFF', fontSize: 17 }}>{t(language, 'btn_close')}</Text>
           </AnimatedPressable>
         </View>
@@ -8514,12 +8942,14 @@ export default function DocumentDetailScreen() {
   };
 
   const handleMarkPaid = () => {
+    if (markingRef.current) return;
+    markingRef.current = true;
     const isRecurring = doc.rec !== 'none';
     Alert.alert(
       t(language, isRecurring ? 'confirm_paid_title' : 'confirm_resolved_title'),
       t(language, isRecurring ? 'confirm_paid_msg' : 'confirm_resolved_msg'),
       [
-        { text: t(language, 'confirm_cancel'), style: 'cancel' },
+        { text: t(language, 'confirm_cancel'), style: 'cancel', onPress: () => { markingRef.current = false; } },
         {
           text: t(language, isRecurring ? 'confirm_paid_btn' : 'confirm_resolved_btn'),
           onPress: () => {
@@ -8528,12 +8958,15 @@ export default function DocumentDetailScreen() {
             if (result === 'paid_next') {
               playCongrats();
             } else {
-              playCongrats();
-              setTimeout(() => router.back(), 1800);
+              // One-time doc is deleted — go back immediately to avoid
+              // "not found" flashing behind the congrats overlay
+              router.back();
             }
+            markingRef.current = false;
           },
         },
-      ]
+      ],
+      { cancelable: true, onDismiss: () => { markingRef.current = false; } }
     );
   };
 
@@ -8634,7 +9067,7 @@ export default function DocumentDetailScreen() {
                     accessibilityLabel={t(language, 'open_file')}
                   >
                     {att.type === 'image' ? (
-                      <Image source={{ uri: att.uri }} style={s.attachThumb} />
+                      <Image source={{ uri: att.uri }} style={s.attachThumb} accessibilityLabel={att.name} accessibilityRole="image" onError={() => {}} />
                     ) : (
                       <View style={[s.attachThumb, s.attachFile, { backgroundColor: theme.inputFill }]}>
                         <Ionicons name="document-text" size={28} color="#FF3B30" />
@@ -8670,7 +9103,7 @@ export default function DocumentDetailScreen() {
                       {payment.amt != null ? formatMoney(payment.amt, currency, language) : '—'}
                     </Text>
                   </View>
-                  {i < doc.paymentHistory!.length - 1 && (
+                  {i < (doc.paymentHistory?.length ?? 0) - 1 && (
                     <View style={{ paddingLeft: 16 }}>
                       <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: theme.divider }} />
                     </View>
@@ -8746,6 +9179,17 @@ export default function DocumentDetailScreen() {
             <AnimatedPressable style={s.actionRow} onPress={() => router.push(`/form?editId=${doc.id}`)} accessibilityLabel={t(language, 'a11y_edit_document')}>
               <Ionicons name="create-outline" size={18} color="#007AFF" style={{ marginRight: 6 }} />
               <Text style={[s.actionText, { color: '#007AFF' }]}>{t(language, 'detail_edit')}</Text>
+            </AnimatedPressable>
+            <View style={{ paddingLeft: 16 }}>
+              <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: theme.divider }} />
+            </View>
+            <AnimatedPressable
+              style={s.actionRow}
+              onPress={() => router.push(`/form?dupCat=${doc.cat}&dupType=${encodeURIComponent(doc.type)}&dupTitle=${encodeURIComponent(doc.title)}&dupAsset=${encodeURIComponent(doc.asset || '')}&dupAmt=${doc.amt || ''}&dupRec=${doc.rec}&dupNotes=${encodeURIComponent(doc.notes || '')}`)}
+              accessibilityLabel={t(language, 'detail_duplicate')}
+            >
+              <Ionicons name="copy-outline" size={18} color="#007AFF" style={{ marginRight: 6 }} />
+              <Text style={[s.actionText, { color: '#007AFF' }]}>{t(language, 'detail_duplicate')}</Text>
             </AnimatedPressable>
             <View style={{ paddingLeft: 16 }}>
               <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: theme.divider }} />
@@ -8850,7 +9294,6 @@ const s = StyleSheet.create({
     letterSpacing: 0.35,
   },
 });
-
 
 ════════════════════════════════════════════════════════════
   FILE: app/category/[id].tsx
@@ -8998,6 +9441,9 @@ export default function CategoryDetailScreen() {
         sections={sections}
         keyExtractor={(item) => item.id}
         stickySectionHeadersEnabled={false}
+        maxToRenderPerBatch={15}
+        windowSize={7}
+        removeClippedSubviews
         contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
         renderSectionHeader={({ section: { title, status, data } }) => (
           <View style={s.sectionHeader} accessibilityRole="header">
@@ -9108,16 +9554,13 @@ const s = StyleSheet.create({
   addBtnText: { color: '#FFF', fontSize: 15, fontWeight: '600' },
 });
 
-
 ════════════════════════════════════════════════════════════
   FILE: app/onboarding.tsx
 ════════════════════════════════════════════════════════════
 
 /**
- * Onboarding Screen — Apple HIG 2025 v12
- * First launch experience — swipeable FlatList with pagination
- * 4th slide: quick-start category picker
- * Respects user language setting
+ * Onboarding Screen — Apple HIG 2025 v13
+ * Premium first launch experience with floating icons and glow effects
  */
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
@@ -9128,10 +9571,17 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { STORAGE_KEY_ONBOARDED } from '../src/core/constants';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage, useTheme, useSettingsStore } from '../src/stores/useSettingsStore';
 import { AnimatedPressable } from '../src/components/AnimatedUI';
-import { requestNotificationPermission } from '../src/services/notifications';
+import {
+  requestNotificationPermission,
+  rescheduleAllNotifications,
+  scheduleMorningDigest,
+  scheduleWeeklySummary,
+} from '../src/services/notifications';
+import { useDocumentStore } from '../src/stores/useDocumentStore';
 import { t } from '../src/core/i18n';
 
 import type { IconName } from '../src/types';
@@ -9139,7 +9589,7 @@ import type { IconName } from '../src/types';
 interface OnboardingStep {
   icon: IconName;
   iconColor: string;
-  bgColor: string;
+  glowColor: string;
   titleKey: string;
   descKey: string;
 }
@@ -9148,28 +9598,28 @@ const STEPS: OnboardingStep[] = [
   {
     icon: 'shield-checkmark',
     iconColor: '#007AFF',
-    bgColor: 'rgba(0,122,255,0.08)',
+    glowColor: 'rgba(0,122,255,0.12)',
     titleKey: 'onboarding_slide1_title',
     descKey: 'onboarding_slide1_desc',
   },
   {
     icon: 'color-wand',
     iconColor: '#FF9500',
-    bgColor: 'rgba(255,149,0,0.08)',
+    glowColor: 'rgba(255,149,0,0.12)',
     titleKey: 'onboarding_slide2_title',
     descKey: 'onboarding_slide2_desc',
   },
   {
     icon: 'notifications',
     iconColor: '#FF3B30',
-    bgColor: 'rgba(255,59,48,0.08)',
+    glowColor: 'rgba(255,59,48,0.12)',
     titleKey: 'onboarding_slide3_title',
     descKey: 'onboarding_slide3_desc',
   },
   {
     icon: 'lock-closed',
     iconColor: '#34C759',
-    bgColor: 'rgba(52,199,89,0.08)',
+    glowColor: 'rgba(52,199,89,0.12)',
     titleKey: 'onboarding_slide4_title',
     descKey: 'onboarding_slide4_desc',
   },
@@ -9194,6 +9644,47 @@ function AnimatedDot({ active, accessibilityLabel }: { active: boolean; accessib
   return <Animated.View style={[s.dot, { width, backgroundColor }]} accessibilityLabel={accessibilityLabel} accessibilityRole="tab" />;
 }
 
+function FloatingIcon({ icon, color, glowColor, active }: { icon: IconName; color: string; glowColor: string; active: boolean }) {
+  const floatY = useRef(new Animated.Value(0)).current;
+  const glowScale = useRef(new Animated.Value(1)).current;
+  const glowOpacity = useRef(new Animated.Value(0.6)).current;
+
+  useEffect(() => {
+    if (!active) return;
+    const floatAnim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatY, { toValue: -10, duration: 1800, useNativeDriver: true }),
+        Animated.timing(floatY, { toValue: 0, duration: 1800, useNativeDriver: true }),
+      ])
+    );
+    const glowAnim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowScale, { toValue: 1.15, duration: 2200, useNativeDriver: true }),
+        Animated.timing(glowScale, { toValue: 1, duration: 2200, useNativeDriver: true }),
+      ])
+    );
+    const opacityAnim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowOpacity, { toValue: 1, duration: 2200, useNativeDriver: true }),
+        Animated.timing(glowOpacity, { toValue: 0.6, duration: 2200, useNativeDriver: true }),
+      ])
+    );
+    floatAnim.start();
+    glowAnim.start();
+    opacityAnim.start();
+    return () => { floatAnim.stop(); glowAnim.stop(); opacityAnim.stop(); };
+  }, [active]);
+
+  return (
+    <Animated.View style={[s.iconOuter, { transform: [{ translateY: floatY }] }]}>
+      <Animated.View style={[s.iconGlow, { backgroundColor: glowColor, transform: [{ scale: glowScale }], opacity: glowOpacity }]} />
+      <View style={[s.iconWrap, { backgroundColor: glowColor }]}>
+        <Ionicons name={icon} size={64} color={color} />
+      </View>
+    </Animated.View>
+  );
+}
+
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -9216,17 +9707,21 @@ export default function OnboardingScreen() {
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 50 }).current;
 
   const finishOnboarding = async () => {
-    await AsyncStorage.setItem('dt_onboarded', '1');
+    await AsyncStorage.setItem(STORAGE_KEY_ONBOARDED, '1');
     router.replace('/(tabs)');
   };
 
   const handleNext = async () => {
     try {
-      // When leaving the notification slide (index 2), request permission
       if (currentIndex === 2) {
         const granted = await requestNotificationPermission();
         if (granted) {
           useSettingsStore.getState().updateSetting('notificationsEnabled', true);
+          const docs = useDocumentStore.getState().documents;
+          const settings = useSettingsStore.getState().settings;
+          rescheduleAllNotifications(docs, settings.reminderDays, settings.language).catch(() => {});
+          scheduleMorningDigest(docs, settings.language).catch(() => {});
+          scheduleWeeklySummary(docs, settings.language).catch(() => {});
         }
       }
       if (isLastSlide) {
@@ -9234,30 +9729,37 @@ export default function OnboardingScreen() {
       } else {
         flatListRef.current?.scrollToIndex({ index: currentIndex + 1, animated: true });
       }
-    } catch {}
+    } catch (e) {
+      if (__DEV__) console.warn("DocDue: onboarding next error", e);
+    }
   };
 
   const handleSkip = async () => {
     try {
-      await AsyncStorage.setItem('dt_onboarded', '1');
+      await AsyncStorage.setItem(STORAGE_KEY_ONBOARDED, '1');
       router.replace('/(tabs)');
-    } catch {}
+    } catch (e) {
+      if (__DEV__) console.warn("DocDue: onboarding skip error", e);
+    }
   };
 
-  const renderItem = ({ item }: { item: OnboardingStep }) => (
+  const renderItem = ({ item, index }: { item: OnboardingStep; index: number }) => (
     <View style={[s.slide, { width: screenWidth }]}>
-      <View style={[s.iconWrap, { backgroundColor: item.bgColor }]}>
-        <Ionicons name={item.icon} size={56} color={item.iconColor} />
-      </View>
+      <FloatingIcon icon={item.icon} color={item.iconColor} glowColor={item.glowColor} active={index === currentIndex} />
       <Text style={[s.title, { color: theme.text }]}>{t(lang, item.titleKey)}</Text>
       <Text style={[s.desc, { color: theme.textSecondary }]}>{t(lang, item.descKey)}</Text>
+      <Text style={[s.stepIndicator, { color: theme.textDim }]}>
+        {index + 1} / {STEPS.length}
+      </Text>
     </View>
   );
 
   return (
     <View style={[s.container, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20, backgroundColor: theme.background }]}>
       {!isLastSlide && (
-        <AnimatedPressable onPress={handleSkip} style={[s.skipBtn, { top: insets.top + 8 }]} haptic={false}>
+        <AnimatedPressable onPress={handleSkip} style={[s.skipBtn, { top: insets.top + 8 }]} haptic={false}
+          accessibilityLabel={t(lang, 'onboarding_skip')} accessibilityRole="button"
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Text style={[s.skipText, { color: theme.textMuted }]}>{t(lang, 'onboarding_skip')}</Text>
         </AnimatedPressable>
       )}
@@ -9287,7 +9789,8 @@ export default function OnboardingScreen() {
       </View>
 
       <View style={s.footer}>
-        <AnimatedPressable onPress={handleNext} style={s.nextBtn} scaleValue={0.96} hapticStyle="medium">
+        <AnimatedPressable onPress={handleNext} style={s.nextBtn} scaleValue={0.96} hapticStyle="medium"
+          accessibilityLabel={isLastSlide ? t(lang, 'onboarding_start') : t(lang, 'onboarding_next')} accessibilityRole="button">
           <Text style={s.nextText}>{isLastSlide ? t(lang, 'onboarding_start') : t(lang, 'onboarding_next')}</Text>
           <Ionicons name={isLastSlide ? "checkmark" : "arrow-forward"} size={20} color="#FFF" />
         </AnimatedPressable>
@@ -9307,23 +9810,36 @@ const s = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 40,
   },
-  iconWrap: {
-    width: 120,
-    height: 120,
-    borderRadius: 30,
+  iconOuter: {
+    width: 160,
+    height: 160,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 40,
+    marginBottom: 48,
+  },
+  iconGlow: {
+    position: 'absolute',
+    width: 160,
+    height: 160,
+    borderRadius: 48,
+  },
+  iconWrap: {
+    width: 140,
+    height: 140,
+    borderRadius: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   title: {
-    fontSize: 28,
-    fontWeight: '700',
+    fontSize: 30,
+    fontWeight: '800',
     textAlign: 'center',
     letterSpacing: 0.35,
-    lineHeight: 36,
-    marginBottom: 16,
+    lineHeight: 38,
+    marginBottom: 14,
   },
-  desc: { fontSize: 17, textAlign: 'center', lineHeight: 24 },
+  desc: { fontSize: 17, textAlign: 'center', lineHeight: 26, paddingHorizontal: 8 },
+  stepIndicator: { fontSize: 13, fontWeight: '500', marginTop: 20, letterSpacing: 1 },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 8, paddingBottom: 32 },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(60,80,120,0.4)' },
   footer: { paddingHorizontal: 20 },
@@ -9338,7 +9854,6 @@ const s = StyleSheet.create({
   },
   nextText: { color: '#FFFFFF', fontSize: 17, fontWeight: '600' },
 });
-
 
 ════════════════════════════════════════════════════════════
   FILE: app/analytics.tsx
@@ -9675,7 +10190,6 @@ const s = StyleSheet.create({
   emptyText: { fontSize: 15 },
 });
 
-
 ════════════════════════════════════════════════════════════
   FILE: app/premium.tsx
 ════════════════════════════════════════════════════════════
@@ -9709,7 +10223,7 @@ const PRO_FEATURES: ReadonlyArray<{ icon: IconName; color: string; key: string }
   { icon: 'documents', color: '#007AFF', key: 'premium_feature_unlimited' },
   { icon: 'bar-chart', color: '#34C759', key: 'premium_feature_analytics' },
   { icon: 'cloud-upload', color: '#5856D6', key: 'premium_feature_backup' },
-  { icon: 'notifications', color: '#FF3B30', key: 'premium_feature_notifications' },
+  { icon: 'grid', color: '#FF9500', key: 'premium_feature_export' },
 ];
 
 export default function PremiumScreen() {
@@ -9736,10 +10250,10 @@ export default function PremiumScreen() {
       ])
     );
     anim.start();
-    return () => anim.stop();
+    return () => { anim.stop(); glowAnim.setValue(0); };
   }, []);
 
-  // Load offerings from RevenueCat
+  // Load offerings from store
   useEffect(() => {
     if (isIAPConfigured() && !isPremium) {
       getOfferings().then((pkgs) => {
@@ -9747,7 +10261,7 @@ export default function PremiumScreen() {
         // Default-select lifetime (one-time purchase)
         const lifetime = pkgs.find((p) => p.type === 'lifetime');
         setSelectedPkg(lifetime || pkgs[0] || null);
-      });
+      }).catch(() => {});
     }
   }, [isPremium]);
 
@@ -9756,7 +10270,7 @@ export default function PremiumScreen() {
     setLoading(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     try {
-      const result = await purchasePackage(selectedPkg.package);
+      const result = await purchasePackage(selectedPkg.productId);
       if (result.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
         updateSetting('isPremium', true);
@@ -9976,7 +10490,7 @@ const s = StyleSheet.create({
   heroSub: { fontSize: 17, marginTop: 4 },
 
   group: { marginHorizontal: 16, borderRadius: 12, overflow: 'hidden' },
-  featureRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16, minHeight: 52 },
+  featureRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16, minHeight: 60 },
   featureIcon: { width: 36, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   featureText: { fontSize: 17, flex: 1 },
 
@@ -10000,6 +10514,8 @@ const s = StyleSheet.create({
   upgradeBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     backgroundColor: '#007AFF', borderRadius: 14, paddingVertical: 16,
+    shadowColor: '#007AFF', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 12,
+    elevation: 8,
   },
   upgradeBtnText: { color: '#FFF', fontSize: 17, fontWeight: '600' },
   earlyAccessNote: { fontSize: 15, textAlign: 'center', lineHeight: 22, marginBottom: 16 },
@@ -10010,7 +10526,6 @@ const s = StyleSheet.create({
   restoreText: { color: '#007AFF', fontSize: 15 },
   termsText: { fontSize: 11, textAlign: 'center', lineHeight: 16, marginTop: 4 },
 });
-
 
 ════════════════════════════════════════════════════════════
   FILE: app/privacy.tsx
@@ -10084,11 +10599,10 @@ const s = StyleSheet.create({
   backBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 8 },
   largeTitle: { fontSize: 34, fontWeight: '700' },
   subtitle: { fontSize: 13, marginTop: 4 },
-  sectionHeader: { fontSize: 13, fontWeight: '400', textTransform: 'uppercase', paddingHorizontal: 20, paddingBottom: 8, letterSpacing: 0.3 },
-  group: { marginHorizontal: 16, borderRadius: 10, overflow: 'hidden' },
+  sectionHeader: { fontSize: 13, fontWeight: '500', textTransform: 'uppercase', paddingHorizontal: 20, paddingBottom: 8, letterSpacing: 0.5 },
+  group: { marginHorizontal: 16, borderRadius: 12, overflow: 'hidden' },
   bodyText: { fontSize: 15, lineHeight: 22, padding: 16 },
 });
-
 
 ════════════════════════════════════════════════════════════
   FILE: src/__tests__/core.test.ts
@@ -10343,9 +10857,9 @@ describe("migrateData", () => {
     expect(migrateData(docs as any)).toEqual(docs);
   });
 
-  it("returns null for corrupted array (no id field)", () => {
+  it("returns empty array for corrupted v0 array (no id field)", () => {
     const bad = [{ name: "not a document" }];
-    expect(migrateData(bad as any)).toBeNull();
+    expect(migrateData(bad as any)).toEqual([]);
   });
 
   it("extracts documents from object format", () => {
@@ -10734,12 +11248,12 @@ describe("migrateData edge cases", () => {
     expect(migrateData(stored as any)).toBeNull();
   });
 
-  it("returns null for array of primitives", () => {
-    expect(migrateData([1, 2, 3] as any)).toBeNull();
+  it("returns empty array for array of primitives (corrupted v0 data)", () => {
+    expect(migrateData([1, 2, 3] as any)).toEqual([]);
   });
 
-  it("returns null for array of objects without id field", () => {
-    expect(migrateData([{ name: "foo" }, { name: "bar" }] as any)).toBeNull();
+  it("returns empty array for array of objects without id field (corrupted v0)", () => {
+    expect(migrateData([{ name: "foo" }, { name: "bar" }] as any)).toEqual([]);
   });
 
   it("accepts array where first element has id field", () => {
@@ -11369,7 +11883,7 @@ describe("i18n RO/EN parity", () => {
     // Backup
     "backup_section", "backup_create", "backup_restore", "backup_last",
     "backup_include_attachments", "backup_include_desc",
-    "backup_success", "backup_error", "sharing_unavailable",
+    "backup_success", "attachments_skipped", "backup_error", "sharing_unavailable",
     "all_docs_exist", "duplicates_skipped",
     "restore_replace", "restore_merge", "restore_confirm",
     "restore_success", "restore_error", "restore_invalid", "restore_choose",
@@ -11392,7 +11906,9 @@ describe("i18n RO/EN parity", () => {
     // Premium
     "premium_title", "premium_subtitle",
     "premium_feature_unlimited", "premium_feature_analytics",
-    "premium_feature_backup", "premium_feature_widgets", "premium_feature_notifications",
+    "premium_feature_backup", "premium_feature_widgets", "premium_feature_export",
+    "settings_contact_support",
+    "demo_banner_text", "demo_banner_dismiss",
     "premium_upgrade", "premium_restore", "premium_limit_title", "premium_limit_msg",
     "premium_active", "premium_section", "premium_free_count", "premium_required",
     "premium_early_access_note", "premium_unlock_free",
@@ -11660,7 +12176,6 @@ describe("migration recurrence upgrade", () => {
   });
 });
 
-
 ════════════════════════════════════════════════════════════
   FILE: assets/legal/privacy-policy.html
 ════════════════════════════════════════════════════════════
@@ -11725,5 +12240,3 @@ describe("migration recurrence upgrade", () => {
 </body>
 </html>
 
-
-═══════════════════════════════ END ═══════════════════════════════
