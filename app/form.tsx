@@ -83,6 +83,11 @@ export default function FormScreen() {
   const [amt, setAmt] = useState<string>(existingDoc?.amt ? String(existingDoc.amt) : (dupAmt || ''));
   const [rec, setRec] = useState<RecurrenceValue>(existingDoc?.rec || (dupRec as RecurrenceValue) || 'none');
   const [notes, setNotes] = useState<string>(existingDoc?.notes || dupNotes || '');
+  // Refs hold current text during typing — no re-renders, fixes Fabric space key bug
+  const titleRef = useRef(title);
+  const assetRef = useRef(asset);
+  const amtRef = useRef(amt);
+  const notesRef = useRef(notes);
   const [attachments, setAttachments] = useState<Attachment[]>(existingDoc?.attachments || []);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -119,22 +124,22 @@ export default function FormScreen() {
     return [...withoutAltele, ...uniqueCustom, 'Altele'];
   }, [presetSubtypes, savedCustom]);
 
-  // Check if user has entered any data (to warn before discarding)
-  const hasUnsavedData = isEdit
-    ? (title.trim() !== (existingDoc?.title || '') ||
-       asset.trim() !== (existingDoc?.asset || '') ||
-       amt.trim() !== (existingDoc?.amt ? String(existingDoc.amt) : '') ||
-       notes.trim() !== (existingDoc?.notes || '') ||
+  // Check if user has entered any data (reads from refs for current typing values)
+  const getHasUnsavedData = () => isEdit
+    ? (titleRef.current.trim() !== (existingDoc?.title || '') ||
+       assetRef.current.trim() !== (existingDoc?.asset || '') ||
+       amtRef.current.trim() !== (existingDoc?.amt ? String(existingDoc.amt) : '') ||
+       notesRef.current.trim() !== (existingDoc?.notes || '') ||
        cat !== (existingDoc?.cat || 'vehicule') ||
        type !== (existingDoc?.type || '') ||
        due !== (existingDoc?.due || todayStr) ||
        rec !== (existingDoc?.rec || 'none') ||
        attachments.length !== (existingDoc?.attachments?.length || 0))
-    : (title.trim().length > 0 || asset.trim().length > 0 || amt.trim().length > 0 || notes.trim().length > 0);
+    : (titleRef.current.trim().length > 0 || assetRef.current.trim().length > 0 || amtRef.current.trim().length > 0 || notesRef.current.trim().length > 0);
 
   const handleCancel = () => {
     Keyboard.dismiss();
-    if (hasUnsavedData) {
+    if (getHasUnsavedData()) {
       Alert.alert(
         t(language, 'confirm_discard_title'),
         t(language, 'confirm_discard_msg'),
@@ -152,15 +157,15 @@ export default function FormScreen() {
   useEffect(() => {
     if (Platform.OS !== 'android') return;
     const onBack = () => {
-      if (hasUnsavedData) {
+      if (getHasUnsavedData()) {
         handleCancel();
-        return true; // prevent default back
+        return true;
       }
-      return false; // allow default back
+      return false;
     };
     const sub = BackHandler.addEventListener('hardwareBackPress', onBack);
     return () => sub.remove();
-  }, [hasUnsavedData]);
+  }, []);
 
   useEffect(() => {
     if (!isEdit && subtypes.length > 0 && !subtypes.includes(type)) {
@@ -205,7 +210,7 @@ export default function FormScreen() {
 
   const validate = (): boolean => {
     const e: Record<string, string> = {};
-    if (!title.trim()) e.title = t(language, 'val_title_required');
+    if (!titleRef.current.trim()) e.title = t(language, 'val_title_required');
     if (!due.trim()) e.due = t(language, 'val_date_required');
     else if (!/^\d{4}-\d{2}-\d{2}$/.test(due)) e.due = t(language, 'val_date_invalid');
     else if (isNaN(parseLocalDate(due).getTime())) e.due = t(language, 'val_date_invalid');
@@ -213,7 +218,7 @@ export default function FormScreen() {
       const y = parseLocalDate(due).getFullYear();
       if (y < 2000 || y > 2099) e.due = t(language, 'val_date_invalid');
     }
-    const normalizedAmt = amt.trim().replace(',', '.');
+    const normalizedAmt = amtRef.current.trim().replace(',', '.');
     const amtNum = Number(normalizedAmt);
     if (normalizedAmt && (isNaN(amtNum) || amtNum < 0 || amtNum > 999_999_999 || !/^\d{1,9}(\.\d{1,2})?$/.test(normalizedAmt))) e.amt = t(language, 'val_amount_positive');
     setErrors(e);
@@ -240,10 +245,10 @@ export default function FormScreen() {
       }
     }
     const docData: Omit<RawDocument, 'id'> = {
-      cat, type: finalType, title: title.trim(),
-      asset: asset.trim() || undefined, due,
-      amt: amt.trim() ? Number(amt.trim().replace(',', '.')) : null, rec,
-      notes: notes.trim() || undefined,
+      cat, type: finalType, title: titleRef.current.trim(),
+      asset: assetRef.current.trim() || undefined, due,
+      amt: amtRef.current.trim() ? Number(amtRef.current.trim().replace(',', '.')) : null, rec,
+      notes: notesRef.current.trim() || undefined,
       attachments: attachments.length > 0 ? attachments : undefined,
     };
     try {
@@ -346,7 +351,8 @@ export default function FormScreen() {
                 <View style={s.inputRow}>
                   <Text style={[s.inputLabel, { color: theme.textSecondary }]}>{t(language, 'form_title')}</Text>
                   <TextInput style={[s.inputField, { color: theme.text }]} defaultValue={title}
-                    onChangeText={(v) => { setTitle(v); clearError('title'); }}
+                    onChangeText={(v) => { titleRef.current = v; }}
+                    onBlur={() => { setTitle(titleRef.current); clearError('title'); }}
                     placeholder={t(language, 'form_title_placeholder')} placeholderTextColor={theme.textDim}
                     returnKeyType="done" onSubmitEditing={Keyboard.dismiss}
                     maxLength={150}
@@ -358,7 +364,9 @@ export default function FormScreen() {
 
                 <View style={s.inputRow}>
                   <Text style={[s.inputLabel, { color: theme.textSecondary }]}>{t(language, 'form_asset')}</Text>
-                  <TextInput style={[s.inputField, { color: theme.text }]} defaultValue={asset} onChangeText={setAsset}
+                  <TextInput style={[s.inputField, { color: theme.text }]} defaultValue={asset}
+                    onChangeText={(v) => { assetRef.current = v; }}
+                    onBlur={() => setAsset(assetRef.current)}
                     placeholder={t(language, 'form_asset_placeholder')} placeholderTextColor={theme.textDim}
                     returnKeyType="next" onSubmitEditing={Keyboard.dismiss}
                     maxLength={100}
@@ -397,15 +405,14 @@ export default function FormScreen() {
                 <View style={s.inputRow}>
                   <Text style={[s.inputLabel, { color: theme.textSecondary }]}>{t(language, 'form_amount')}</Text>
                   <TextInput style={[s.inputField, { color: theme.text }]} defaultValue={amt}
-                    onChangeText={(v) => { setAmt(v); clearError('amt'); }}
+                    onChangeText={(v) => { amtRef.current = v; }}
+                    onBlur={() => { setAmt(amtRef.current); clearError('amt'); }}
                     placeholder="0" placeholderTextColor={theme.textDim} keyboardType="decimal-pad"
                     returnKeyType="done" maxLength={12}
                     inputAccessoryViewID={Platform.OS === 'ios' ? 'amtKeyboardDone' : undefined}
                     accessibilityLabel={t(language, 'form_amount')}
                     aria-invalid={!!errors.amt} />
-                  {amt.trim().length > 0 && (
-                    <Text style={{ fontSize: 15, color: theme.textMuted, marginLeft: 6 }}>{currency}</Text>
-                  )}
+                  <Text style={{ fontSize: 15, color: theme.textMuted, marginLeft: 6 }}>{currency}</Text>
                 </View>
                 {errors.amt ? <Text style={s.errorText} accessibilityLiveRegion="polite" accessibilityRole="alert">{errors.amt}</Text> : null}
                 <View style={s.dividerWrap}><View style={[s.divider, { backgroundColor: theme.divider }]} /></View>
@@ -560,7 +567,9 @@ export default function FormScreen() {
             <FadeInView delay={250}>
               <Text style={[s.sectionHeader, { color: theme.textSecondary }]}>{t(language, 'form_notes')}</Text>
               <View style={[s.group, { backgroundColor: theme.card }]}>
-                <TextInput style={[s.notesInput, { color: theme.text }]} defaultValue={notes} onChangeText={setNotes}
+                <TextInput style={[s.notesInput, { color: theme.text }]} defaultValue={notes}
+                  onChangeText={(v) => { notesRef.current = v; }}
+                  onBlur={() => setNotes(notesRef.current)}
                   placeholder={t(language, 'form_notes_placeholder')} placeholderTextColor={theme.textDim}
                   multiline numberOfLines={4} textAlignVertical="top" maxLength={500} returnKeyType="default"
                   onFocus={() => { if (Platform.OS === 'android') setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 300); }}
@@ -665,7 +674,7 @@ const s = StyleSheet.create({
   group: { marginHorizontal: 16, borderRadius: 12, overflow: 'hidden' },
   inputRow: { flexDirection: 'row', alignItems: 'center', minHeight: 44, paddingHorizontal: 16 },
   inputLabel: { fontSize: 17, minWidth: 100 },
-  inputField: { flex: 1, fontSize: 17, paddingVertical: 11, textAlign: 'right' },
+  inputField: { flex: 1, fontSize: 17, paddingVertical: 11 },
   datePickerContainer: { paddingHorizontal: 16, paddingBottom: 12 },
   datePickerHeader: { flexDirection: 'row', justifyContent: 'flex-end', paddingTop: 8, paddingBottom: 4, paddingHorizontal: 4 },
   doneText: { color: '#007AFF', fontSize: 17, fontWeight: '600' },

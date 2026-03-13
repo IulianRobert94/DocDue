@@ -169,26 +169,31 @@ interface AnimatedCounterProps {
 
 export function AnimatedCounter({ value, duration = 800, delay = 200, style }: AnimatedCounterProps) {
   const [display, setDisplay] = useState(0);
-  const anim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    anim.setValue(0);
-    const id = anim.addListener(({ value: v }) => {
-      setDisplay(Math.round(v));
-    });
+    setDisplay(0);
+    let interval: ReturnType<typeof setInterval> | undefined;
     const timer = setTimeout(() => {
-      Animated.timing(anim, {
-        toValue: value,
-        duration,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: false,
-      }).start(() => setDisplay(value));
+      const steps = Math.max(1, Math.round(duration / 16));
+      let step = 0;
+      interval = setInterval(() => {
+        step++;
+        if (step >= steps) {
+          setDisplay(value);
+          clearInterval(interval!);
+        } else {
+          // Cubic ease-out: 1 - (1 - t)^3
+          const t = step / steps;
+          const eased = 1 - Math.pow(1 - t, 3);
+          setDisplay(Math.round(value * eased));
+        }
+      }, 16);
     }, delay);
     return () => {
       clearTimeout(timer);
-      anim.removeListener(id);
+      if (interval) clearInterval(interval);
     };
-  }, [value]);
+  }, [value, duration, delay]);
 
   return <Text style={style}>{display}</Text>;
 }

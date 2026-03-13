@@ -32,6 +32,7 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
   const backgroundTime = useRef<number>(0);
   const appState = useRef(AppState.currentState);
   const authInProgress = useRef(false);
+  const justUnlocked = useRef(false);
 
   const authenticate = useCallback(async () => {
     if (authInProgress.current) return;
@@ -41,13 +42,14 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: t(language, "biometric_unlock"),
         fallbackLabel: t(language, "biometric_use_passcode"),
-        cancelLabel: t(language, "confirm_cancel"),
         disableDeviceFallback: false,
       });
       if (result.success) {
+        justUnlocked.current = true;
         setLocked(false);
         setFailed(false);
         setFailCount(0);
+        setTimeout(() => { justUnlocked.current = false; }, 3000);
       } else {
         setFailed(true);
         setFailCount((c) => c + 1);
@@ -78,7 +80,7 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
       }
       if (appState.current.match(/inactive|background/) && nextState === "active") {
         const elapsed = Date.now() - backgroundTime.current;
-        if (elapsed > 5000) {
+        if (elapsed > 5000 && !authInProgress.current && !justUnlocked.current) {
           setLocked(true);
         }
       }
@@ -166,15 +168,6 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
                     style={{ marginRight: 8 }}
                   />
                   <Text style={styles.retryText}>{t(language, "biometric_retry")}</Text>
-                </AnimatedPressable>
-                <AnimatedPressable
-                  style={styles.passcodeBtn}
-                  onPress={authenticate}
-                  hapticStyle="light"
-                  accessibilityLabel={t(language, "biometric_use_passcode")}
-                >
-                  <Ionicons name="keypad-outline" size={18} color="#007AFF" style={{ marginRight: 6 }} />
-                  <Text style={styles.passcodeText}>{t(language, "biometric_use_passcode")}</Text>
                 </AnimatedPressable>
                 <Text style={[styles.passcodeHint, { color: theme.textDim }]}>
                   {Platform.OS === "ios"

@@ -60,6 +60,7 @@ export default function SearchScreen() {
       setScopeFilter('all');
       setSearchQuery('');
       setDebouncedQuery('');
+      inputRef.current?.clear();
     });
     return unsubscribe;
   }, [navigation]);
@@ -82,6 +83,7 @@ export default function SearchScreen() {
     setSearchQuery('');
     setDebouncedQuery('');
     setIsFocused(false);
+    inputRef.current?.clear();
     inputRef.current?.blur();
     Keyboard.dismiss();
     RNAnimated.parallel([
@@ -129,7 +131,7 @@ export default function SearchScreen() {
               style={[s.searchInput, { color: theme.text }]}
               placeholder={t(language, 'search_placeholder')}
               placeholderTextColor={theme.textMuted}
-              value={searchQuery}
+              defaultValue=""
               onChangeText={setSearchQuery}
               onFocus={handleFocus}
               autoCapitalize="none"
