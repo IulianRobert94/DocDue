@@ -13,9 +13,11 @@ import { View, Text, StyleSheet, AppState, Platform } from "react-native";
 import * as LocalAuthentication from "expo-local-authentication";
 import { Ionicons } from "@expo/vector-icons";
 
+import { LinearGradient } from "expo-linear-gradient";
 import { useSettingsStore, useTheme } from "../stores/useSettingsStore";
 import { t } from "../core/i18n";
 import { AnimatedPressable } from "./AnimatedUI";
+import { fonts } from "../theme/typography";
 
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_DURATIONS = [30_000, 60_000, 300_000]; // 30s, 60s, 5min
@@ -135,8 +137,8 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
       {locked && (
         <View style={[styles.overlay, { backgroundColor: theme.background }]}>
           <View style={styles.content}>
-            <View style={[styles.iconCircle, { backgroundColor: "rgba(0,122,255,0.15)" }]}>
-              <Ionicons name="lock-closed" size={44} color="#007AFF" />
+            <View style={[styles.iconCircle, { backgroundColor: theme.primary + '26' }]}>
+              <Ionicons name="lock-closed" size={44} color={theme.primary} />
             </View>
             <Text style={[styles.title, { color: theme.text }]}>
               DocDue
@@ -156,18 +158,25 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
             ) : (
               <>
                 <AnimatedPressable
-                  style={styles.retryBtn}
+                  style={[styles.retryBtn, { overflow: 'hidden' }]}
                   onPress={authenticate}
                   hapticStyle="medium"
                   accessibilityLabel={t(language, "biometric_retry")}
                 >
-                  <Ionicons
-                    name={Platform.OS === "ios" ? "scan" : "finger-print"}
-                    size={20}
-                    color="#FFF"
-                    style={{ marginRight: 8 }}
-                  />
-                  <Text style={styles.retryText}>{t(language, "biometric_retry")}</Text>
+                  <LinearGradient
+                    colors={['#0E8BFF', '#0A79F1']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 14 }}
+                  >
+                    <Ionicons
+                      name={Platform.OS === "ios" ? "scan" : "finger-print"}
+                      size={20}
+                      color="#FFF"
+                      style={{ marginRight: 8 }}
+                    />
+                    <Text style={styles.retryText}>{t(language, "biometric_retry")}</Text>
+                  </LinearGradient>
                 </AnimatedPressable>
                 <Text style={[styles.passcodeHint, { color: theme.textDim }]}>
                   {Platform.OS === "ios"
@@ -205,27 +214,27 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: "700",
+    fontFamily: fonts.bold,
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 17,
+    fontFamily: fonts.regular,
     marginBottom: 32,
   },
   failedText: {
     fontSize: 15,
+    fontFamily: fonts.regular,
     color: "#FF3B30",
     marginBottom: 16,
   },
   retryBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#007AFF",
-    paddingHorizontal: 24,
-    paddingVertical: 14,
     borderRadius: 22,
+    overflow: 'hidden',
   },
   passcodeHint: {
     fontSize: 12,
+    fontFamily: fonts.regular,
     textAlign: "center",
     marginTop: 8,
     lineHeight: 16,
@@ -234,5 +243,6 @@ const styles = StyleSheet.create({
     color: "#FFF",
     fontSize: 17,
     fontWeight: "600",
+    fontFamily: fonts.semiBold,
   },
 });

@@ -6,10 +6,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, Alert, Image, Share, ActivityIndicator, Animated } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { showToast } from '../../src/stores/useToastStore';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import * as Sharing from 'expo-sharing';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { useTheme, useLanguage, useCurrency } from '../../src/stores/useSettingsStore';
 import { useEnrichedDocument, useDocumentStore } from '../../src/stores/useDocumentStore';
@@ -17,6 +19,7 @@ import { t, translateSubtype } from '../../src/core/i18n';
 import { formatDate, formatMoney, formatDaysRemaining, getRecurrenceLabel } from '../../src/core/formatters';
 import { CATEGORIES, STATUS_DISPLAY } from '../../src/core/constants';
 import { AnimatedPressable, FadeInView } from '../../src/components/AnimatedUI';
+import { fonts } from '../../src/theme/typography';
 import { ImageViewer } from '../../src/components/ImageViewer';
 import { requestCalendarPermission, addDocumentToCalendar } from '../../src/services/calendar';
 
@@ -29,6 +32,7 @@ export default function DocumentDetailScreen() {
   const currency = useCurrency();
   const doc = useEnrichedDocument(id);
   const deleteDocument = useDocumentStore((s) => s.deleteDocument);
+  const undoDelete = useDocumentStore((s) => s.undoDelete);
   const markAsPaid = useDocumentStore((s) => s.markAsPaid);
   const [viewImage, setViewImage] = useState<string | null>(null);
   const [calendarLoading, setCalendarLoading] = useState(false);
@@ -39,10 +43,11 @@ export default function DocumentDetailScreen() {
   const markingRef = useRef(false);
   const congratsAnimRef = useRef<Animated.CompositeAnimation | null>(null);
 
-  // Stop congrats animation on unmount to prevent background resource usage
+  // Cleanup on unmount: stop animations, reset marking guard
   useEffect(() => {
     return () => {
       if (congratsAnimRef.current) congratsAnimRef.current.stop();
+      markingRef.current = false;
     };
   }, []);
 
@@ -69,7 +74,7 @@ export default function DocumentDetailScreen() {
           <Ionicons name="document-outline" size={40} color={theme.textDim} style={{ marginBottom: 12 }} />
           <Text style={[s.emptyText, { color: theme.textMuted }]}>{t(language, 'doc_not_found')}</Text>
           <AnimatedPressable onPress={() => router.back()} style={{ marginTop: 20 }} accessibilityLabel={t(language, 'btn_close')}>
-            <Text style={{ color: '#007AFF', fontSize: 17 }}>{t(language, 'btn_close')}</Text>
+            <Text style={{ color: theme.primary, fontSize: 17, fontFamily: fonts.regular }}>{t(language, 'btn_close')}</Text>
           </AnimatedPressable>
         </View>
       </View>
@@ -86,7 +91,7 @@ export default function DocumentDetailScreen() {
       t(language, 'confirm_delete_msg', { title: doc.title }),
       [
         { text: t(language, 'confirm_cancel'), style: 'cancel' },
-        { text: t(language, 'confirm_delete_btn'), style: 'destructive', onPress: () => { deleteDocument(doc.id); router.back(); } },
+        { text: t(language, 'confirm_delete_btn'), style: 'destructive', onPress: () => { deleteDocument(doc.id); router.back(); showToast(t(language, 'toast_deleted'), 'info', { label: t(language, 'toast_undo'), onPress: () => { undoDelete(); showToast(t(language, 'toast_undo_success')); } }); } },
       ]
     );
   };
@@ -105,12 +110,10 @@ export default function DocumentDetailScreen() {
           onPress: () => {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
             const result = markAsPaid(doc);
-            if (result === 'paid_next') {
-              playCongrats();
-            } else {
-              // One-time doc is deleted — go back immediately to avoid
-              // "not found" flashing behind the congrats overlay
-              router.back();
+            playCongrats();
+            if (result === 'resolved') {
+              // One-time doc is now resolved — go back after celebration
+              setTimeout(() => router.back(), 1200);
             }
             markingRef.current = false;
           },
@@ -133,7 +136,12 @@ export default function DocumentDetailScreen() {
         {/* Modal handle + close */}
         <FadeInView delay={0} style={s.closeRow}>
           <View style={{ width: 60 }} />
-          <View style={[s.grabber, { backgroundColor: theme.grabber }]} />
+          <LinearGradient
+            colors={['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.20)', 'rgba(255,255,255,0.08)']}
+            start={{ x: 0, y: 0.5 }}
+            end={{ x: 1, y: 0.5 }}
+            style={s.grabber}
+          />
           <AnimatedPressable
             onPress={() => router.back()}
             style={{ width: 60, alignItems: 'flex-end' }}
@@ -156,8 +164,9 @@ export default function DocumentDetailScreen() {
             <Text style={[s.headerTitle, { color: theme.text }]} numberOfLines={1}>{doc.title}</Text>
             <Text style={[s.headerSubtype, { color: theme.textMuted }]} numberOfLines={1}>{translateSubtype(doc.type, language)}</Text>
             <View style={s.headerStatus}>
-              <View style={[s.headerStatusDot, { backgroundColor: statusConfig.color }]} />
-              <Text style={[s.headerStatusText, { color: statusConfig.color }]}>{t(language, statusConfig.labelKey)}</Text>
+              <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, backgroundColor: statusConfig.color + '1A' }}>
+                <Text style={[s.headerStatusText, { color: statusConfig.color }]}>{t(language, statusConfig.labelKey)}</Text>
+              </View>
               <Text style={[s.headerStatusDays, { color: statusConfig.color }]}>{formatDaysRemaining(doc._daysUntil, language)}</Text>
             </View>
           </View>
@@ -170,7 +179,7 @@ export default function DocumentDetailScreen() {
               <View style={s.infoRow}>
                 <Text style={[s.infoLabel, { color: theme.textSecondary }]}>{row.label}</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 }}>
-                  <Text style={[s.infoValue, { color: theme.text }, row.bold && { fontWeight: '700' }]} numberOfLines={2}>
+                  <Text style={[s.infoValue, { color: theme.text }, row.bold && { fontWeight: '700', fontFamily: fonts.bold }]} numberOfLines={2}>
                     {row.value}
                   </Text>
                 </View>
@@ -266,10 +275,10 @@ export default function DocumentDetailScreen() {
                     <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: theme.divider }} />
                   </View>
                   <View style={s.infoRow}>
-                    <Text style={[s.infoLabel, { color: theme.text, fontWeight: '600' }]}>
+                    <Text style={[s.infoLabel, { color: theme.text, fontWeight: '600', fontFamily: fonts.semiBold }]}>
                       {t(language, 'total_paid')}
                     </Text>
-                    <Text style={[s.infoValue, { color: theme.text, fontWeight: '700' }]}>
+                    <Text style={[s.infoValue, { color: theme.text, fontWeight: '700', fontFamily: fonts.bold }]}>
                       {formatMoney(
                         doc.paymentHistory.reduce((sum, p) => sum + (p.amt || 0), 0),
                         currency,
@@ -306,10 +315,9 @@ export default function DocumentDetailScreen() {
                     return;
                   }
                   await addDocumentToCalendar(doc, language);
-                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-                  Alert.alert(t(language, 'alert_success'), t(language, 'cal_added'));
+                  showToast(t(language, 'toast_calendar'));
                 } catch (e) {
-                  Alert.alert(t(language, 'cal_error'));
+                  showToast(t(language, 'cal_error'), 'error');
                 } finally {
                   setCalendarLoading(false);
                 }
@@ -317,29 +325,29 @@ export default function DocumentDetailScreen() {
               accessibilityLabel={t(language, 'cal_add')}
             >
               {calendarLoading ? (
-                <ActivityIndicator size="small" color="#007AFF" style={{ marginRight: 6 }} />
+                <ActivityIndicator size="small" color={theme.primary} style={{ marginRight: 6 }} />
               ) : (
-                <Ionicons name="calendar-outline" size={18} color="#007AFF" style={{ marginRight: 6 }} />
+                <Ionicons name="calendar-outline" size={18} color={theme.primary} style={{ marginRight: 6 }} />
               )}
-              <Text style={[s.actionText, { color: '#007AFF' }]}>{t(language, 'cal_add')}</Text>
+              <Text style={[s.actionText, { color: theme.primary }]}>{t(language, 'cal_add')}</Text>
             </AnimatedPressable>
           </View>
 
           <View style={[s.group, { backgroundColor: theme.card }]}>
             <AnimatedPressable style={s.actionRow} onPress={() => router.push(`/form?editId=${doc.id}`)} accessibilityLabel={t(language, 'a11y_edit_document')}>
-              <Ionicons name="create-outline" size={18} color="#007AFF" style={{ marginRight: 6 }} />
-              <Text style={[s.actionText, { color: '#007AFF' }]}>{t(language, 'detail_edit')}</Text>
+              <Ionicons name="create-outline" size={18} color={theme.primary} style={{ marginRight: 6 }} />
+              <Text style={[s.actionText, { color: theme.primary }]}>{t(language, 'detail_edit')}</Text>
             </AnimatedPressable>
             <View style={{ paddingLeft: 16 }}>
               <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: theme.divider }} />
             </View>
             <AnimatedPressable
               style={s.actionRow}
-              onPress={() => router.push(`/form?dupCat=${doc.cat}&dupType=${encodeURIComponent(doc.type)}&dupTitle=${encodeURIComponent(doc.title)}&dupAsset=${encodeURIComponent(doc.asset || '')}&dupAmt=${doc.amt || ''}&dupRec=${doc.rec}&dupNotes=${encodeURIComponent(doc.notes || '')}`)}
+              onPress={() => router.push(`/form?dupCat=${doc.cat}&dupType=${encodeURIComponent(doc.type)}&dupTitle=${encodeURIComponent(doc.title)}&dupAsset=${encodeURIComponent(doc.asset || '')}&dupAmt=${encodeURIComponent(String(doc.amt || ''))}&dupRec=${encodeURIComponent(doc.rec)}&dupNotes=${encodeURIComponent(doc.notes || '')}`)}
               accessibilityLabel={t(language, 'detail_duplicate')}
             >
-              <Ionicons name="copy-outline" size={18} color="#007AFF" style={{ marginRight: 6 }} />
-              <Text style={[s.actionText, { color: '#007AFF' }]}>{t(language, 'detail_duplicate')}</Text>
+              <Ionicons name="copy-outline" size={18} color={theme.primary} style={{ marginRight: 6 }} />
+              <Text style={[s.actionText, { color: theme.primary }]}>{t(language, 'detail_duplicate')}</Text>
             </AnimatedPressable>
             <View style={{ paddingLeft: 16 }}>
               <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: theme.divider }} />
@@ -360,8 +368,8 @@ export default function DocumentDetailScreen() {
               }}
               accessibilityLabel={t(language, 'share_document')}
             >
-              <Ionicons name="share-outline" size={18} color="#007AFF" style={{ marginRight: 6 }} />
-              <Text style={[s.actionText, { color: '#007AFF' }]}>{t(language, 'share_document')}</Text>
+              <Ionicons name="share-outline" size={18} color={theme.primary} style={{ marginRight: 6 }} />
+              <Text style={[s.actionText, { color: theme.primary }]}>{t(language, 'share_document')}</Text>
             </AnimatedPressable>
             <View style={{ paddingLeft: 16 }}>
               <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: theme.divider }} />
@@ -404,31 +412,30 @@ const s = StyleSheet.create({
   closeRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 4 },
   grabber: { width: 36, height: 5, borderRadius: 3 },
   closeCircle: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-  headerCard: { marginHorizontal: 16, marginTop: 16, marginBottom: 8, padding: 14, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  headerIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  headerCard: { marginHorizontal: 16, marginTop: 16, marginBottom: 8, padding: 14, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.04)' },
+  headerIcon: { width: 52, height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   headerContent: { flex: 1 },
-  headerTitle: { fontSize: 20, fontWeight: '700', letterSpacing: 0.35 },
-  headerSubtype: { fontSize: 14, marginTop: 2 },
+  headerTitle: { fontSize: 22, fontWeight: '800', fontFamily: fonts.extraBold, letterSpacing: 0.35 },
+  headerSubtype: { fontSize: 14, fontFamily: fonts.regular, marginTop: 2 },
   headerStatus: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
-  headerStatusDot: { width: 8, height: 8, borderRadius: 4 },
-  headerStatusText: { fontSize: 13, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
-  headerStatusDays: { fontSize: 13, fontWeight: '600' },
-  sectionHeader: { fontSize: 13, fontWeight: '500', textTransform: 'uppercase', letterSpacing: 0.5, paddingHorizontal: 20, paddingTop: 24, paddingBottom: 8 },
-  group: { marginHorizontal: 16, borderRadius: 12, overflow: 'hidden' },
-  infoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', minHeight: 44, paddingHorizontal: 16, paddingVertical: 11 },
-  infoLabel: { fontSize: 17 },
-  infoValue: { fontSize: 17, textAlign: 'right' },
-  notesText: { fontSize: 15, lineHeight: 22 },
+  headerStatusText: { fontSize: 13, fontWeight: '700', fontFamily: fonts.bold, textTransform: 'uppercase', letterSpacing: 0.5 },
+  headerStatusDays: { fontSize: 13, fontWeight: '600', fontFamily: fonts.semiBold },
+  sectionHeader: { fontSize: 13, fontWeight: '500', fontFamily: fonts.medium, textTransform: 'uppercase', letterSpacing: 0.5, paddingHorizontal: 20, paddingTop: 24, paddingBottom: 8 },
+  group: { marginHorizontal: 16, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.04)' },
+  infoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', minHeight: 44, paddingHorizontal: 16, paddingVertical: 13 },
+  infoLabel: { fontSize: 17, fontFamily: fonts.regular },
+  infoValue: { fontSize: 17, fontFamily: fonts.regular, textAlign: 'right' },
+  notesText: { fontSize: 15, fontFamily: fonts.regular, lineHeight: 22 },
   actionsSection: { paddingTop: 24, gap: 12 },
   actionRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, minHeight: 44, justifyContent: 'center' },
-  actionText: { fontSize: 17 },
-  emptyText: { fontSize: 15 },
+  actionText: { fontSize: 17, fontFamily: fonts.regular },
+  emptyText: { fontSize: 15, fontFamily: fonts.regular },
   attachGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   attachItem: { width: 80, alignItems: 'center' },
   attachThumb: { width: 72, height: 72, borderRadius: 10 },
   attachFile: { alignItems: 'center', justifyContent: 'center' },
-  attachExt: { fontSize: 9, fontWeight: '700', marginTop: 2 },
-  attachName: { fontSize: 11, marginTop: 4, textAlign: 'center' },
+  attachExt: { fontSize: 9, fontWeight: '700', fontFamily: fonts.bold, marginTop: 2 },
+  attachName: { fontSize: 11, fontFamily: fonts.regular, marginTop: 4, textAlign: 'center' },
   congratsOverlay: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 100,
@@ -440,6 +447,7 @@ const s = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 22,
     fontWeight: '700',
+    fontFamily: fonts.bold,
     marginTop: 16,
     letterSpacing: 0.35,
   },

@@ -4,7 +4,7 @@
  */
 
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, SectionList } from 'react-native';
+import { View, Text, StyleSheet, SectionList, Platform, ActionSheetIOS, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,7 +17,11 @@ import { buildMarkAsPaidAction } from '../../src/core/confirmActions';
 import { formatDaysRemaining, formatMoney } from '../../src/core/formatters';
 import { STATUS_DISPLAY, CATEGORIES } from '../../src/core/constants';
 import type { DocumentStatus } from '../../src/core/constants';
+import Reanimated, { FadeInDown, FadeOut } from 'react-native-reanimated';
 import { AnimatedPressable, FadeInView } from '../../src/components/AnimatedUI';
+import { showToast } from '../../src/stores/useToastStore';
+import { fonts } from '../../src/theme/typography';
+import * as Haptics from 'expo-haptics';
 
 export default function AlertsScreen() {
   const insets = useSafeAreaInsets();
@@ -27,6 +31,7 @@ export default function AlertsScreen() {
   const router = useRouter();
   const enrichedDocs = useEnrichedDocuments();
   const deleteDocument = useDocumentStore((s) => s.deleteDocument);
+  const undoDelete = useDocumentStore((s) => s.undoDelete);
   const markAsPaid = useDocumentStore((s) => s.markAsPaid);
 
   const { alertDocs, sections } = useMemo(() => {
@@ -85,9 +90,9 @@ export default function AlertsScreen() {
           const category = CATEGORIES[item.cat] ?? CATEGORIES.vehicule;
 
           return (
-            <FadeInView delay={index * 40} style={{ marginHorizontal: 16 }}>
+            <Reanimated.View entering={FadeInDown.delay(index * 40).springify()} exiting={FadeOut.duration(200)} style={{ marginHorizontal: 16 }}>
               <SwipeableRow
-                onDelete={() => deleteDocument(item.id)}
+                onDelete={() => { deleteDocument(item.id); showToast(t(language, 'toast_deleted'), 'info', { label: t(language, 'toast_undo'), onPress: () => { undoDelete(); showToast(t(language, 'toast_undo_success')); } }); }}
                 confirmTitle={t(language, 'confirm_delete_title')}
                 confirmMessage={t(language, 'confirm_delete_msg', { title: item.title })}
                 confirmCancel={t(language, 'confirm_cancel')}
@@ -97,6 +102,43 @@ export default function AlertsScreen() {
               >
                 <AnimatedPressable
                   onPress={() => router.push(`/document/${item.id}`)}
+                  onLongPress={() => {
+                    const isRecurring = item.rec !== 'none';
+                    const options = [
+                      t(language, 'confirm_cancel'),
+                      t(language, isRecurring ? 'confirm_paid_btn' : 'confirm_resolved_btn'),
+                      t(language, 'detail_edit'),
+                      t(language, 'detail_delete'),
+                    ];
+                    if (Platform.OS === 'ios') {
+                      ActionSheetIOS.showActionSheetWithOptions(
+                        { options, cancelButtonIndex: 0, destructiveButtonIndex: 3 },
+                        (idx) => {
+                          if (idx === 1) markAsPaid(item);
+                          else if (idx === 2) router.push(`/form?editId=${item.id}`);
+                          else if (idx === 3) {
+                            Alert.alert(t(language, 'confirm_delete_title'), t(language, 'confirm_delete_msg'), [
+                              { text: t(language, 'confirm_cancel'), style: 'cancel' },
+                              { text: t(language, 'confirm_delete_btn'), style: 'destructive', onPress: () => { deleteDocument(item.id); showToast(t(language, 'toast_deleted'), 'info', { label: t(language, 'toast_undo'), onPress: () => { undoDelete(); showToast(t(language, 'toast_undo_success')); } }); } },
+                            ]);
+                          }
+                        }
+                      );
+                    } else {
+                      Alert.alert(item.title, undefined, [
+                        { text: t(language, 'confirm_cancel'), style: 'cancel' },
+                        { text: t(language, isRecurring ? 'confirm_paid_btn' : 'confirm_resolved_btn'), onPress: () => markAsPaid(item) },
+                        { text: t(language, 'detail_edit'), onPress: () => router.push(`/form?editId=${item.id}`) },
+                        { text: t(language, 'detail_delete'), style: 'destructive', onPress: () => {
+                          Alert.alert(t(language, 'confirm_delete_title'), t(language, 'confirm_delete_msg'), [
+                            { text: t(language, 'confirm_cancel'), style: 'cancel' },
+                            { text: t(language, 'confirm_delete_btn'), style: 'destructive', onPress: () => deleteDocument(item.id) },
+                          ]);
+                        }},
+                      ]);
+                    }
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+                  }}
                   style={[
                     s.row,
                     {
@@ -143,20 +185,36 @@ export default function AlertsScreen() {
                   )}
                 </AnimatedPressable>
               </SwipeableRow>
-            </FadeInView>
+            </Reanimated.View>
           );
         }}
         ListEmptyComponent={
           <FadeInView delay={200} style={s.emptyState}>
-            <View style={s.emptyIconWrap}>
-              <Ionicons name="checkmark-circle" size={44} color="#34C759" />
-            </View>
-            <Text style={[s.emptyTitle, { color: theme.text }]}>
-              {t(language, 'alerts_none_title')}
-            </Text>
-            <Text style={[s.emptyText, { color: theme.textMuted }]}>
-              {t(language, 'alerts_empty')}
-            </Text>
+            {enrichedDocs.length === 0 ? (
+              <>
+                <View style={[s.emptyIconWrap, { backgroundColor: 'rgba(10,121,241,0.08)' }]}>
+                  <Ionicons name="documents-outline" size={44} color={theme.primary} />
+                </View>
+                <Text style={[s.emptyTitle, { color: theme.text }]}>
+                  {t(language, 'alerts_no_docs_title')}
+                </Text>
+                <Text style={[s.emptyText, { color: theme.textMuted }]}>
+                  {t(language, 'alerts_no_docs')}
+                </Text>
+              </>
+            ) : (
+              <>
+                <View style={s.emptyIconWrap}>
+                  <Ionicons name="checkmark-circle" size={44} color="#34C759" />
+                </View>
+                <Text style={[s.emptyTitle, { color: theme.text }]}>
+                  {t(language, 'alerts_none_title')}
+                </Text>
+                <Text style={[s.emptyText, { color: theme.textMuted }]}>
+                  {t(language, 'alerts_empty')}
+                </Text>
+              </>
+            )}
           </FadeInView>
         }
       />
@@ -167,22 +225,22 @@ export default function AlertsScreen() {
 const s = StyleSheet.create({
   container: { flex: 1 },
   titleContainer: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 12, gap: 10 },
-  largeTitle: { fontSize: 34, fontWeight: '700', letterSpacing: 0.37 },
+  largeTitle: { fontSize: 34, letterSpacing: 0.37, fontFamily: fonts.bold },
   countBadge: { minWidth: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8, backgroundColor: '#FF3B30' },
-  countText: { color: '#FFF', fontSize: 14, fontWeight: '700' },
+  countText: { color: '#FFF', fontSize: 14, fontFamily: fonts.bold },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 24, paddingBottom: 8, gap: 8 },
-  sectionTitle: { fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
+  sectionTitle: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, fontFamily: fonts.semiBold },
   row: { overflow: 'hidden' },
   rowContent: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingLeft: 12, paddingRight: 12, minHeight: 64 },
-  rowIcon: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  rowIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   rowMain: { flex: 1, marginRight: 12 },
-  rowTitle: { fontSize: 17, fontWeight: '400' },
-  rowSubtitle: { fontSize: 13, marginTop: 2 },
+  rowTitle: { fontSize: 17, fontWeight: '400', fontFamily: fonts.regular },
+  rowSubtitle: { fontSize: 13, marginTop: 2, fontFamily: fonts.regular },
   rowRight: { alignItems: 'flex-end' },
-  rowDays: { fontSize: 13, fontWeight: '600' },
-  rowAmount: { fontSize: 13, marginTop: 2 },
+  rowDays: { fontSize: 13, fontFamily: fonts.semiBold },
+  rowAmount: { fontSize: 13, marginTop: 2, fontFamily: fonts.regular },
   emptyState: { paddingVertical: 80, alignItems: 'center', paddingHorizontal: 32 },
   emptyIconWrap: { width: 80, height: 80, borderRadius: 20, backgroundColor: 'rgba(52,199,89,0.08)', alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
-  emptyTitle: { fontSize: 20, fontWeight: '600', marginBottom: 8 },
-  emptyText: { fontSize: 15, textAlign: 'center', lineHeight: 22 },
+  emptyTitle: { fontSize: 20, marginBottom: 8, fontFamily: fonts.semiBold },
+  emptyText: { fontSize: 15, textAlign: 'center', lineHeight: 22, fontFamily: fonts.regular },
 });

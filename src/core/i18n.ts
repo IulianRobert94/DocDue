@@ -15,7 +15,7 @@ import type { LanguageCode } from "./constants";
 const TRANSLATIONS: Record<string, Record<string, string>> = {
   ro: {
     // Navigation
-    nav_home: "Acasă", nav_alerts: "Alerte", nav_search: "Caută", nav_settings: "Setări",
+    nav_home: "Acasă", nav_back: "Înapoi", nav_alerts: "Alerte", nav_search: "Caută", nav_settings: "Setări",
     nav_add: "Adaugă document", nav_label: "Navigare",
 
     // Status
@@ -30,9 +30,13 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     doc_singular: "document", doc_plural: "documente",
 
     // Recurrence
-    rec_none: "Fără recurență", rec_weekly: "Săptămânal",
-    rec_monthly: "Lunar", rec_annual: "Anual",
-    rec_none_short: "Fără", rec_weekly_short: "Săpt.", rec_monthly_short: "Lunar", rec_annual_short: "Anual",
+    rec_none: "Fără recurență", rec_weekly: "Săptămânal", rec_biweekly: "La 2 săptămâni",
+    rec_monthly: "Lunar", rec_quarterly: "Trimestrial", rec_biannual: "Semestrial", rec_annual: "Anual",
+    rec_2years: "La 2 ani", rec_5years: "La 5 ani", rec_10years: "La 10 ani",
+    rec_none_short: "Fără", rec_weekly_short: "Săpt.", rec_biweekly_short: "2 săpt.",
+    rec_monthly_short: "Lunar", rec_quarterly_short: "Trim.", rec_biannual_short: "6 luni", rec_annual_short: "Anual",
+    rec_2years_short: "2 ani", rec_5years_short: "5 ani", rec_10years_short: "10 ani",
+    rec_custom: "Altul",
 
     // Sort
     sort_urgency: "Urgență", sort_date: "Dată", sort_date_asc: "Dată ↑", sort_date_desc: "Dată ↓",
@@ -46,6 +50,8 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     home_needs_attention: "Necesită atenție", home_see_all: "Vezi toate",
     home_welcome: "Bun venit!", home_welcome_sub: "Adaugă primul document apăsând butonul + din bara de jos",
     home_30days: "30 zile",
+    home_this_month: "scadențe luna asta",
+    streak_label: "serie",
     month_short_1: "Ian", month_short_2: "Feb", month_short_3: "Mar", month_short_4: "Apr",
     month_short_5: "Mai", month_short_6: "Iun", month_short_7: "Iul", month_short_8: "Aug",
     month_short_9: "Sep", month_short_10: "Oct", month_short_11: "Nov", month_short_12: "Dec",
@@ -53,12 +59,15 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     // Alerts screen
     alerts_title: "Alerte", alerts_needs_attention: "{n} necesită atenție",
     alerts_none_title: "Nicio alertă",
+    alerts_no_docs_title: "Niciun document",
+    alerts_no_docs: "Adaugă documente pentru a primi alerte despre scadențe.",
 
     // Search screen
     search_title: "Caută", search_placeholder: "Document, vehicul, tip, notă...",
     search_no_results: "Niciun rezultat pentru \"{q}\"", search_count: "Caută în {n} documente",
     search_no_filter_results: "Niciun document pentru filtrele selectate",
     search_all: "Toate",
+    search_recent: "Căutări recente",
 
     // Category screen
 
@@ -73,6 +82,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     form_category: "Categorie", form_type: "Tip", form_title: "Titlu",
     form_asset: "Asociat cu", form_due: "Scadență", form_amount: "Sumă",
     form_recurrence: "Recurență", form_notes: "Note",
+    form_reminder: "Remindere", form_reminder_auto: "Auto", form_reminder_days_suffix: "z", form_reminder_reset: "Resetează la auto",
     form_type_select: "Selectează...", form_title_placeholder: "ex: RCA — Dacia Duster",
     form_asset_placeholder: "vehicul / adresă / persoană", form_notes_placeholder: "Opțional...",
     form_custom_type_placeholder: "Introdu tipul documentului",
@@ -106,6 +116,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     confirm_reset_btn: "Resetează",
     confirm_clear_title: "Șterge tot",
     confirm_clear_msg: "Toate documentele vor fi șterse permanent. Această acțiune este ireversibilă!",
+    confirm_clear_msg_count: "{n} documente vor fi șterse permanent. Această acțiune este ireversibilă!",
     confirm_clear_btn: "Șterge tot",
 
     // Toasts
@@ -114,6 +125,16 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     toast_resolved: "Marcat ca rezolvat ✓", toast_demo_restored: "Date demo restaurate",
     toast_all_cleared: "Toate datele au fost șterse",
     toast_save_error: "⚠ Eroare la salvarea datelor ({key})",
+    toast_saved: "Document salvat",
+    toast_paid: "Marcat ca plătit",
+    toast_renewed: "Reînnoit cu succes",
+    toast_calendar: "Adăugat în calendar",
+    toast_undo: "Anulează",
+    toast_undo_success: "Document restaurat",
+    toast_backup: "Backup creat cu succes",
+    toast_restore: "Date restaurate cu succes",
+    toast_copied: "Copiat în clipboard",
+    toast_error: "Ceva nu a funcționat",
     save_error_title: "Eroare la salvare",
     save_error_msg: "Modificările nu au putut fi salvate. Verifică spațiul disponibil pe dispozitiv.",
 
@@ -121,6 +142,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     settings_title: "Setări",
     settings_general: "General", settings_appearance: "Aspect",
     settings_alerts: "Alerte", settings_data: "Date", settings_about: "Despre",
+    settings_processing: "Se procesează...",
     settings_total_docs: "Total documente", settings_version: "Versiune",
     settings_theme: "Temă", settings_currency: "Monedă", settings_language: "Limbă",
     settings_warning_threshold: "Prag avertizare", settings_warning_desc: "Câte zile înainte devine galben",
@@ -139,6 +161,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     settings_clear_all: "Șterge toate datele", settings_clear_all_desc: "Pornește de la zero, ireversibil",
     settings_about_text: "Gestionează documente, facturi și expirări. De la o mașină personală la o flotă de transport.",
     settings_days_suffix: "zile",
+    settings_no_reminders_warning: "Nu vei primi nicio notificare de reminder",
     settings_per_category: "Pe categorie",
     settings_all_categories: "Toate categoriile",
     settings_default: "implicit",
@@ -262,6 +285,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     settings_notifications_enable: "Activează notificările",
     settings_reminder_days: "Zile de avertizare",
     settings_reminder_days_desc: "Cu câte zile înainte să primești notificarea",
+    settings_smart_reminders_desc: "Reminderele se adaptează automat: 3 zile pentru facturi lunare, 30 zile pentru asigurări anuale, 90 zile pentru documente pe termen lung. Poți personaliza per document.",
 
     photo_permission: "Permite accesul la galerie din Setări pentru a adăuga fotografii.",
     val_category_invalid: "Categorie invalidă",
@@ -282,6 +306,15 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     analytics_total_paid: "Total plătit",
     analytics_avg_monthly: "Cost mediu lunar",
     analytics_based_on: "Bazat pe {n} luni de date",
+
+    // Insight Cards & Spending Trend
+    insight_top_category: "din cheltuieli →",
+    insight_next_30: "Următoarele 30 zile",
+    insight_vs_last_month: "Față de luna trecută",
+    insight_total_paid: "Total plătit",
+    insight_avg_monthly: "Media lunară",
+    analytics_trend_title: "TENDINȚĂ CHELTUIELI",
+    analytics_trend_fallback: "Continuă să urmărești pentru a vedea tendințe",
 
     // Sharing
     share_document: "Trimite",
@@ -311,6 +344,9 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     paid_on: "Plătit pe {date}",
     payment_count: "{n} plăți",
 
+    // Premium overlay
+    premium_unlock_analytics: "Deblochează Analytics",
+    premium_data_tracked: "Datele tale sunt urmărite.\nUpgradează pentru a vedea imaginea completă.",
 
     // Notification actions
     notif_action_renewed: "Reînnoit ✓",
@@ -322,6 +358,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
 
     // Health Score
     health_score: "Scor sănătate",
+    health_score_short: "scor",
     health_critical: "Necesită atenție urgentă",
     health_attention: "Câteva documente necesită atenție",
     health_good: "Toate documentele sunt în regulă",
@@ -355,6 +392,9 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     error_title: "Ceva nu a funcționat",
     error_subtitle: "A apărut o eroare neașteptată",
     error_retry: "Încearcă din nou",
+    error_clear_title: "Resetare date",
+    error_clear_msg: "Asta va șterge toate datele aplicației. Folosește doar dacă aplicația nu mai funcționează.",
+    error_clear_btn: "Resetează datele",
 
     // ImageViewer
     a11y_close_image: "Închide previzualizarea",
@@ -364,6 +404,10 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
 
     // HealthScoreArc
     a11y_health_score: "Scor sănătate: {score} din 100",
+
+    // Daily Insight
+    insight_all_clear: "Toate documentele sunt la zi!",
+    insight_tip: "Sfat: Adaugă documente recurente ca să nu ratezi nicio scadență",
 
     // Premium early access
     premium_early_access_note: "Toate funcțiile sunt gratuite în perioada de early access.",
@@ -382,6 +426,16 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
 
     // Smart defaults
     smart_default_applied: "Recurență setată automat ✓",
+    auto_detected: "Categorie detectată automat",
+    duplicate_warning: "Un document similar există deja",
+
+    // OCR Scan
+    scan_document: "Scanează document",
+    scan_processing: "Se analizează...",
+    scan_btn: "Scanează",
+    scan_success: "Date extrase cu succes",
+    scan_error: "Nu s-au putut extrage date",
+    scan_unavailable: "Disponibil în versiunea de producție",
 
     // Quick Actions
     quick_action_add: "Document nou",
@@ -413,12 +467,14 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     onboarding_slide4_title: "100% privat",
     onboarding_slide4_desc: "Datele rămân pe telefonul tău.\nFără servere, fără tracking, fără reclame.",
     onboarding_skip: "Omite",
+    onboarding_back: "Înapoi",
     onboarding_next: "Continuă",
+    onboarding_enable_notif: "Activează notificări",
     onboarding_start: "Începe",
     a11y_onboarding_dot: "Pagina {n} din {total}",
   },
   en: {
-    nav_home: "Home", nav_alerts: "Alerts", nav_search: "Search", nav_settings: "Settings",
+    nav_home: "Home", nav_back: "Back", nav_alerts: "Alerts", nav_search: "Search", nav_settings: "Settings",
     nav_add: "Add document", nav_label: "Navigation",
 
     status_expired: "EXPIRED", status_warning: "DUE SOON", status_ok: "OK",
@@ -429,9 +485,13 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
 
     doc_singular: "document", doc_plural: "documents",
 
-    rec_none: "No recurrence", rec_weekly: "Weekly",
-    rec_monthly: "Monthly", rec_annual: "Annual",
-    rec_none_short: "None", rec_weekly_short: "Wkly", rec_monthly_short: "Mthly", rec_annual_short: "Yearly",
+    rec_none: "No recurrence", rec_weekly: "Weekly", rec_biweekly: "Biweekly",
+    rec_monthly: "Monthly", rec_quarterly: "Quarterly", rec_biannual: "Biannual", rec_annual: "Annual",
+    rec_2years: "Every 2 years", rec_5years: "Every 5 years", rec_10years: "Every 10 years",
+    rec_none_short: "None", rec_weekly_short: "Wkly", rec_biweekly_short: "2 wks",
+    rec_monthly_short: "Mthly", rec_quarterly_short: "Qtrly", rec_biannual_short: "6 mo", rec_annual_short: "Yearly",
+    rec_2years_short: "2 yrs", rec_5years_short: "5 yrs", rec_10years_short: "10 yrs",
+    rec_custom: "Custom",
 
     sort_urgency: "Urgency", sort_date: "Date", sort_date_asc: "Date ↑", sort_date_desc: "Date ↓",
     sort_amount: "Amount", sort_name: "A → Z", sort_label: "Sort",
@@ -442,6 +502,8 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     home_needs_attention: "Needs attention", home_see_all: "See all",
     home_welcome: "Welcome!", home_welcome_sub: "Add your first document by tapping the + button below",
     home_30days: "30 days",
+    home_this_month: "due this month",
+    streak_label: "streak",
     month_short_1: "Jan", month_short_2: "Feb", month_short_3: "Mar", month_short_4: "Apr",
     month_short_5: "May", month_short_6: "Jun", month_short_7: "Jul", month_short_8: "Aug",
     month_short_9: "Sep", month_short_10: "Oct", month_short_11: "Nov", month_short_12: "Dec",
@@ -449,10 +511,14 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     alerts_title: "Alerts", alerts_needs_attention: "{n} need attention",
     alerts_none_title: "No alerts",
 
+    alerts_no_docs_title: "No documents",
+    alerts_no_docs: "Add documents to receive alerts about due dates.",
+
     search_title: "Search", search_placeholder: "Document, vehicle, type, note...",
     search_no_results: "No results for \"{q}\"", search_count: "Search across {n} documents",
     search_no_filter_results: "No documents match the selected filters",
     search_all: "All",
+    search_recent: "Recent searches",
 
 
     detail_due: "Due date", detail_amount: "Amount", detail_recurrence: "Recurrence",
@@ -464,6 +530,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     form_category: "Category", form_type: "Type", form_title: "Title",
     form_asset: "Associated with", form_due: "Due date", form_amount: "Amount",
     form_recurrence: "Recurrence", form_notes: "Notes",
+    form_reminder: "Reminders", form_reminder_auto: "Auto", form_reminder_days_suffix: "d", form_reminder_reset: "Reset to auto",
     form_type_select: "Select...", form_title_placeholder: "e.g.: Car Insurance — Dacia Duster",
     form_asset_placeholder: "vehicle / address / person", form_notes_placeholder: "Optional...",
     form_custom_type_placeholder: "Enter document type",
@@ -495,6 +562,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     confirm_reset_btn: "Reset",
     confirm_clear_title: "Delete all",
     confirm_clear_msg: "All documents will be permanently deleted. This cannot be undone!",
+    confirm_clear_msg_count: "{n} documents will be permanently deleted. This cannot be undone!",
     confirm_clear_btn: "Delete all",
 
     toast_added: "Document added ✓", toast_updated: "Document updated ✓",
@@ -502,12 +570,23 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     toast_resolved: "Marked as resolved ✓", toast_demo_restored: "Demo data restored",
     toast_all_cleared: "All data has been deleted",
     toast_save_error: "⚠ Error saving data ({key})",
+    toast_saved: "Document saved",
+    toast_paid: "Marked as paid",
+    toast_renewed: "Renewed successfully",
+    toast_calendar: "Added to calendar",
+    toast_undo: "Undo",
+    toast_undo_success: "Document restored",
+    toast_backup: "Backup created successfully",
+    toast_restore: "Data restored successfully",
+    toast_copied: "Copied to clipboard",
+    toast_error: "Something went wrong",
     save_error_title: "Save Error",
     save_error_msg: "Your changes could not be saved. Please check available space on your device.",
 
     settings_title: "Settings",
     settings_general: "General", settings_appearance: "Appearance",
     settings_alerts: "Alerts", settings_data: "Data", settings_about: "About",
+    settings_processing: "Processing...",
     settings_total_docs: "Total documents", settings_version: "Version",
     settings_theme: "Theme", settings_currency: "Currency", settings_language: "Language",
     settings_warning_threshold: "Warning threshold", settings_warning_desc: "Days before status turns yellow",
@@ -526,6 +605,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     settings_clear_all: "Delete all data", settings_clear_all_desc: "Start fresh, irreversible",
     settings_about_text: "Manage documents, invoices, and expiration dates. From a personal car to a transport fleet.",
     settings_days_suffix: "days",
+    settings_no_reminders_warning: "You won't receive any reminder notifications",
     settings_per_category: "Per category",
     settings_all_categories: "All categories",
     settings_default: "default",
@@ -644,6 +724,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     settings_notifications_enable: "Enable notifications",
     settings_reminder_days: "Reminder days",
     settings_reminder_days_desc: "How many days before the due date to notify you",
+    settings_smart_reminders_desc: "Reminders adapt automatically: 3 days for monthly bills, 30 days for annual insurance, 90 days for long-term documents. You can customize per document.",
 
     photo_permission: "Please allow photo library access in Settings to add photos.",
     val_category_invalid: "Invalid category",
@@ -664,6 +745,15 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     analytics_total_paid: "Total paid",
     analytics_avg_monthly: "Avg. monthly cost",
     analytics_based_on: "Based on {n} months of data",
+
+    // Insight Cards & Spending Trend
+    insight_top_category: "of spending →",
+    insight_next_30: "Next 30 days",
+    insight_vs_last_month: "vs last month",
+    insight_total_paid: "Total paid",
+    insight_avg_monthly: "Monthly average",
+    analytics_trend_title: "SPENDING TREND",
+    analytics_trend_fallback: "Keep tracking to see trends",
 
     // Sharing
     share_document: "Share",
@@ -693,6 +783,9 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     paid_on: "Paid on {date}",
     payment_count: "{n} payments",
 
+    // Premium overlay
+    premium_unlock_analytics: "Unlock Analytics",
+    premium_data_tracked: "Your data is being tracked.\nUpgrade to see the full picture.",
 
     // Notification actions
     notif_action_renewed: "Renewed ✓",
@@ -704,6 +797,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
 
     // Health Score
     health_score: "Health Score",
+    health_score_short: "score",
     health_critical: "Needs urgent attention",
     health_attention: "Some documents need attention",
     health_good: "All documents are on track",
@@ -737,6 +831,9 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     error_title: "Something went wrong",
     error_subtitle: "An unexpected error occurred",
     error_retry: "Try Again",
+    error_clear_title: "Reset data",
+    error_clear_msg: "This will delete all app data. Use only if the app is not working.",
+    error_clear_btn: "Reset data",
 
     // ImageViewer
     a11y_close_image: "Close preview",
@@ -746,6 +843,10 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
 
     // HealthScoreArc
     a11y_health_score: "Health score: {score} out of 100",
+
+    // Daily Insight
+    insight_all_clear: "All documents are up to date!",
+    insight_tip: "Tip: Add recurring documents to never miss a deadline",
 
     // Premium early access
     premium_early_access_note: "All features are free during early access.",
@@ -764,6 +865,16 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
 
     // Smart defaults
     smart_default_applied: "Recurrence auto-set ✓",
+    auto_detected: "Category auto-detected",
+    duplicate_warning: "A similar document already exists",
+
+    // OCR Scan
+    scan_document: "Scan document",
+    scan_btn: "Scan",
+    scan_processing: "Analyzing...",
+    scan_success: "Data extracted successfully",
+    scan_error: "Could not extract data",
+    scan_unavailable: "Available in production build",
 
     // Quick Actions
     quick_action_add: "New Document",
@@ -795,7 +906,9 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     onboarding_slide4_title: "100% private",
     onboarding_slide4_desc: "Data stays on your phone.\nNo servers, no tracking, no ads.",
     onboarding_skip: "Skip",
+    onboarding_back: "Back",
     onboarding_next: "Continue",
+    onboarding_enable_notif: "Enable notifications",
     onboarding_start: "Get started",
     a11y_onboarding_dot: "Page {n} of {total}",
   },

@@ -9,6 +9,8 @@ import type { ThemeMode } from "../core/constants";
 
 export interface AppTheme {
   primary: string;
+  primaryLight: string;
+  primaryDim: string;
   background: string;
   card: string;
   cardBorder: string;
@@ -35,19 +37,21 @@ export interface AppTheme {
  */
 export function createTheme(_mode?: ThemeMode): AppTheme {
   return {
-    primary:         "#007AFF",
+    primary:         "#0A79F1",
+    primaryLight:    "#0A79F114",
+    primaryDim:      "#0A79F108",
     background:      "#0A0E17",
-    card:            "#131B2B",
+    card:            "#141C2C",
     cardBorder:      "#1E2A3D",
     surface:         "#111827",
     text:            "#F0F2F5",
-    textSecondary:   "#8B95A8",
+    textSecondary:   "#8E98AB",
     textMuted:       "#5A6478",
     textDim:         "#3D4756",
-    inputBackground: "#131B2B",
+    inputBackground: "#141C2C",
     inputBorder:     "#1E2A3D",
     border:          "#1E2A3D",
-    divider:         "#1A2436",
+    divider:         "#1C2638",
     overlay:         "rgba(5,10,20,0.75)",
     inputFill:       "rgba(20,40,70,0.5)",
     inputFillSubtle: "rgba(20,40,70,0.2)",

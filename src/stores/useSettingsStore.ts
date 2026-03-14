@@ -28,13 +28,17 @@ interface SettingsState {
 
 // ─── Persist helper ─────────────────────────────────────
 
+let _settingsPersistChain: Promise<void> = Promise.resolve();
+
 function persistSettings(settings: AppSettings) {
   const lang = settings?.language || "en";
-  AsyncStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(settings)).catch(
-    (e) => {
-      if (__DEV__) console.warn("DocDue: settings persist error", e);
-      Alert.alert(t(lang, "save_error_title"), t(lang, "save_error_msg"));
-    }
+  _settingsPersistChain = _settingsPersistChain.then(() =>
+    AsyncStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(settings)).catch(
+      (e) => {
+        if (__DEV__) console.warn("DocDue: settings persist error", e);
+        Alert.alert(t(lang, "save_error_title"), t(lang, "save_error_msg"));
+      }
+    )
   );
 }
 

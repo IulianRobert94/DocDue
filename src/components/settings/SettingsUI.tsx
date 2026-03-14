@@ -6,6 +6,7 @@ import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import type { AppTheme } from '../../theme/colors';
+import { fonts } from '../../theme/typography';
 
 export const RowDivider = React.memo(function RowDivider({ theme }: { theme: AppTheme }) {
   return (
@@ -73,7 +74,7 @@ export const SegmentedControl = React.memo(function SegmentedControl({
               style={[
                 s.segmentText,
                 { color: isActive ? '#FFFFFF' : theme.textMuted },
-                isActive && { fontWeight: '600' },
+                isActive && { fontWeight: '600', fontFamily: fonts.semiBold },
               ]}
             >
               {opt.label}
@@ -90,12 +91,12 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    minHeight: 44,
+    minHeight: 48,
     paddingHorizontal: 16,
     paddingVertical: 11,
   },
-  rowLabel: { fontSize: 17 },
-  rowValue: { fontSize: 17 },
+  rowLabel: { fontSize: 17, fontFamily: fonts.regular },
+  rowValue: { fontSize: 17, fontFamily: fonts.regular },
   segmented: {
     flexDirection: 'row',
     borderRadius: 9,
@@ -112,5 +113,6 @@ const s = StyleSheet.create({
   segmentText: {
     fontSize: 13,
     fontWeight: '500',
+    fontFamily: fonts.medium,
   },
 });

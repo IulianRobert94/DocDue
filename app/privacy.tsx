@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme, useLanguage } from '../src/stores/useSettingsStore';
 import { t } from '../src/core/i18n';
 import { AnimatedPressable } from '../src/components/AnimatedUI';
+import { fonts } from '../src/theme/typography';
 
 export default function PrivacyScreen() {
   const insets = useSafeAreaInsets();
@@ -30,13 +31,13 @@ export default function PrivacyScreen() {
         {/* Header */}
         <View style={s.headerRow}>
           <AnimatedPressable onPress={() => router.back()} style={s.backBtn} hapticStyle="light" accessibilityLabel={t(language, 'a11y_go_back')}>
-            <Ionicons name="chevron-back" size={28} color="#007AFF" />
+            <Ionicons name="chevron-back" size={28} color={theme.primary} />
           </AnimatedPressable>
           <View style={{ flex: 1 }} />
         </View>
 
         <View style={{ paddingHorizontal: 20, paddingBottom: 16 }}>
-          <Ionicons name="shield-checkmark" size={40} color="#007AFF" style={{ marginBottom: 12 }} />
+          <Ionicons name="shield-checkmark" size={40} color={theme.primary} style={{ marginBottom: 12 }} />
           <Text style={[s.largeTitle, { color: theme.text }]} accessibilityRole="header">
             {t(language, 'settings_privacy')}
           </Text>
@@ -64,9 +65,9 @@ const s = StyleSheet.create({
   container: { flex: 1 },
   headerRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 4, paddingBottom: 8 },
   backBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 8 },
-  largeTitle: { fontSize: 34, fontWeight: '700' },
-  subtitle: { fontSize: 13, marginTop: 4 },
-  sectionHeader: { fontSize: 13, fontWeight: '500', textTransform: 'uppercase', paddingHorizontal: 20, paddingBottom: 8, letterSpacing: 0.5 },
-  group: { marginHorizontal: 16, borderRadius: 12, overflow: 'hidden' },
-  bodyText: { fontSize: 15, lineHeight: 22, padding: 16 },
+  largeTitle: { fontSize: 34, fontWeight: '700', fontFamily: fonts.bold },
+  subtitle: { fontSize: 13, fontFamily: fonts.regular, marginTop: 4 },
+  sectionHeader: { fontSize: 13, fontWeight: '500', fontFamily: fonts.medium, textTransform: 'uppercase', paddingHorizontal: 20, paddingBottom: 8, letterSpacing: 0.5 },
+  group: { marginHorizontal: 16, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.04)' },
+  bodyText: { fontSize: 15, fontFamily: fonts.regular, lineHeight: 22, padding: 16 },
 });

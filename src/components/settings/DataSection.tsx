@@ -12,7 +12,13 @@ import * as DocumentPicker from 'expo-document-picker';
 // Lazy-loaded to save ~1MB from initial bundle
 let _xlsx: typeof import('xlsx') | null = null;
 async function getXLSX() {
-  if (!_xlsx) _xlsx = await import('xlsx');
+  if (!_xlsx) {
+    try {
+      _xlsx = await import('xlsx');
+    } catch {
+      _xlsx = null;
+    }
+  }
   return _xlsx;
 }
 
@@ -22,6 +28,7 @@ import type { CategoryId, RecurrenceValue, RawDocument, AppSettings } from '../.
 import type { AppTheme } from '../../theme/colors';
 import { AnimatedPressable } from '../AnimatedUI';
 import { RowDivider } from './SettingsUI';
+import { fonts } from '../../theme/typography';
 
 interface DataSectionProps {
   theme: AppTheme;
@@ -56,6 +63,7 @@ export function DataSection({
     setIsLoading(true);
     try {
       const XLSX = await getXLSX();
+      if (!XLSX) { Alert.alert(t(language, 'alert_error'), 'Excel module not available'); return; }
       const rows = documents.map((doc) => ({
         [t(language, 'form_category')]: t(language, CATEGORIES[doc.cat]?.labelKey || '') || doc.cat,
         [t(language, 'form_type')]: translateSubtype(doc.type, language),
@@ -113,6 +121,7 @@ export function DataSection({
       if (result.canceled || !result.assets?.[0]) return;
       const fileUri = result.assets[0].uri;
       const XLSX = await getXLSX();
+      if (!XLSX) { Alert.alert(t(language, 'alert_error'), 'Excel module not available'); return; }
       const fileContent = await FileSystem.readAsStringAsync(fileUri, { encoding: FileSystem.EncodingType.Base64 });
       const wb = XLSX.read(fileContent, { type: 'base64', cellDates: true });
       const ws = wb.Sheets[wb.SheetNames[0]];
@@ -188,7 +197,7 @@ export function DataSection({
           asset: asset || undefined,
           due: due || new Date().toISOString().slice(0, 10),
           amt: amt !== null && !isNaN(amt) ? amt : null,
-          rec: ['none', 'weekly', 'monthly', 'annual'].includes(rec) ? rec : 'none',
+          rec: ['none', 'weekly', 'biweekly', 'monthly', 'quarterly', 'biannual', 'annual', '2years', '5years', '10years'].includes(rec) ? rec : 'none',
           notes: notes || undefined,
         };
       }).filter((d) => d.title.trim().length > 0);
@@ -260,9 +269,10 @@ export function DataSection({
   };
 
   const handleClearAll = () => {
+    if (documents.length === 0) return;
     Alert.alert(
       t(language, 'confirm_clear_title'),
-      t(language, 'confirm_clear_msg'),
+      t(language, 'confirm_clear_msg_count', { n: documents.length }),
       [
         { text: t(language, 'confirm_cancel'), style: 'cancel' },
         { text: t(language, 'confirm_clear_btn'), style: 'destructive', onPress: () => clearAll() },
@@ -280,23 +290,23 @@ export function DataSection({
           <Ionicons name="grid-outline" size={18} color="#34C759" style={{ marginRight: 8 }} />
           <Text style={[styles.rowLabel, { color: '#34C759' }]}>
             {t(language, 'settings_export_excel')}
-            {!isPremium && <Text style={{ fontSize: 11, fontWeight: '700', color: '#FFD700' }}> PRO</Text>}
+            {!isPremium && <Text style={{ fontSize: 11, fontWeight: '700', fontFamily: fonts.bold, color: '#FFD700' }}> PRO</Text>}
           </Text>
         </AnimatedPressable>
         <RowDivider theme={theme} />
         <AnimatedPressable style={styles.row} onPress={handleImportExcel} disabled={isLoading} hapticStyle="light" accessibilityLabel={t(language, 'settings_import_excel')}>
-          <Ionicons name="download-outline" size={18} color="#007AFF" style={{ marginRight: 8 }} />
-          <Text style={[styles.rowLabel, { color: '#007AFF' }]}>
+          <Ionicons name="download-outline" size={18} color={theme.primary} style={{ marginRight: 8 }} />
+          <Text style={[styles.rowLabel, { color: theme.primary }]}>
             {t(language, 'settings_import_excel')}
-            {!isPremium && <Text style={{ fontSize: 11, fontWeight: '700', color: '#FFD700' }}> PRO</Text>}
+            {!isPremium && <Text style={{ fontSize: 11, fontWeight: '700', fontFamily: fonts.bold, color: '#FFD700' }}> PRO</Text>}
           </Text>
         </AnimatedPressable>
         <RowDivider theme={theme} />
         {__DEV__ && (
           <>
             <AnimatedPressable style={styles.row} onPress={handleResetDemo} hapticStyle="light" accessibilityLabel={t(language, 'settings_reset_demo')}>
-              <Ionicons name="refresh-outline" size={18} color="#007AFF" style={{ marginRight: 8 }} />
-              <Text style={[styles.rowLabel, { color: '#007AFF' }]}>
+              <Ionicons name="refresh-outline" size={18} color={theme.primary} style={{ marginRight: 8 }} />
+              <Text style={[styles.rowLabel, { color: theme.primary }]}>
                 {t(language, 'settings_reset_demo')}
               </Text>
             </AnimatedPressable>
@@ -321,6 +331,7 @@ const styles = StyleSheet.create({
   sectionHeader: {
     fontSize: 13,
     fontWeight: '400',
+    fontFamily: fonts.regular,
     textTransform: 'uppercase',
     paddingHorizontal: 20,
     paddingTop: 24,
@@ -330,6 +341,8 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     borderRadius: 10,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.04)',
   },
   row: {
     flexDirection: 'row',
@@ -339,6 +352,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 11,
   },
-  rowLabel: { fontSize: 17 },
-  footerText: { fontSize: 13, lineHeight: 18 },
+  rowLabel: { fontSize: 17, fontFamily: fonts.regular },
+  footerText: { fontSize: 13, fontFamily: fonts.regular, lineHeight: 18 },
 });

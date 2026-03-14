@@ -18,7 +18,10 @@ import { formatDate, formatMoney, formatDaysRemaining } from '../../src/core/for
 import { sortDocumentsByField } from '../../src/core/enrichment';
 import { CATEGORIES, STATUS_DISPLAY, SORT_OPTIONS } from '../../src/core/constants';
 import type { CategoryId, SortField, SortDirection, DocumentStatus } from '../../src/core/constants';
+import Reanimated, { FadeInDown, FadeOut } from 'react-native-reanimated';
 import { AnimatedPressable, FadeInView } from '../../src/components/AnimatedUI';
+import { showToast } from '../../src/stores/useToastStore';
+import { fonts } from '../../src/theme/typography';
 
 export default function CategoryDetailScreen() {
   const insets = useSafeAreaInsets();
@@ -29,6 +32,7 @@ export default function CategoryDetailScreen() {
   const currency = useCurrency();
   const enrichedDocs = useEnrichedDocuments();
   const deleteDocument = useDocumentStore((s) => s.deleteDocument);
+  const undoDelete = useDocumentStore((s) => s.undoDelete);
   const markAsPaid = useDocumentStore((s) => s.markAsPaid);
   const [sortField, setSortField] = useState<SortField>('urgency');
   const [sortDir, setSortDir] = useState<SortDirection>('asc');
@@ -41,9 +45,9 @@ export default function CategoryDetailScreen() {
       <View style={[s.container, { backgroundColor: theme.background }]}>
         <View style={{ paddingTop: insets.top + 16, alignItems: 'center', paddingVertical: 80 }}>
           <Ionicons name="alert-circle-outline" size={40} color={theme.textDim} style={{ marginBottom: 12 }} />
-          <Text style={{ color: theme.textMuted, fontSize: 15 }}>{t(language, 'doc_not_found')}</Text>
+          <Text style={{ color: theme.textMuted, fontSize: 15, fontFamily: fonts.regular }}>{t(language, 'doc_not_found')}</Text>
           <AnimatedPressable onPress={() => router.back()} style={{ marginTop: 20 }} accessibilityLabel={t(language, 'a11y_go_back')}>
-            <Text style={{ color: '#007AFF', fontSize: 17 }}>{t(language, 'btn_back')}</Text>
+            <Text style={{ color: theme.primary, fontSize: 17, fontFamily: fonts.regular }}>{t(language, 'btn_back')}</Text>
           </AnimatedPressable>
         </View>
       </View>
@@ -97,8 +101,8 @@ export default function CategoryDetailScreen() {
       {/* iOS Nav Bar */}
       <FadeInView delay={0} style={[s.navBar, { paddingTop: insets.top, backgroundColor: theme.card, borderBottomColor: theme.divider }]}>
         <AnimatedPressable onPress={() => router.back()} style={s.backBtn} accessibilityLabel={t(language, 'a11y_go_back')}>
-          <Ionicons name="chevron-back" size={28} color="#007AFF" />
-          <Text style={{ color: '#007AFF', fontSize: 17, marginLeft: -4 }}>{t(language, 'nav_home')}</Text>
+          <Ionicons name="chevron-back" size={28} color={theme.primary} />
+          <Text style={{ color: theme.primary, fontSize: 17, fontFamily: fonts.regular, marginLeft: -4 }}>{t(language, 'nav_back')}</Text>
         </AnimatedPressable>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, justifyContent: 'center' }}>
           <Ionicons name={category?.icon || 'document-outline'} size={18} color={category?.color || '#999'} />
@@ -116,7 +120,7 @@ export default function CategoryDetailScreen() {
               <AnimatedPressable
                 key={opt.value}
                 style={[s.sortChip, {
-                  backgroundColor: active ? '#007AFF' : theme.inputFill,
+                  backgroundColor: active ? theme.primary : theme.inputFill,
                 }]}
                 onPress={() => handleSortTap(opt)}
                 hapticStyle="selection"
@@ -160,9 +164,9 @@ export default function CategoryDetailScreen() {
           const statusColor = STATUS_DISPLAY[item._status]?.color || '#999';
 
           return (
-            <View style={{ marginHorizontal: 16 }}>
+            <Reanimated.View entering={FadeInDown.delay(index * 40).springify()} exiting={FadeOut.duration(200)} style={{ marginHorizontal: 16 }}>
               <SwipeableRow
-                onDelete={() => deleteDocument(item.id)}
+                onDelete={() => { deleteDocument(item.id); showToast(t(language, 'toast_deleted'), 'info', { label: t(language, 'toast_undo'), onPress: () => { undoDelete(); showToast(t(language, 'toast_undo_success')); } }); }}
                 confirmTitle={t(language, 'confirm_delete_title')}
                 confirmMessage={t(language, 'confirm_delete_msg', { title: item.title })}
                 confirmCancel={t(language, 'confirm_cancel')}
@@ -204,16 +208,18 @@ export default function CategoryDetailScreen() {
                   {!isLast && <View style={{ position: 'absolute', bottom: 0, left: 16, right: 0, height: StyleSheet.hairlineWidth, backgroundColor: theme.divider }} />}
                 </AnimatedPressable>
               </SwipeableRow>
-            </View>
+            </Reanimated.View>
           );
         }}
         ListEmptyComponent={
           <FadeInView delay={200} style={s.emptyState}>
-            <Ionicons name="documents-outline" size={40} color={theme.textDim} style={{ marginBottom: 12 }} />
+            <View style={{ width: 80, height: 80, borderRadius: 20, backgroundColor: theme.inputFillSubtle, alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+              <Ionicons name="documents-outline" size={44} color={theme.textDim} />
+            </View>
             <Text style={[s.emptyText, { color: theme.textMuted }]}>{t(language, 'no_documents')}</Text>
             <AnimatedPressable
               onPress={() => router.push(`/form?cat=${categoryId}`)}
-              style={[s.addBtn, { backgroundColor: '#007AFF' }]}
+              style={[s.addBtn, { backgroundColor: theme.primary }]}
               hapticStyle="medium"
               accessibilityLabel={t(language, 'a11y_add_document')}
             >
@@ -231,24 +237,24 @@ const s = StyleSheet.create({
   container: { flex: 1 },
   navBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 10, paddingHorizontal: 4, borderBottomWidth: StyleSheet.hairlineWidth },
   backBtn: { flexDirection: 'row', alignItems: 'center', minWidth: 60, paddingLeft: 4 },
-  navTitle: { fontSize: 17, fontWeight: '600' },
+  navTitle: { fontSize: 17, fontWeight: '600', fontFamily: fonts.semiBold },
   sortRow: { paddingVertical: 12 },
-  sortChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 18, minHeight: 44 },
-  sortText: { fontSize: 13, fontWeight: '600' },
-  countLabel: { fontSize: 13, paddingHorizontal: 20, paddingBottom: 4 },
+  sortChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 18 },
+  sortText: { fontSize: 13, fontWeight: '600', fontFamily: fonts.semiBold },
+  countLabel: { fontSize: 13, fontFamily: fonts.regular, paddingHorizontal: 20, paddingBottom: 4 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8, gap: 8 },
-  sectionTitle: { fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
+  sectionTitle: { fontSize: 13, fontWeight: '600', fontFamily: fonts.semiBold, textTransform: 'uppercase', letterSpacing: 0.5 },
   row: { overflow: 'hidden' },
   rowBody: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingLeft: 16, paddingRight: 12, minHeight: 60 },
   statusStrip: { width: 3, height: 28, borderRadius: 2, marginRight: 12 },
   rowMain: { flex: 1, marginRight: 12 },
-  rowTitle: { fontSize: 17, fontWeight: '400' },
-  rowSub: { fontSize: 13, marginTop: 2 },
+  rowTitle: { fontSize: 17, fontWeight: '400', fontFamily: fonts.regular },
+  rowSub: { fontSize: 13, fontFamily: fonts.regular, marginTop: 2 },
   rowRight: { alignItems: 'flex-end' },
-  rowDays: { fontSize: 13, fontWeight: '600' },
-  rowAmt: { fontSize: 13, marginTop: 2 },
+  rowDays: { fontSize: 13, fontWeight: '600', fontFamily: fonts.semiBold },
+  rowAmt: { fontSize: 13, fontFamily: fonts.regular, marginTop: 2 },
   emptyState: { paddingVertical: 60, alignItems: 'center' },
-  emptyText: { fontSize: 15 },
+  emptyText: { fontSize: 15, fontFamily: fonts.regular },
   addBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 20, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 22 },
-  addBtnText: { color: '#FFF', fontSize: 15, fontWeight: '600' },
+  addBtnText: { color: '#FFF', fontSize: 15, fontWeight: '600', fontFamily: fonts.semiBold },
 });

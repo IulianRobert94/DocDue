@@ -10,7 +10,7 @@
  * PORTAT 1:1 din v10 — nu se modifică logica.
  */
 
-import { CURRENCY_OPTIONS, RECURRENCE_OPTIONS, STATUS_DISPLAY } from "./constants";
+import { CURRENCY_OPTIONS, RECURRENCE_QUICK, RECURRENCE_OPTIONS, STATUS_DISPLAY } from "./constants";
 import type { LanguageCode, CurrencyCode, RecurrenceValue, DocumentStatus, Category } from "./constants";
 import { t } from "./i18n";
 
@@ -63,7 +63,8 @@ export function formatDaysRemaining(days: number, lang: LanguageCode = "ro"): st
  * Returnează textul recurenței (ex: "Lunar", "Anual", "Fără recurență").
  */
 export function getRecurrenceLabel(value: RecurrenceValue, lang: LanguageCode = "ro"): string {
-  const opt = RECURRENCE_OPTIONS.find(r => r.value === value);
+  const opt = RECURRENCE_QUICK.find(r => r.value === value)
+    ?? RECURRENCE_OPTIONS.find(r => r.value === value);
   return opt ? t(lang, opt.labelKey) : "—";
 }
 
@@ -71,7 +72,9 @@ export function getRecurrenceLabel(value: RecurrenceValue, lang: LanguageCode = 
  * Returnează intervalul de recurență în zile (ex: "annual" → 365).
  */
 export function getRecurrenceDays(value: RecurrenceValue): number {
-  return RECURRENCE_OPTIONS.find(r => r.value === value)?.days || 0;
+  return RECURRENCE_QUICK.find(r => r.value === value)?.days
+    ?? RECURRENCE_OPTIONS.find(r => r.value === value)?.days
+    ?? 0;
 }
 
 /**

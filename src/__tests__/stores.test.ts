@@ -285,7 +285,7 @@ describe("useDocumentStore", () => {
       expect(updated.due).toBe("2026-03-08");
     });
 
-    it("removes non-recurring document and returns 'resolved'", () => {
+    it("marks non-recurring document as resolved and returns 'resolved'", () => {
       useDocumentStore.getState().addDocument(makeDoc({
         title: "One-time fine",
         rec: "none",
@@ -296,7 +296,9 @@ describe("useDocumentStore", () => {
       const result = useDocumentStore.getState().markAsPaid(enriched);
 
       expect(result).toBe("resolved");
-      expect(useDocumentStore.getState().documents).toHaveLength(0);
+      expect(useDocumentStore.getState().documents).toHaveLength(1);
+      expect(useDocumentStore.getState().documents[0].resolved).toBeTruthy();
+      expect(useDocumentStore.getState().documents[0].paymentHistory).toHaveLength(1);
     });
 
     it("appends payment history for recurring documents", () => {
@@ -337,6 +339,62 @@ describe("useDocumentStore", () => {
 
       const updated = useDocumentStore.getState().documents[0];
       expect(updated.paymentHistory).toHaveLength(3);
+    });
+
+    it("advances quarterly doc by 3 months", () => {
+      useDocumentStore.getState().addDocument(makeDoc({
+        title: "Quarterly tax",
+        due: "2026-03-01",
+        rec: "quarterly",
+      }));
+      const doc = useDocumentStore.getState().documents[0];
+      useDocumentStore.getState().markAsPaid(enrichDocument(doc));
+      expect(useDocumentStore.getState().documents[0].due).toBe("2026-06-01");
+    });
+
+    it("advances biannual doc by 6 months", () => {
+      useDocumentStore.getState().addDocument(makeDoc({
+        title: "Biannual insurance",
+        due: "2026-01-15",
+        rec: "biannual",
+      }));
+      const doc = useDocumentStore.getState().documents[0];
+      useDocumentStore.getState().markAsPaid(enrichDocument(doc));
+      expect(useDocumentStore.getState().documents[0].due).toBe("2026-07-15");
+    });
+
+    it("advances 2years doc by 24 months", () => {
+      useDocumentStore.getState().addDocument(makeDoc({
+        title: "License renewal",
+        due: "2026-06-01",
+        rec: "2years",
+      }));
+      const doc = useDocumentStore.getState().documents[0];
+      useDocumentStore.getState().markAsPaid(enrichDocument(doc));
+      expect(useDocumentStore.getState().documents[0].due).toBe("2028-06-01");
+    });
+
+    it("advances 10years doc by 120 months", () => {
+      useDocumentStore.getState().addDocument(makeDoc({
+        title: "Passport",
+        due: "2026-01-01",
+        rec: "10years",
+      }));
+      const doc = useDocumentStore.getState().documents[0];
+      useDocumentStore.getState().markAsPaid(enrichDocument(doc));
+      expect(useDocumentStore.getState().documents[0].due).toBe("2036-01-01");
+    });
+
+    it("preserves reminderDays through markAsPaid", () => {
+      useDocumentStore.getState().addDocument(makeDoc({
+        title: "Custom reminders",
+        due: "2026-06-01",
+        rec: "annual",
+        reminderDays: [90, 30, 7],
+      } as any));
+      const doc = useDocumentStore.getState().documents[0];
+      useDocumentStore.getState().markAsPaid(enrichDocument(doc));
+      expect(useDocumentStore.getState().documents[0].reminderDays).toEqual([90, 30, 7]);
     });
 
     it("returns 'resolved' for non-existent document", () => {
@@ -398,6 +456,10 @@ describe("useSettingsStore", () => {
         firstOpenDate: null,
         reviewPrompted: false,
         customSubtypes: { vehicule: [], personal: [], casa: [], financiar: [] },
+        recentSearches: [],
+        streakDays: 0,
+        lastStreakCheck: null,
+        bestStreak: 0,
       },
       _hydrated: true,
     });
@@ -417,8 +479,10 @@ describe("useSettingsStore", () => {
     expect(s.theme).toBe("dark");
   });
 
-  it("persists to AsyncStorage on update", () => {
+  it("persists to AsyncStorage on update", async () => {
     useSettingsStore.getState().updateSetting("currency", "USD");
+    // Settings persist is chained (async) — flush microtasks
+    await new Promise((r) => setTimeout(r, 0));
     expect(AsyncStorage.setItem).toHaveBeenCalled();
   });
 

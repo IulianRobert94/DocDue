@@ -14,6 +14,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STORAGE_KEY_ONBOARDED } from '../src/core/constants';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage, useTheme, useSettingsStore } from '../src/stores/useSettingsStore';
+import { LinearGradient } from 'expo-linear-gradient';
 import { AnimatedPressable } from '../src/components/AnimatedUI';
 import {
   requestNotificationPermission,
@@ -25,6 +26,7 @@ import { useDocumentStore } from '../src/stores/useDocumentStore';
 import { t } from '../src/core/i18n';
 
 import type { IconName } from '../src/types';
+import { fonts } from '../src/theme/typography';
 
 interface OnboardingStep {
   icon: IconName;
@@ -37,8 +39,8 @@ interface OnboardingStep {
 const STEPS: OnboardingStep[] = [
   {
     icon: 'shield-checkmark',
-    iconColor: '#007AFF',
-    glowColor: 'rgba(0,122,255,0.12)',
+    iconColor: '#0A79F1',
+    glowColor: 'rgba(10,121,241,0.12)',
     titleKey: 'onboarding_slide1_title',
     descKey: 'onboarding_slide1_desc',
   },
@@ -66,19 +68,19 @@ const STEPS: OnboardingStep[] = [
 ];
 
 function AnimatedDot({ active, accessibilityLabel }: { active: boolean; accessibilityLabel?: string }) {
-  const width = useRef(new Animated.Value(active ? 24 : 8)).current;
+  const width = useRef(new Animated.Value(active ? 28 : 8)).current;
   const bgColor = useRef(new Animated.Value(active ? 1 : 0)).current;
 
   useEffect(() => {
     Animated.parallel([
-      Animated.spring(width, { toValue: active ? 24 : 8, useNativeDriver: false, speed: 20, bounciness: 6 }),
+      Animated.spring(width, { toValue: active ? 28 : 8, useNativeDriver: false, speed: 20, bounciness: 6 }),
       Animated.timing(bgColor, { toValue: active ? 1 : 0, duration: 200, useNativeDriver: false }),
     ]).start();
   }, [active]);
 
   const backgroundColor = bgColor.interpolate({
     inputRange: [0, 1],
-    outputRange: ['rgba(60,80,120,0.4)', '#007AFF'],
+    outputRange: ['rgba(60,80,120,0.4)', '#0A79F1'],
   });
 
   return <Animated.View style={[s.dot, { width, backgroundColor }]} accessibilityLabel={accessibilityLabel} accessibilityRole="tab" />;
@@ -195,7 +197,7 @@ export default function OnboardingScreen() {
   );
 
   return (
-    <View style={[s.container, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20, backgroundColor: theme.background }]}>
+    <View style={[s.container, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 40, backgroundColor: theme.background }]}>
       {!isLastSlide && (
         <AnimatedPressable onPress={handleSkip} style={[s.skipBtn, { top: insets.top + 8 }]} haptic={false}
           accessibilityLabel={t(lang, 'onboarding_skip')} accessibilityRole="button"
@@ -229,11 +231,33 @@ export default function OnboardingScreen() {
       </View>
 
       <View style={s.footer}>
-        <AnimatedPressable onPress={handleNext} style={s.nextBtn} scaleValue={0.96} hapticStyle="medium"
+        {currentIndex > 0 ? (
+          <AnimatedPressable
+            onPress={() => flatListRef.current?.scrollToIndex({ index: currentIndex - 1, animated: true })}
+            haptic={false}
+            style={s.backBtn}
+            accessibilityLabel={t(lang, 'onboarding_back')}
+          >
+            <Ionicons name="arrow-back" size={20} color={theme.textSecondary} />
+          </AnimatedPressable>
+        ) : (
+          <View style={{ width: 44 }} />
+        )}
+        <AnimatedPressable onPress={handleNext} style={[s.nextBtn, { shadowColor: theme.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, overflow: 'hidden' }]} scaleValue={0.96} hapticStyle="medium"
           accessibilityLabel={isLastSlide ? t(lang, 'onboarding_start') : t(lang, 'onboarding_next')} accessibilityRole="button">
-          <Text style={s.nextText}>{isLastSlide ? t(lang, 'onboarding_start') : t(lang, 'onboarding_next')}</Text>
-          <Ionicons name={isLastSlide ? "checkmark" : "arrow-forward"} size={20} color="#FFF" />
+          <LinearGradient
+            colors={['#0E8BFF', '#0A79F1']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 18 }}
+          >
+            <Text style={s.nextText}>
+              {isLastSlide ? t(lang, 'onboarding_start') : currentIndex === 2 ? t(lang, 'onboarding_enable_notif') : t(lang, 'onboarding_next')}
+            </Text>
+            <Ionicons name={isLastSlide ? "checkmark" : currentIndex === 2 ? "notifications" : "arrow-forward"} size={20} color="#FFF" />
+          </LinearGradient>
         </AnimatedPressable>
+        <View style={{ width: 44 }} />
       </View>
     </View>
   );
@@ -242,7 +266,7 @@ export default function OnboardingScreen() {
 const s = StyleSheet.create({
   container: { flex: 1 },
   skipBtn: { position: 'absolute', right: 20, zIndex: 10, padding: 8 },
-  skipText: { fontSize: 17 },
+  skipText: { fontSize: 17, fontFamily: fonts.regular },
   flatList: { flex: 1 },
   slide: {
     flex: 1,
@@ -273,24 +297,22 @@ const s = StyleSheet.create({
   title: {
     fontSize: 30,
     fontWeight: '800',
+    fontFamily: fonts.extraBold,
     textAlign: 'center',
     letterSpacing: 0.35,
     lineHeight: 38,
     marginBottom: 14,
   },
-  desc: { fontSize: 17, textAlign: 'center', lineHeight: 26, paddingHorizontal: 8 },
-  stepIndicator: { fontSize: 13, fontWeight: '500', marginTop: 20, letterSpacing: 1 },
+  desc: { fontSize: 17, fontFamily: fonts.regular, textAlign: 'center', lineHeight: 26, paddingHorizontal: 8 },
+  stepIndicator: { fontSize: 13, fontWeight: '500', fontFamily: fonts.medium, marginTop: 20, letterSpacing: 1 },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 8, paddingBottom: 32 },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(60,80,120,0.4)' },
-  footer: { paddingHorizontal: 20 },
+  footer: { paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  backBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   nextBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#007AFF',
-    paddingVertical: 18,
-    borderRadius: 16,
+    flex: 1,
+    borderRadius: 18,
+    overflow: 'hidden',
   },
-  nextText: { color: '#FFFFFF', fontSize: 17, fontWeight: '600' },
+  nextText: { color: '#FFFFFF', fontSize: 17, fontWeight: '600', fontFamily: fonts.semiBold },
 });

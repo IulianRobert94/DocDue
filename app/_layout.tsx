@@ -4,11 +4,20 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { View, ActivityIndicator, Platform, StatusBar as RNStatusBar } from "react-native";
+import { View, ActivityIndicator, Platform, StatusBar as RNStatusBar, AppState } from "react-native";
+import * as Sentry from "@sentry/react-native";
 import * as NavigationBar from "expo-navigation-bar";
 import { Stack, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
+import {
+  useFonts,
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
+  Inter_800ExtraBold,
+} from "@expo-google-fonts/inter";
 import * as Notifications from "expo-notifications";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -16,6 +25,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useDocumentStore } from "../src/stores/useDocumentStore";
 import { useTheme, useSettingsStore } from "../src/stores/useSettingsStore";
 import { ErrorBoundary } from "../src/components/ErrorBoundary";
+import { Toast } from "../src/components/Toast";
 import { BiometricGate } from "../src/components/BiometricGate";
 import * as QuickActions from "expo-quick-actions";
 import { FREE_DOCUMENT_LIMIT, STORAGE_KEY_ONBOARDED } from "../src/core/constants";
@@ -32,8 +42,17 @@ import { initializeIAP, checkPremiumStatus, isIAPConfigured } from "../src/servi
 import { enrichDocument } from "../src/core/enrichment";
 import { updateWidgetData } from "../src/services/widgetService";
 import { t } from "../src/core/i18n";
+import { evaluateStreak } from "../src/core/streak";
 
 SplashScreen.preventAutoHideAsync();
+
+// Initialize Sentry for production error tracking
+Sentry.init({
+  dsn: "YOUR_SENTRY_DSN_HERE", // TODO: Replace with your Sentry DSN from sentry.io
+  enabled: !__DEV__,
+  tracesSampleRate: 0.2,
+  attachScreenshot: true,
+});
 
 // Force dark system bars on Android immediately (before component renders)
 if (Platform.OS === "android") {
@@ -46,12 +65,20 @@ if (Platform.OS === "android") {
 // Configure notification behavior before component renders
 configureNotifications();
 
-export default function RootLayout() {
+function RootLayout() {
   const theme = useTheme();
   const router = useRouter();
   const [ready, setReady] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const responseListener = useRef<Notifications.EventSubscription>(null);
+
+  const [fontsLoaded] = useFonts({
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+    Inter_800ExtraBold,
+  });
 
   // Retry setting Android navigation bar after mount (module-level call may be too early in Expo Go)
   useEffect(() => {
@@ -97,6 +124,21 @@ export default function RootLayout() {
           }).catch(() => {});
         }
         updateWidgetData(documents);
+
+        // Evaluate streak
+        const enrichedDocs = documents.map(enrichDocument);
+        const streakResult = evaluateStreak(
+          enrichedDocs,
+          settings.streakDays ?? 0,
+          settings.bestStreak ?? 0,
+          settings.lastStreakCheck ?? null,
+        );
+        if (streakResult.isNew || streakResult.streakDays !== (settings.streakDays ?? 0)) {
+          const today = new Date().toISOString().slice(0, 10);
+          useSettingsStore.getState().updateSetting('streakDays', streakResult.streakDays);
+          useSettingsStore.getState().updateSetting('bestStreak', streakResult.bestStreak);
+          useSettingsStore.getState().updateSetting('lastStreakCheck', today);
+        }
 
         // Review prompt moved to document store (triggers after positive actions)
 
@@ -198,11 +240,27 @@ export default function RootLayout() {
     }
   }, [router]);
 
-  if (!ready) {
+  // Re-schedule morning digest & weekly summary when app returns from background
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "active") {
+        const settings = useSettingsStore.getState().settings;
+        const documents = useDocumentStore.getState().documents;
+        if (settings.notificationsEnabled && documents.length > 0) {
+          rescheduleAllNotifications(documents, settings.reminderDays, settings.language).catch(() => {});
+          scheduleMorningDigest(documents, settings.language).catch(() => {});
+          scheduleWeeklySummary(documents, settings.language).catch(() => {});
+        }
+      }
+    });
+    return () => subscription.remove();
+  }, []);
+
+  if (!ready || !fontsLoaded) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#0A0E17" }}>
         <StatusBar style="light" />
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color={theme.primary} />
       </View>
     );
   }
@@ -228,7 +286,10 @@ export default function RootLayout() {
             </Stack>
           </SafeAreaProvider>
         </BiometricGate>
+        <Toast />
       </GestureHandlerRootView>
     </ErrorBoundary>
   );
 }
+
+export default Sentry.wrap(RootLayout);

@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useTheme, useLanguage, useSettingsStore } from '../src/stores/useSettingsStore';
 import { t } from '../src/core/i18n';
+import { LinearGradient } from 'expo-linear-gradient';
 import { AnimatedPressable, FadeInView } from '../src/components/AnimatedUI';
 import {
   isIAPConfigured,
@@ -22,9 +23,10 @@ import {
 } from '../src/services/iap';
 
 import type { IconName } from '../src/types';
+import { fonts } from '../src/theme/typography';
 
 const PRO_FEATURES: ReadonlyArray<{ icon: IconName; color: string; key: string }> = [
-  { icon: 'documents', color: '#007AFF', key: 'premium_feature_unlimited' },
+  { icon: 'documents', color: '#0A79F1', key: 'premium_feature_unlimited' },
   { icon: 'bar-chart', color: '#34C759', key: 'premium_feature_analytics' },
   { icon: 'cloud-upload', color: '#5856D6', key: 'premium_feature_backup' },
   { icon: 'grid', color: '#FF9500', key: 'premium_feature_export' },
@@ -42,6 +44,7 @@ export default function PremiumScreen() {
   const [selectedPkg, setSelectedPkg] = useState<IAPPackage | null>(null);
   const [loading, setLoading] = useState(false);
   const [restoring, setRestoring] = useState(false);
+  const purchaseInProgress = useRef(false);
 
   // Animated badge glow
   const glowAnim = useRef(new Animated.Value(0)).current;
@@ -70,7 +73,8 @@ export default function PremiumScreen() {
   }, [isPremium]);
 
   const handlePurchase = async () => {
-    if (!selectedPkg) return;
+    if (!selectedPkg || purchaseInProgress.current) return;
+    purchaseInProgress.current = true;
     setLoading(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     try {
@@ -84,6 +88,7 @@ export default function PremiumScreen() {
       }
     } finally {
       setLoading(false);
+      purchaseInProgress.current = false;
     }
   };
 
@@ -121,7 +126,12 @@ export default function PremiumScreen() {
         {/* Modal handle + close */}
         <FadeInView delay={0} style={s.closeRow}>
           <View style={{ width: 60 }} />
-          <View style={[s.grabber, { backgroundColor: theme.grabber }]} />
+          <LinearGradient
+            colors={['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.20)', 'rgba(255,255,255,0.08)']}
+            start={{ x: 0, y: 0.5 }}
+            end={{ x: 1, y: 0.5 }}
+            style={s.grabber}
+          />
           <AnimatedPressable
             onPress={() => router.back()}
             style={{ width: 60, alignItems: 'flex-end' }}
@@ -183,8 +193,8 @@ export default function PremiumScreen() {
                       key={pkg.id}
                       style={[
                         s.tierCard,
-                        { backgroundColor: theme.card, borderColor: isSelected ? '#007AFF' : theme.divider },
-                        isSelected && s.tierCardSelected,
+                        { backgroundColor: theme.card, borderColor: isSelected ? theme.primary : theme.divider },
+                        isSelected && { borderColor: theme.primary, backgroundColor: theme.primary + '0F', shadowColor: theme.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 12 },
                       ]}
                       onPress={() => setSelectedPkg(pkg)}
                       hapticStyle="selection"
@@ -196,7 +206,7 @@ export default function PremiumScreen() {
                           <Text style={s.bestValueText}>{t(language, 'plan_best_value')}</Text>
                         </View>
                       )}
-                      <Text style={[s.tierType, { color: isSelected ? '#007AFF' : theme.textSecondary }]}>
+                      <Text style={[s.tierType, { color: isSelected ? theme.primary : theme.textSecondary }]}>
                         {t(language, `plan_${pkg.type}`)}
                       </Text>
                       <Text style={[s.tierPrice, { color: isSelected ? theme.text : theme.textSecondary }]}>
@@ -214,27 +224,34 @@ export default function PremiumScreen() {
 
               {/* Purchase button */}
               <AnimatedPressable
-                style={[s.upgradeBtn, loading && { opacity: 0.7 }]}
+                style={[s.upgradeBtn, { shadowColor: theme.primary, overflow: 'hidden' }, loading && { opacity: 0.7 }]}
                 onPress={handlePurchase}
                 hapticStyle="medium"
                 disabled={loading || !selectedPkg}
               >
-                {loading ? (
-                  <ActivityIndicator size="small" color="#FFF" style={{ marginRight: 8 }} />
-                ) : (
-                  <Ionicons name="lock-open" size={20} color="#FFF" style={{ marginRight: 8 }} />
-                )}
-                <Text style={s.upgradeBtnText}>
-                  {t(language, 'premium_subscribe')}{selectedPkg?.price ? ` — ${selectedPkg.price}` : ''}
-                </Text>
+                <LinearGradient
+                  colors={['#0E8BFF', '#0A79F1']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16 }}
+                >
+                  {loading ? (
+                    <ActivityIndicator size="small" color="#FFF" style={{ marginRight: 8 }} />
+                  ) : (
+                    <Ionicons name="lock-open" size={20} color="#FFF" style={{ marginRight: 8 }} />
+                  )}
+                  <Text style={s.upgradeBtnText}>
+                    {t(language, 'premium_subscribe')}{selectedPkg?.price ? ` — ${selectedPkg.price}` : ''}
+                  </Text>
+                </LinearGradient>
               </AnimatedPressable>
 
               {/* Restore purchases — REQUIRED by Apple */}
               <AnimatedPressable onPress={handleRestore} haptic={false} disabled={restoring} style={s.restoreBtn}>
                 {restoring ? (
-                  <ActivityIndicator size="small" color="#007AFF" />
+                  <ActivityIndicator size="small" color={theme.primary} />
                 ) : (
-                  <Text style={s.restoreText}>{t(language, 'premium_restore')}</Text>
+                  <Text style={[s.restoreText, { color: theme.primary }]}>{t(language, 'premium_restore')}</Text>
                 )}
               </AnimatedPressable>
 
@@ -244,14 +261,14 @@ export default function PremiumScreen() {
               </Text>
               <Text style={[s.termsText, { color: theme.textMuted }]}>
                 <Text
-                  style={{ color: '#007AFF' }}
+                  style={{ color: theme.primary }}
                   onPress={() => Linking.openURL('https://iulianrobert94.github.io/DocDue/terms.html').catch(() => {})}
                 >
                   {t(language, 'premium_terms_of_use')}
                 </Text>
                 {'  ·  '}
                 <Text
-                  style={{ color: '#007AFF' }}
+                  style={{ color: theme.primary }}
                   onPress={() => Linking.openURL('https://iulianrobert94.github.io/DocDue/privacy.html').catch(() => {})}
                 >
                   {t(language, 'premium_privacy_link')}
@@ -264,11 +281,18 @@ export default function PremiumScreen() {
               <Text style={[s.earlyAccessNote, { color: theme.textMuted }]}>
                 {t(language, 'premium_early_access_note')}
               </Text>
-              <AnimatedPressable style={s.upgradeBtn} onPress={handleUnlockEarlyAccess} hapticStyle="medium">
-                <Ionicons name="lock-open" size={20} color="#FFF" style={{ marginRight: 8 }} />
-                <Text style={s.upgradeBtnText}>
-                  {t(language, 'premium_unlock_free')}
-                </Text>
+              <AnimatedPressable style={[s.upgradeBtn, { shadowColor: theme.primary, overflow: 'hidden' }]} onPress={handleUnlockEarlyAccess} hapticStyle="medium">
+                <LinearGradient
+                  colors={['#0E8BFF', '#0A79F1']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16 }}
+                >
+                  <Ionicons name="lock-open" size={20} color="#FFF" style={{ marginRight: 8 }} />
+                  <Text style={s.upgradeBtnText}>
+                    {t(language, 'premium_unlock_free')}
+                  </Text>
+                </LinearGradient>
               </AnimatedPressable>
             </>
           )}
@@ -286,47 +310,46 @@ const s = StyleSheet.create({
 
   hero: { alignItems: 'center', paddingVertical: 32 },
   proBadge: {
-    width: 88, height: 88, borderRadius: 22,
+    width: 96, height: 96, borderRadius: 22,
     backgroundColor: 'rgba(255,215,0,0.1)',
     alignItems: 'center', justifyContent: 'center', marginBottom: 16,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.04)',
   },
-  heroTitle: { fontSize: 28, fontWeight: '700', letterSpacing: 0.35 },
-  heroSub: { fontSize: 17, marginTop: 4 },
+  heroTitle: { fontSize: 32, fontWeight: '800', fontFamily: fonts.extraBold, letterSpacing: 0.35 },
+  heroSub: { fontSize: 17, fontFamily: fonts.regular, marginTop: 4 },
 
-  group: { marginHorizontal: 16, borderRadius: 12, overflow: 'hidden' },
+  group: { marginHorizontal: 16, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.04)' },
   featureRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16, minHeight: 60 },
-  featureIcon: { width: 36, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-  featureText: { fontSize: 17, flex: 1 },
+  featureIcon: { width: 40, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  featureText: { fontSize: 17, fontFamily: fonts.regular, flex: 1 },
 
   actions: { paddingHorizontal: 16, paddingTop: 32, gap: 12 },
 
   // Pricing tiers
   tierRow: { flexDirection: 'row', gap: 10 },
   tierCard: {
-    flex: 1, borderRadius: 12, borderWidth: 2, padding: 14, alignItems: 'center',
+    flex: 1, borderRadius: 16, borderWidth: 2, padding: 14, alignItems: 'center',
   },
-  tierCardSelected: { borderColor: '#007AFF', backgroundColor: 'rgba(0,122,255,0.06)' },
-  tierType: { fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
-  tierPrice: { fontSize: 22, fontWeight: '700', marginTop: 4 },
-  tierPerMonth: { fontSize: 12, marginTop: 2 },
+  tierType: { fontSize: 13, fontWeight: '600', fontFamily: fonts.semiBold, textTransform: 'uppercase', letterSpacing: 0.5 },
+  tierPrice: { fontSize: 22, fontWeight: '700', fontFamily: fonts.bold, marginTop: 4 },
+  tierPerMonth: { fontSize: 12, fontFamily: fonts.regular, marginTop: 2 },
   bestValueBadge: {
     position: 'absolute', top: -10, alignSelf: 'center',
     backgroundColor: '#FF9500', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 8,
   },
-  bestValueText: { color: '#FFF', fontSize: 10, fontWeight: '700', textTransform: 'uppercase' },
+  bestValueText: { color: '#FFF', fontSize: 10, fontWeight: '700', fontFamily: fonts.bold, textTransform: 'uppercase' },
 
   upgradeBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#007AFF', borderRadius: 14, paddingVertical: 16,
-    shadowColor: '#007AFF', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 12,
+    borderRadius: 16, overflow: 'hidden',
+    shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 12,
     elevation: 8,
   },
-  upgradeBtnText: { color: '#FFF', fontSize: 17, fontWeight: '600' },
-  earlyAccessNote: { fontSize: 15, textAlign: 'center', lineHeight: 22, marginBottom: 16 },
+  upgradeBtnText: { color: '#FFF', fontSize: 17, fontWeight: '600', fontFamily: fonts.semiBold },
+  earlyAccessNote: { fontSize: 15, fontFamily: fonts.regular, textAlign: 'center', lineHeight: 22, marginBottom: 16 },
   activeBadge: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 16 },
-  activeText: { fontSize: 20, fontWeight: '700' },
+  activeText: { fontSize: 20, fontWeight: '700', fontFamily: fonts.bold },
 
   restoreBtn: { alignItems: 'center', paddingVertical: 12 },
-  restoreText: { color: '#007AFF', fontSize: 15 },
-  termsText: { fontSize: 11, textAlign: 'center', lineHeight: 16, marginTop: 4 },
+  restoreText: { fontSize: 15, fontFamily: fonts.regular },
+  termsText: { fontSize: 11, fontFamily: fonts.regular, textAlign: 'center', lineHeight: 16, marginTop: 4 },
 });

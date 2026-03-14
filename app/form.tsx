@@ -21,12 +21,19 @@ import { useDocumentStore, useEnrichedDocument } from '../src/stores/useDocument
 import { t, translateSubtype } from '../src/core/i18n';
 import { parseLocalDate } from '../src/core/dateUtils';
 import { formatDate, formatMoney } from '../src/core/formatters';
-import { CATEGORIES, RECURRENCE_OPTIONS } from '../src/core/constants';
+import { CATEGORIES, RECURRENCE_QUICK, RECURRENCE_OPTIONS } from '../src/core/constants';
 import type { CategoryId, RecurrenceValue, RawDocument, Attachment } from '../src/core/constants';
+import { LinearGradient } from 'expo-linear-gradient';
 import { AnimatedPressable, FadeInView } from '../src/components/AnimatedUI';
 import { SegmentedControl, RowDivider } from '../src/components/settings/SettingsUI';
 import { AttachmentPicker } from '../src/components/AttachmentPicker';
-import { getSmartDefaults } from '../src/core/smartDefaults';
+import { getSmartDefaults, autoCategorize } from '../src/core/smartDefaults';
+import { getAutoReminderDays } from '../src/core/enrichment';
+import { findDuplicate } from '../src/core/helpers';
+import { fonts } from '../src/theme/typography';
+import { isOcrAvailable, scanDocument } from '../src/services/ocr';
+import * as ImagePicker from 'expo-image-picker';
+import { showToast } from '../src/stores/useToastStore';
 
 function dateToString(date: Date): string {
   const year = date.getFullYear();
@@ -79,9 +86,18 @@ export default function FormScreen() {
   const [customType, setCustomType] = useState<string>(isCustomType ? (existingDoc?.type || '') : '');
   const [title, setTitle] = useState<string>(existingDoc?.title || (dupTitle ? `${dupTitle} (copy)` : ''));
   const [asset, setAsset] = useState<string>(existingDoc?.asset || dupAsset || '');
-  const [due, setDue] = useState<string>(existingDoc?.due || todayStr);
+  // Smart default: +30 days for new docs (today is rarely the right due date)
+  const defaultDue = existingDoc?.due || (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    return dateToString(d);
+  })();
+  const [due, setDue] = useState<string>(defaultDue);
   const [amt, setAmt] = useState<string>(existingDoc?.amt ? String(existingDoc.amt) : (dupAmt || ''));
   const [rec, setRec] = useState<RecurrenceValue>(existingDoc?.rec || (dupRec as RecurrenceValue) || 'none');
+  const [showRecPicker, setShowRecPicker] = useState(false);
+  const isCustomRec = rec !== 'none' && rec !== 'monthly' && rec !== 'annual';
+  const [customReminders, setCustomReminders] = useState<number[] | null>(existingDoc?.reminderDays || null);
   const [notes, setNotes] = useState<string>(existingDoc?.notes || dupNotes || '');
   // Refs hold current text during typing — no re-renders, fixes Fabric space key bug
   const titleRef = useRef(title);
@@ -91,11 +107,16 @@ export default function FormScreen() {
   const [attachments, setAttachments] = useState<Attachment[]>(existingDoc?.attachments || []);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [scanning, setScanning] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const successScale = useRef(new Animated.Value(0)).current;
   const successOpacity = useRef(new Animated.Value(0)).current;
   const [recAutoSet, setRecAutoSet] = useState(false);
   const recAutoSetTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const [autoDetected, setAutoDetected] = useState(false);
+  const manualCatRef = useRef(false);
+  const documents = useDocumentStore((s) => s.documents);
+  const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
   const [showTypePicker, setShowTypePicker] = useState(false);
   const [typeSearch, setTypeSearch] = useState('');
   const savingRef = useRef(false); // Guard against rapid double-taps
@@ -132,7 +153,7 @@ export default function FormScreen() {
        notesRef.current.trim() !== (existingDoc?.notes || '') ||
        cat !== (existingDoc?.cat || 'vehicule') ||
        type !== (existingDoc?.type || '') ||
-       due !== (existingDoc?.due || todayStr) ||
+       due !== defaultDue ||
        rec !== (existingDoc?.rec || 'none') ||
        attachments.length !== (existingDoc?.attachments?.length || 0))
     : (titleRef.current.trim().length > 0 || assetRef.current.trim().length > 0 || amtRef.current.trim().length > 0 || notesRef.current.trim().length > 0);
@@ -208,6 +229,46 @@ export default function FormScreen() {
     }
   };
 
+  const handleScan = async () => {
+    if (!isOcrAvailable()) {
+      showToast(t(language, 'scan_unavailable'), 'info');
+      return;
+    }
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        showToast(t(language, 'photo_permission'), 'error');
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({ quality: 0.8, allowsEditing: false });
+      if (result.canceled || !result.assets?.[0]) return;
+
+      setScanning(true);
+      const imageUri = result.assets[0].uri;
+      const ocrResult = await scanDocument(imageUri);
+
+      // Auto-fill form fields from OCR result
+      if (ocrResult.category) { setCat(ocrResult.category); manualCatRef.current = false; }
+      if (ocrResult.type) setType(ocrResult.type);
+      if (ocrResult.title) { titleRef.current = ocrResult.title; setTitle(ocrResult.title); }
+      if (ocrResult.date) { setDue(ocrResult.date); setPickerDate(stringToDate(ocrResult.date)); }
+      if (ocrResult.amount != null) { amtRef.current = String(ocrResult.amount); setAmt(String(ocrResult.amount)); }
+
+      // Apply smart defaults for recurrence based on detected type
+      if (ocrResult.type && rec === 'none') {
+        const defaults = getSmartDefaults(ocrResult.type);
+        if (defaults) setRec(defaults.recurrence);
+      }
+
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      showToast(t(language, 'scan_success'));
+    } catch (e) {
+      showToast(t(language, 'scan_error'), 'error');
+    } finally {
+      setScanning(false);
+    }
+  };
+
   const validate = (): boolean => {
     const e: Record<string, string> = {};
     if (!titleRef.current.trim()) e.title = t(language, 'val_title_required');
@@ -250,6 +311,7 @@ export default function FormScreen() {
       amt: amtRef.current.trim() ? Number(amtRef.current.trim().replace(',', '.')) : null, rec,
       notes: notesRef.current.trim() || undefined,
       attachments: attachments.length > 0 ? attachments : undefined,
+      reminderDays: customReminders || undefined,
     };
     try {
       if (effectiveEdit && existingDoc) {
@@ -288,19 +350,27 @@ export default function FormScreen() {
             keyboardDismissMode="on-drag"
             automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
           >
-            {/* Modal header — Cancel | grabber | title */}
+            {/* Modal header — Cancel | title | scan */}
             <FadeInView delay={0} style={s.modalHeader}>
               <AnimatedPressable onPress={handleCancel} haptic={false} accessibilityLabel={t(language, 'a11y_cancel')}>
-                <Text style={s.cancelText}>{t(language, 'confirm_cancel')}</Text>
+                <Text style={[s.cancelText, { color: theme.primary }]}>{t(language, 'confirm_cancel')}</Text>
               </AnimatedPressable>
-              <View style={[s.grabber, { backgroundColor: theme.grabber }]} />
-              <View style={{ width: 60 }} />
-            </FadeInView>
-
-            <FadeInView delay={100}>
-              <Text style={[s.largeTitle, { color: theme.text }]} accessibilityRole="header">
+              <Text style={[s.headerTitle, { color: theme.text }]}>
                 {effectiveEdit ? t(language, 'form_edit_title') : t(language, 'form_add_title')}
               </Text>
+              {!effectiveEdit ? (
+                <AnimatedPressable
+                  onPress={handleScan}
+                  hapticStyle="light"
+                  style={{ width: 60, alignItems: 'flex-end' }}
+                  accessibilityLabel={t(language, 'scan_btn')}
+                  disabled={scanning}
+                >
+                  <Ionicons name="scan-outline" size={22} color={theme.primary} />
+                </AnimatedPressable>
+              ) : (
+                <View style={{ width: 60 }} />
+              )}
             </FadeInView>
 
             {/* Category */}
@@ -317,7 +387,7 @@ export default function FormScreen() {
                         backgroundColor: selected ? c.color + '18' : theme.card,
                         borderColor: selected ? c.color : 'transparent',
                       }]}
-                      onPress={() => setCat(catId)}
+                      onPress={() => { manualCatRef.current = true; setCat(catId); }}
                       hapticStyle="selection"
                       accessibilityLabel={t(language, 'a11y_select_category', { name: t(language, c.labelKey) })}
                       accessibilityState={{ selected }}
@@ -330,6 +400,11 @@ export default function FormScreen() {
                   );
                 })}
               </ScrollView>
+              {autoDetected && (
+                <Text style={{ fontSize: 12, color: '#34C759', marginTop: 6, fontWeight: '500', fontFamily: fonts.medium, paddingHorizontal: 20 }}>
+                  {t(language, 'auto_detected')}
+                </Text>
+              )}
             </FadeInView>
 
             {/* General — consolidated card: Type, Title, Asset, Date, Amount, Recurrence */}
@@ -352,7 +427,20 @@ export default function FormScreen() {
                   <Text style={[s.inputLabel, { color: theme.textSecondary }]}>{t(language, 'form_title')}</Text>
                   <TextInput style={[s.inputField, { color: theme.text }]} defaultValue={title}
                     onChangeText={(v) => { titleRef.current = v; }}
-                    onBlur={() => { setTitle(titleRef.current); clearError('title'); }}
+                    onBlur={() => {
+                      setTitle(titleRef.current); clearError('title');
+                      if (!isEdit && !manualCatRef.current) {
+                        const detected = autoCategorize(titleRef.current);
+                        if (detected) {
+                          if (detected.cat) setCat(detected.cat);
+                          if (detected.type) setType(detected.type);
+                          setAutoDetected(true);
+                          setTimeout(() => setAutoDetected(false), 2500);
+                        }
+                      }
+                      const dup = findDuplicate(documents, cat, type, titleRef.current, editId);
+                      setDuplicateWarning(dup ? dup.title : null);
+                    }}
                     placeholder={t(language, 'form_title_placeholder')} placeholderTextColor={theme.textDim}
                     returnKeyType="done" onSubmitEditing={Keyboard.dismiss}
                     maxLength={150}
@@ -384,9 +472,9 @@ export default function FormScreen() {
                 {showDatePicker && (
                   <View style={s.datePickerContainer}>
                     <View style={s.datePickerHeader}>
-                      <AnimatedPressable onPress={() => setShowDatePicker(false)} haptic={false}
+                      <AnimatedPressable onPress={() => { Haptics.selectionAsync().catch(() => {}); setShowDatePicker(false); }} haptic={false}
                         accessibilityLabel={t(language, 'form_done')} accessibilityRole="button">
-                        <Text style={s.doneText}>{t(language, 'form_done')}</Text>
+                        <Text style={[s.doneText, { color: theme.primary }]}>{t(language, 'form_done')}</Text>
                       </AnimatedPressable>
                     </View>
                     <DateTimePicker
@@ -412,28 +500,168 @@ export default function FormScreen() {
                     inputAccessoryViewID={Platform.OS === 'ios' ? 'amtKeyboardDone' : undefined}
                     accessibilityLabel={t(language, 'form_amount')}
                     aria-invalid={!!errors.amt} />
-                  <Text style={{ fontSize: 15, color: theme.textMuted, marginLeft: 6 }}>{currency}</Text>
+                  <Text style={{ fontSize: 15, fontFamily: fonts.regular, color: theme.textMuted, marginLeft: 6 }}>{currency}</Text>
                 </View>
                 {errors.amt ? <Text style={s.errorText} accessibilityLiveRegion="polite" accessibilityRole="alert">{errors.amt}</Text> : null}
                 <View style={s.dividerWrap}><View style={[s.divider, { backgroundColor: theme.divider }]} /></View>
 
-                {/* Recurrence — label + SegmentedControl stacked */}
-                <View style={{ paddingHorizontal: 16, paddingVertical: 10 }}>
-                  <Text style={{ fontSize: 13, fontWeight: '500', color: theme.textSecondary, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>{t(language, 'form_recurrence')}</Text>
-                  <SegmentedControl
-                    options={RECURRENCE_OPTIONS.map((opt) => ({
-                      value: opt.value,
-                      label: t(language, opt.labelKey + '_short'),
-                    }))}
-                    selected={rec}
-                    onSelect={(v) => setRec(v as RecurrenceValue)}
-                    theme={theme}
-                    fullWidth
-                  />
+                {/* Recurrence — 3 quick chips + Custom */}
+                <View style={{ paddingVertical: 10, paddingHorizontal: 16 }}>
+                  <Text style={{ fontSize: 13, fontWeight: '500', fontFamily: fonts.medium, color: theme.textSecondary, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>{t(language, 'form_recurrence')}</Text>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    {RECURRENCE_QUICK.map((opt) => {
+                      const isActive = rec === opt.value;
+                      return (
+                        <View key={opt.value} style={{ flex: 1 }}>
+                          <AnimatedPressable
+                            style={{
+                              alignItems: 'center',
+                              paddingVertical: 10, borderRadius: 10,
+                              backgroundColor: isActive ? theme.primary : theme.inputFill,
+                            }}
+                            onPress={() => { setRec(opt.value); setShowRecPicker(false); }}
+                            hapticStyle="selection"
+                            accessibilityLabel={t(language, opt.labelKey)}
+                            accessibilityState={{ selected: isActive }}
+                          >
+                            <Text style={{
+                              fontSize: 14,
+                              fontFamily: isActive ? fonts.semiBold : fonts.medium,
+                              color: isActive ? '#FFF' : theme.textSecondary,
+                            }}>
+                              {t(language, opt.labelKey + '_short')}
+                            </Text>
+                          </AnimatedPressable>
+                        </View>
+                      );
+                    })}
+                    <View style={{ flex: 1 }}>
+                      <AnimatedPressable
+                        style={{
+                          flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4,
+                          paddingVertical: 10, borderRadius: 10,
+                          backgroundColor: isCustomRec ? theme.primary : theme.inputFill,
+                        }}
+                        onPress={() => setShowRecPicker(!showRecPicker)}
+                        hapticStyle="selection"
+                        accessibilityLabel={t(language, 'rec_custom')}
+                      >
+                        <Text numberOfLines={1} style={{
+                          fontSize: 13,
+                          fontFamily: isCustomRec ? fonts.semiBold : fonts.medium,
+                          color: isCustomRec ? '#FFF' : theme.textSecondary,
+                        }}>
+                          {isCustomRec ? t(language, RECURRENCE_OPTIONS.find((o) => o.value === rec)?.labelKey + '_short' || 'rec_custom') : t(language, 'rec_custom')}
+                        </Text>
+                        <Ionicons name="chevron-down" size={14} color={isCustomRec ? '#FFF' : theme.textMuted} />
+                      </AnimatedPressable>
+                    </View>
+                  </View>
                   {recAutoSet && (
-                    <Text style={{ fontSize: 12, color: '#34C759', marginTop: 6, fontWeight: '500' }}>
+                    <Text style={{ fontSize: 12, color: '#34C759', marginTop: 6, fontWeight: '500', fontFamily: fonts.medium }}>
                       {t(language, 'smart_default_applied')}
                     </Text>
+                  )}
+                </View>
+
+                {/* Custom recurrence modal */}
+                {showRecPicker && (
+                  <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
+                    <View style={[s.group, { backgroundColor: theme.card }]}>
+                      {RECURRENCE_OPTIONS.map((opt, i) => (
+                        <View key={opt.value}>
+                          <AnimatedPressable
+                            style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 16, minHeight: 44 }}
+                            onPress={() => { setRec(opt.value); setShowRecPicker(false); }}
+                            hapticStyle="selection"
+                          >
+                            <Text style={{ flex: 1, fontSize: 17, fontFamily: fonts.regular, color: rec === opt.value ? theme.primary : theme.text }}>
+                              {t(language, opt.labelKey)}
+                            </Text>
+                            {rec === opt.value && <Ionicons name="checkmark" size={20} color={theme.primary} />}
+                          </AnimatedPressable>
+                          {i < RECURRENCE_OPTIONS.length - 1 && (
+                            <View style={{ paddingLeft: 16 }}><View style={{ height: StyleSheet.hairlineWidth, backgroundColor: theme.divider }} /></View>
+                          )}
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
+
+                {/* Reminder — auto or custom */}
+                <View style={s.dividerWrap}><View style={[s.divider, { backgroundColor: theme.divider }]} /></View>
+                <View style={{ paddingHorizontal: 16, paddingVertical: 10 }}>
+                  <Text style={{ fontSize: 13, fontWeight: '500', fontFamily: fonts.medium, color: theme.textSecondary, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    {t(language, 'form_reminder')}
+                  </Text>
+                  <Text style={{ fontSize: 13, fontFamily: fonts.regular, color: theme.textMuted, marginBottom: 8 }}>
+                    {t(language, 'form_reminder_auto')}: {getAutoReminderDays(rec).map(d => `${d}${t(language, 'form_reminder_days_suffix')}`).join(', ')}
+                  </Text>
+                  {(() => {
+                    // -1 = 1 day AFTER expiry (safety net, red)
+                    const allDays = [1, 3, 7, 14, 30, 60, 90, -1];
+                    const row1 = allDays.slice(0, 4);
+                    const row2 = allDays.slice(4);
+                    const autoDefault = getAutoReminderDays(rec);
+                    const isAuto = !customReminders;
+                    const renderChip = (day: number) => {
+                      const isOverdue = day < 0;
+                      const isSelected = isAuto
+                        ? autoDefault.includes(day)
+                        : (customReminders || []).includes(day);
+                      return (
+                        <View key={day} style={{ flex: 1 }}>
+                          <AnimatedPressable
+                            style={{
+                              alignItems: 'center', justifyContent: 'center',
+                              minHeight: 36, borderRadius: 10,
+                              backgroundColor: isSelected
+                                ? (isOverdue ? '#FF3B30' : theme.primary)
+                                : theme.inputFill,
+                              opacity: isAuto && !autoDefault.includes(day) ? 0.4 : 1,
+                            }}
+                            onPress={() => {
+                              const current = customReminders || [...autoDefault];
+                              const next = current.includes(day)
+                                ? current.filter(d => d !== day)
+                                : [...current, day].sort((a, b) => a - b);
+                              setCustomReminders(next.length > 0 ? next : null);
+                            }}
+                            hapticStyle="selection"
+                          >
+                            <Text style={{
+                              fontSize: 14,
+                              fontFamily: isSelected ? fonts.semiBold : fonts.medium,
+                              color: isSelected ? '#FFF' : (isOverdue ? '#FF3B30' : theme.textSecondary),
+                            }}>
+                              {isOverdue ? `+1${t(language, 'form_reminder_days_suffix')}` : `${day}${t(language, 'form_reminder_days_suffix')}`}
+                            </Text>
+                          </AnimatedPressable>
+                        </View>
+                      );
+                    };
+                    return (
+                      <View style={{ gap: 8 }}>
+                        <View style={{ flexDirection: 'row', gap: 8 }}>
+                          {row1.map(renderChip)}
+                        </View>
+                        <View style={{ flexDirection: 'row', gap: 8 }}>
+                          {row2.map(renderChip)}
+                        </View>
+                      </View>
+                    );
+                  })()}
+                  {customReminders && (
+                    <AnimatedPressable
+                      onPress={() => setCustomReminders(null)}
+                      haptic={false}
+                      style={{ marginTop: 6 }}
+                    >
+                      <Text style={{ fontSize: 12, fontFamily: fonts.medium, color: theme.primary }}>
+                        {t(language, 'form_reminder_reset')}
+                      </Text>
+                    </AnimatedPressable>
                   )}
                 </View>
               </View>
@@ -453,7 +681,7 @@ export default function FormScreen() {
                 <View style={[s.pickerHeader, { paddingTop: insets.top + 8 }]}>
                   <AnimatedPressable onPress={() => setShowTypePicker(false)} haptic={false}
                     accessibilityLabel={t(language, 'confirm_cancel')} accessibilityRole="button">
-                    <Text style={s.cancelText}>{t(language, 'confirm_cancel')}</Text>
+                    <Text style={[s.cancelText, { color: theme.primary }]}>{t(language, 'confirm_cancel')}</Text>
                   </AnimatedPressable>
                   <Text style={[s.pickerTitle, { color: theme.text }]} accessibilityRole="header">{t(language, 'form_type')}</Text>
                   <View style={{ width: 60 }} />
@@ -507,7 +735,7 @@ export default function FormScreen() {
                             {translateSubtype(sub, language)}
                           </Text>
                           {type === sub && (
-                            <Ionicons name="checkmark" size={20} color="#007AFF" />
+                            <Ionicons name="checkmark" size={20} color={theme.primary} />
                           )}
                           {savedCustom.includes(sub) && (
                             <AnimatedPressable
@@ -563,6 +791,13 @@ export default function FormScreen() {
               </View>
             </Modal>
 
+            {duplicateWarning && (
+              <View style={{ marginHorizontal: 16, marginTop: 8, paddingHorizontal: 14, paddingVertical: 10, backgroundColor: '#FF950014', borderRadius: 10, borderWidth: 1, borderColor: '#FF950033', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Ionicons name="alert-circle" size={18} color="#FF9500" />
+                <Text style={{ flex: 1, fontSize: 13, color: '#FF9500', fontFamily: fonts.medium }}>{t(language, 'duplicate_warning')}</Text>
+              </View>
+            )}
+
             {/* Notes */}
             <FadeInView delay={250}>
               <Text style={[s.sectionHeader, { color: theme.textSecondary }]}>{t(language, 'form_notes')}</Text>
@@ -601,21 +836,28 @@ export default function FormScreen() {
           borderTopColor: theme.divider,
         }]}>
           <AnimatedPressable
-            style={s.saveBtn}
+            style={[s.saveBtn, { shadowColor: theme.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, overflow: 'hidden' }]}
             onPress={handleSave}
             hapticStyle="medium"
             accessibilityLabel={t(language, 'a11y_save_document')}
             scaleValue={0.97}
             disabled={saving}
           >
-            {saving ? (
-              <ActivityIndicator size="small" color="#FFF" style={{ marginRight: 6 }} />
-            ) : (
-              <Ionicons name="checkmark" size={20} color="#FFF" style={{ marginRight: 6 }} />
-            )}
-            <Text style={s.saveBtnText}>
-              {t(language, 'form_save')}
-            </Text>
+            <LinearGradient
+              colors={['#0E8BFF', '#0A79F1']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16 }}
+            >
+              {saving ? (
+                <ActivityIndicator size="small" color="#FFF" style={{ marginRight: 6 }} />
+              ) : (
+                <Ionicons name="checkmark" size={20} color="#FFF" style={{ marginRight: 6 }} />
+              )}
+              <Text style={s.saveBtnText}>
+                {t(language, 'form_save')}
+              </Text>
+            </LinearGradient>
           </AnimatedPressable>
         </View>
 
@@ -626,7 +868,7 @@ export default function FormScreen() {
               <View style={{ flex: 1 }} />
               <AnimatedPressable onPress={Keyboard.dismiss} haptic={false}
                 accessibilityLabel={t(language, 'form_done')} accessibilityRole="button">
-                <Text style={s.doneText}>{t(language, 'form_done')}</Text>
+                <Text style={[s.doneText, { color: theme.primary }]}>{t(language, 'form_done')}</Text>
               </AnimatedPressable>
             </View>
           </InputAccessoryView>
@@ -637,7 +879,7 @@ export default function FormScreen() {
               <View style={{ flex: 1 }} />
               <AnimatedPressable onPress={Keyboard.dismiss} haptic={false}
                 accessibilityLabel={t(language, 'form_done')} accessibilityRole="button">
-                <Text style={s.doneText}>{t(language, 'form_done')}</Text>
+                <Text style={[s.doneText, { color: theme.primary }]}>{t(language, 'form_done')}</Text>
               </AnimatedPressable>
             </View>
           </InputAccessoryView>
@@ -657,31 +899,32 @@ export default function FormScreen() {
 const s = StyleSheet.create({
   container: { flex: 1 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 4 },
-  cancelText: { color: '#007AFF', fontSize: 17 },
+  cancelText: { fontSize: 17, fontFamily: fonts.regular },
+  headerTitle: { fontSize: 17, fontWeight: '600', fontFamily: fonts.semiBold },
   grabber: { width: 36, height: 5, borderRadius: 3 },
-  largeTitle: { fontSize: 34, fontWeight: '700', paddingHorizontal: 20, paddingTop: 4, paddingBottom: 4, letterSpacing: 0.37 },
-  sectionHeader: { fontSize: 13, fontWeight: '500', textTransform: 'uppercase', letterSpacing: 0.5, paddingHorizontal: 20, paddingTop: 24, paddingBottom: 8 },
+  largeTitle: { fontSize: 34, fontWeight: '700', fontFamily: fonts.bold, paddingHorizontal: 20, paddingTop: 4, paddingBottom: 4, letterSpacing: 0.37 },
+  sectionHeader: { fontSize: 13, fontWeight: '500', fontFamily: fonts.medium, textTransform: 'uppercase', letterSpacing: 0.5, paddingHorizontal: 20, paddingTop: 24, paddingBottom: 8 },
   chipRow: { paddingHorizontal: 16, gap: 8 },
-  catChip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, borderWidth: 1.5, gap: 8 },
-  catChipLabel: { fontSize: 14, fontWeight: '500' },
+  catChip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, borderWidth: 2, gap: 8 },
+  catChipLabel: { fontSize: 14, fontWeight: '500', fontFamily: fonts.medium },
   pickerOverlay: { flex: 1 },
   pickerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 12 },
-  pickerTitle: { fontSize: 17, fontWeight: '600' },
+  pickerTitle: { fontSize: 17, fontWeight: '600', fontFamily: fonts.semiBold },
   searchBarWrap: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 4 },
-  searchInput: { flex: 1, fontSize: 16, paddingVertical: 0 },
+  searchInput: { flex: 1, fontSize: 16, fontFamily: fonts.regular, paddingVertical: 0 },
   pickerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, minHeight: 44, paddingVertical: 11 },
-  pickerRowText: { fontSize: 17 },
-  group: { marginHorizontal: 16, borderRadius: 12, overflow: 'hidden' },
-  inputRow: { flexDirection: 'row', alignItems: 'center', minHeight: 44, paddingHorizontal: 16 },
-  inputLabel: { fontSize: 17, minWidth: 100 },
-  inputField: { flex: 1, fontSize: 17, paddingVertical: 11 },
+  pickerRowText: { fontSize: 17, fontFamily: fonts.regular },
+  group: { marginHorizontal: 16, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.04)' },
+  inputRow: { flexDirection: 'row', alignItems: 'center', minHeight: 48, paddingHorizontal: 16 },
+  inputLabel: { fontSize: 17, fontFamily: fonts.regular, minWidth: 100 },
+  inputField: { flex: 1, fontSize: 17, fontFamily: fonts.regular, paddingVertical: 11 },
   datePickerContainer: { paddingHorizontal: 16, paddingBottom: 12 },
   datePickerHeader: { flexDirection: 'row', justifyContent: 'flex-end', paddingTop: 8, paddingBottom: 4, paddingHorizontal: 4 },
-  doneText: { color: '#007AFF', fontSize: 17, fontWeight: '600' },
+  doneText: { fontSize: 17, fontWeight: '600', fontFamily: fonts.semiBold },
   dividerWrap: { paddingLeft: 16 },
   divider: { height: StyleSheet.hairlineWidth },
-  notesInput: { fontSize: 17, padding: 16, minHeight: 100 },
-  errorText: { color: '#FF3B30', fontSize: 12, fontWeight: '500', paddingHorizontal: 32, paddingTop: 4, paddingBottom: 2 },
+  notesInput: { fontSize: 17, fontFamily: fonts.regular, padding: 16, minHeight: 100 },
+  errorText: { color: '#FF3B30', fontSize: 12, fontWeight: '500', fontFamily: fonts.medium, paddingHorizontal: 32, paddingTop: 4, paddingBottom: 2 },
   keyboardToolbar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, borderTopWidth: StyleSheet.hairlineWidth },
   // Sticky bottom save bar
   bottomBar: {
@@ -694,17 +937,14 @@ const s = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   saveBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#007AFF',
-    paddingVertical: 16,
-    borderRadius: 14,
+    borderRadius: 16,
+    overflow: 'hidden',
   },
   saveBtnText: {
     color: '#FFFFFF',
     fontSize: 17,
     fontWeight: '600',
+    fontFamily: fonts.semiBold,
   },
   successOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -714,9 +954,9 @@ const s = StyleSheet.create({
     zIndex: 100,
   },
   successCircle: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
+    width: 96,
+    height: 96,
+    borderRadius: 48,
     backgroundColor: '#34C759',
     alignItems: 'center',
     justifyContent: 'center',

@@ -13,17 +13,21 @@ import React, { useRef, useMemo, useState, useEffect, useCallback } from "react"
 import {
   View,
   Text,
+  Pressable,
   StyleSheet,
   Animated as RNAnimated,
   useWindowDimensions,
   Alert,
+  RefreshControl,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { useTheme, useLanguage } from "../../src/stores/useSettingsStore";
+import { useTheme, useLanguage, useSettingsStore } from "../../src/stores/useSettingsStore";
 import {
   useEnrichedDocuments,
   useGlobalStats,
@@ -32,10 +36,13 @@ import {
 } from "../../src/stores/useDocumentStore";
 import { t } from "../../src/core/i18n";
 import { CATEGORIES, QUICK_PREVIEW_LIMIT } from "../../src/core/constants";
-import type { CategoryId, IconName } from "../../src/core/constants";
+import type { CategoryId } from "../../src/core/constants";
 import { formatDaysRemaining, getCategoryLabel } from "../../src/core/formatters";
 import { AnimatedPressable, AnimatedSection, AnimatedCounter, AnimatedBar } from "../../src/components/AnimatedUI";
+import { CircularProgress } from "../../src/components/CircularProgress";
+import { Celebration } from "../../src/components/Celebration";
 import { calculateHealthScore, getHealthScoreColor } from "../../src/core/healthScore";
+import { fonts } from "../../src/theme/typography";
 
 const COLLAPSE_START = 30;
 const COLLAPSE_END = 60;
@@ -55,6 +62,7 @@ export default function HomeScreen() {
   const enriched = useEnrichedDocuments();
   const stats = useGlobalStats(enriched);
   const catStats = useCategoryStats(enriched);
+  const streakDays = useSettingsStore((s) => s.settings.streakDays ?? 0);
   const urgentDocs = useMemo(
     () => enriched.filter((d) => d._status === "expired" || d._status === "warning"),
     [enriched]
@@ -65,6 +73,23 @@ export default function HomeScreen() {
     () => calculateHealthScore(enriched),
     [enriched]
   );
+
+
+  // Next expiring document (for health score card)
+  const nextExpiring = useMemo(() => {
+    if (enriched.length === 0) return null;
+    const sorted = [...enriched].sort((a, b) => a._daysUntil - b._daysUntil);
+    return sorted[0] || null;
+  }, [enriched]);
+
+  // Celebration when health score hits 100
+  const [showCelebration, setShowCelebration] = useState(false);
+  useEffect(() => {
+    if (healthScore === 100 && enriched.length > 0) {
+      setShowCelebration(true);
+      setTimeout(() => setShowCelebration(false), 1000);
+    }
+  }, [healthScore]);
 
   // Floating animation for empty state icon
   const floatAnim = useRef(new RNAnimated.Value(0)).current;
@@ -78,7 +103,7 @@ export default function HomeScreen() {
     );
     anim.start();
     return () => anim.stop();
-  }, [enriched.length === 0]);
+  }, [enriched.length]);
 
   // Demo banner — show only when demo data is present and not dismissed
   const clearAll = useDocumentStore((s) => s.clearAll);
@@ -112,6 +137,17 @@ export default function HomeScreen() {
     );
   }, [lang, clearAll]);
 
+  // ─── Pull-to-refresh ────────────────────────────────
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    // Re-hydrate stores
+    Promise.all([
+      useDocumentStore.getState()._hydrate(),
+    ]).finally(() => setTimeout(() => setRefreshing(false), 600));
+  }, []);
+
   // ─── Scroll-driven collapse ────────────────────────
   const scrollY = useRef(new RNAnimated.Value(0)).current;
 
@@ -138,14 +174,16 @@ export default function HomeScreen() {
         style={[styles.compactBar, { paddingTop: insets.top, height: insets.top + COMPACT_H }]}
         pointerEvents="box-none"
       >
-        {/* Animated background */}
+        {/* Animated blur background */}
         <RNAnimated.View
           style={[
             StyleSheet.absoluteFill,
-            { backgroundColor: theme.background, opacity: compactOpacity },
+            { opacity: compactOpacity, overflow: 'hidden' },
           ]}
           pointerEvents="none"
-        />
+        >
+          <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
+        </RNAnimated.View>
         {/* Animated title */}
         <RNAnimated.View style={[styles.compactInner, { opacity: compactOpacity }]}>
           <Text style={[styles.compactTitle, { color: theme.text }]}>DocDue</Text>
@@ -166,6 +204,14 @@ export default function HomeScreen() {
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
           { useNativeDriver: true }
         )}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.primary}
+            progressBackgroundColor={theme.card}
+          />
+        }
       >
         {/* ─── Large Title ──────────────────────────── */}
         <RNAnimated.View
@@ -187,14 +233,15 @@ export default function HomeScreen() {
         {/* ─── Demo Banner ───────────────────────────── */}
         {showDemoBanner && (
           <AnimatedSection index={0} style={{ marginHorizontal: 16, marginBottom: 12 }}>
-            <View style={[styles.demoBanner, { backgroundColor: '#007AFF14', borderColor: '#007AFF33' }]}>
+            <View style={[styles.demoBanner, { backgroundColor: theme.primary + '14', borderColor: theme.primary + '33' }]}>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.demoBannerText, { color: theme.textSecondary }]}>
                   {t(lang, "demo_banner_text")}
                 </Text>
               </View>
-              <AnimatedPressable onPress={handleDismissDemo} hapticStyle="selection" style={styles.demoBannerBtn}>
-                <Ionicons name="trash-outline" size={16} color="#FF3B30" />
+              <AnimatedPressable onPress={handleDismissDemo} hapticStyle="selection" style={styles.demoBannerBtn}
+                accessibilityLabel={t(lang, "demo_banner_dismiss")}>
+                <Ionicons name="close-circle" size={20} color={theme.textMuted} />
               </AnimatedPressable>
             </View>
           </AnimatedSection>
@@ -203,49 +250,78 @@ export default function HomeScreen() {
         {/* ─── Status Summary ───────────────────────── */}
         <AnimatedSection index={0} style={{ marginHorizontal: 16, marginBottom: 0 }}>
           <View style={[styles.statusCard, { backgroundColor: theme.card }]}>
+            <LinearGradient
+              colors={['#FF3B30', '#FF9500', '#34C759']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={{ height: 2, borderRadius: 1 }}
+            />
             <View style={styles.statusRow}>
-              <StatusBlock count={stats.expired} label={t(lang, "status_expired")} color="#FF3B30" icon="close-circle"
+              <StatusBlock count={stats.expired} label={t(lang, "status_expired")} color="#FF3B30"
                 onPress={() => router.push({ pathname: "/(tabs)/search", params: { status: "expired" } })} />
               <View style={[styles.statusDivider, { backgroundColor: theme.divider }]} />
-              <StatusBlock count={stats.warning} label={t(lang, "status_warning")} color="#FF9500" icon="alert-circle"
+              <StatusBlock count={stats.warning} label={t(lang, "status_warning")} color="#FF9500"
                 onPress={() => router.push({ pathname: "/(tabs)/search", params: { status: "warning" } })} />
               <View style={[styles.statusDivider, { backgroundColor: theme.divider }]} />
-              <StatusBlock count={stats.ok} label={t(lang, "status_ok")} color="#34C759" icon="checkmark-circle"
+              <StatusBlock count={stats.ok} label={t(lang, "status_ok")} color="#34C759"
                 onPress={() => router.push({ pathname: "/(tabs)/search", params: { status: "ok" } })} />
             </View>
           </View>
         </AnimatedSection>
 
-        {/* ─── Health Score (horizontal bar) ──────────── */}
+        {/* ─── Health Score + Next Expiring ─────────── */}
         {enriched.length > 0 && (
-          <AnimatedSection index={0} style={{ marginHorizontal: 16, marginTop: 10, marginBottom: 16 }}>
-            <AnimatedPressable
-              onPress={() => router.push("/(tabs)/alerts")}
-              scaleValue={0.98}
-              accessibilityLabel={t(lang, "a11y_health_score", { score: healthScore })}
-            >
-              <View style={[styles.scoreCard, { backgroundColor: theme.card }]}>
-                <AnimatedCounter value={healthScore} style={[styles.scoreNumber, { color: getHealthScoreColor(healthScore) }]} />
-                <View style={styles.scoreBarWrap}>
-                  <View style={styles.scoreLabelRow}>
-                    <Text style={[styles.scoreLabel, { color: theme.textSecondary }]}>
-                      {t(lang, "health_score")}
+          <AnimatedSection index={0} style={{ marginHorizontal: 16, marginTop: 12, marginBottom: 16 }}>
+            <View style={[styles.scoreCard, { backgroundColor: theme.card }]}>
+              <Pressable
+                onPress={() => router.push("/(tabs)/alerts")}
+                style={styles.scoreLeft}
+                accessibilityLabel={t(lang, "a11y_health_score", { score: healthScore })}
+              >
+                <CircularProgress
+                  size={48}
+                  strokeWidth={4}
+                  progress={healthScore}
+                  color={getHealthScoreColor(healthScore)}
+                  trackColor={theme.border}
+                >
+                  <AnimatedCounter value={healthScore} style={[styles.scoreNumber, { color: getHealthScoreColor(healthScore) }]} />
+                </CircularProgress>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.scoreLabel, { color: theme.textSecondary }]}>
+                    {t(lang, "health_score")}
+                  </Text>
+                  {(stats.expired > 0 || stats.warning > 0) ? (
+                    <Text style={[styles.scoreHint, { color: getHealthScoreColor(healthScore) }]}>
+                      {stats.expired > 0
+                        ? t(lang, "health_hint_expired", { n: stats.expired })
+                        : t(lang, "health_hint_warning", { n: stats.warning })}
                     </Text>
-                    {(stats.expired > 0 || stats.warning > 0) && (
-                      <Text style={[styles.scoreHint, { color: getHealthScoreColor(healthScore) }]}>
-                        {stats.expired > 0
-                          ? t(lang, "health_hint_expired", { n: stats.expired })
-                          : t(lang, "health_hint_warning", { n: stats.warning })}
-                      </Text>
-                    )}
-                  </View>
-                  <View style={[styles.scoreTrack, { backgroundColor: theme.border }]}>
-                    <AnimatedBar percentage={healthScore} color={getHealthScoreColor(healthScore)} style={styles.scoreFill} />
-                  </View>
+                  ) : (
+                    <Text style={[styles.scoreHint, { color: '#34C759' }]}>
+                      {t(lang, "health_good")}
+                    </Text>
+                  )}
                 </View>
-                <Ionicons name="chevron-forward" size={14} color={theme.textDim} />
-              </View>
-            </AnimatedPressable>
+              </Pressable>
+              {nextExpiring && (
+                <Pressable
+                  onPress={() => router.push(`/document/${nextExpiring.id}`)}
+                  style={styles.scoreRight}
+                  accessibilityLabel={`${nextExpiring.title} — ${formatDaysRemaining(nextExpiring._daysUntil, lang)}`}
+                >
+                  <Text style={[styles.scoreNextTitle, { color: theme.text }]} numberOfLines={1}>
+                    {nextExpiring.title}
+                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                    <Text style={[styles.scoreNextDays, { color: nextExpiring._status === 'expired' ? '#FF3B30' : nextExpiring._status === 'warning' ? '#FF9500' : theme.textMuted }]}>
+                      {formatDaysRemaining(nextExpiring._daysUntil, lang)}
+                    </Text>
+                    <Ionicons name="chevron-forward" size={12} color={theme.textDim} />
+                  </View>
+                </Pressable>
+              )}
+            </View>
           </AnimatedSection>
         )}
 
@@ -262,19 +338,25 @@ export default function HomeScreen() {
               return (
                 <AnimatedPressable
                   key={catId}
-                  style={[styles.catCard, { backgroundColor: theme.card, width: CARD_WIDTH }]}
+                  style={[styles.catCard, {
+                    backgroundColor: theme.card,
+                    width: CARD_WIDTH,
+                  }]}
                   onPress={() => router.push(`/category/${catId}`)}
                   accessibilityLabel={t(lang, "a11y_open_category", { name: getCategoryLabel(cat, lang) })}
                   scaleValue={0.96}
                 >
                   <View style={styles.catCardTop}>
-                    <View style={[styles.catIcon, { backgroundColor: cat.color + "14" }]}>
-                      <Ionicons name={cat.icon} size={22} color={cat.color} />
+                    <View style={[styles.catIcon, { backgroundColor: cat.color + "18" }]}>
+                      <Ionicons name={cat.icon} size={24} color={cat.color} />
                     </View>
                     {hasAlert && (
                       <View
                         style={[styles.alertDot, { backgroundColor: catStat.expired > 0 ? "#FF3B30" : "#FF9500" }]}
-                        accessibilityLabel={catStat.expired > 0 ? `${catStat.expired} ${t(lang, "status_expired")}` : `${catStat.warning} ${t(lang, "status_warning")}`}
+                        accessibilityLabel={[
+                          catStat.expired > 0 ? `${catStat.expired} ${t(lang, "status_expired")}` : '',
+                          catStat.warning > 0 ? `${catStat.warning} ${t(lang, "status_warning")}` : '',
+                        ].filter(Boolean).join(', ')}
                       />
                     )}
                   </View>
@@ -303,7 +385,7 @@ export default function HomeScreen() {
                 haptic={false}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Text style={styles.seeAll}>{t(lang, "home_see_all")}</Text>
+                <Text style={[styles.seeAll, { color: theme.primary }]}>{t(lang, "home_see_all")}</Text>
               </AnimatedPressable>
             </View>
             <View style={[styles.group, { backgroundColor: theme.card }]}>
@@ -342,7 +424,7 @@ export default function HomeScreen() {
         {/* ─── Empty State ──────────────────────────── */}
         {enriched.length === 0 && (
           <AnimatedSection index={1} style={styles.emptyState}>
-            <RNAnimated.View style={[styles.emptyIconWrap, { transform: [{ translateY: floatAnim }] }]}>
+            <RNAnimated.View style={[styles.emptyIconWrap, { backgroundColor: theme.primary + '1F', transform: [{ translateY: floatAnim }] }]}>
               <Ionicons name="documents-outline" size={44} color={theme.textDim} />
             </RNAnimated.View>
             <Text style={[styles.emptyTitle, { color: theme.text }]}>
@@ -353,16 +435,17 @@ export default function HomeScreen() {
             </Text>
             <AnimatedPressable
               onPress={() => router.push('/form')}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 20, backgroundColor: '#007AFF', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 22 }}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 20, backgroundColor: theme.primary, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 22 }}
               hapticStyle="medium"
               accessibilityLabel={t(lang, 'nav_add')}
             >
               <Ionicons name="add" size={18} color="#FFF" />
-              <Text style={{ color: '#FFF', fontSize: 15, fontWeight: '600' }}>{t(lang, 'nav_add')}</Text>
+              <Text style={{ color: '#FFF', fontSize: 15, fontFamily: fonts.semiBold }}>{t(lang, 'nav_add')}</Text>
             </AnimatedPressable>
           </AnimatedSection>
         )}
       </RNAnimated.ScrollView>
+      {showCelebration && <Celebration trigger={showCelebration} />}
     </View>
   );
 }
@@ -370,9 +453,9 @@ export default function HomeScreen() {
 // ─── Sub-components ──────────────────────────────────
 
 function StatusBlock({
-  count, label, color, icon, onPress,
+  count, label, color, onPress,
 }: {
-  count: number; label: string; color: string; icon: IconName; onPress?: () => void;
+  count: number; label: string; color: string; onPress?: () => void;
 }) {
   return (
     <View style={{ flex: 1 }}>
@@ -383,8 +466,7 @@ function StatusBlock({
         haptic={false}
         scaleValue={0.95}
       >
-        <Ionicons name={icon} size={16} color={color} style={{ marginBottom: 2 }} />
-        <Text style={[styles.statusCount, { color }]}>{count}</Text>
+        <AnimatedCounter value={count} style={[styles.statusCount, { color }]} />
         <Text style={[styles.statusLabel, { color }]}>{label}</Text>
       </AnimatedPressable>
     </View>
@@ -410,7 +492,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  compactTitle: { fontSize: 17, fontWeight: "600" },
+  compactTitle: { fontSize: 17, fontFamily: fonts.semiBold },
   compactBorder: {
     height: StyleSheet.hairlineWidth,
     position: "absolute",
@@ -424,37 +506,38 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 12,
   },
-  largeTitle: { fontSize: 34, fontWeight: "700", letterSpacing: 0.37 },
-  subtitle: { fontSize: 15, marginTop: 2 },
+  largeTitle: { fontSize: 34, letterSpacing: 0.2, fontFamily: fonts.bold },
+  subtitle: { fontSize: 15, marginTop: 2, fontFamily: fonts.regular },
 
   // Status
-  statusCard: { borderRadius: 14, overflow: "hidden" },
+  // Status card
+  statusCard: { borderRadius: 12, overflow: "hidden", borderWidth: 1, borderColor: 'rgba(255,255,255,0.04)' },
   statusRow: { flexDirection: "row", alignItems: "center", paddingVertical: 14 },
   statusBlock: { flex: 1, alignItems: "center" },
-  statusCount: { fontSize: 24, fontWeight: "700", letterSpacing: -0.5 },
-  statusLabel: { fontSize: 11, fontWeight: "600", marginTop: 2, textTransform: "uppercase", letterSpacing: 0.5 },
+  statusCount: { fontSize: 26, letterSpacing: -0.5, fontFamily: fonts.bold },
+  statusLabel: { fontSize: 10, marginTop: 2, textTransform: "uppercase", letterSpacing: 0.8, fontFamily: fonts.bold },
   statusDivider: { width: StyleSheet.hairlineWidth, height: 32 },
 
   // Section
   sectionLabel: {
-    fontSize: 13,
-    fontWeight: "500",
+    fontSize: 12,
+    fontFamily: fonts.semiBold,
     paddingHorizontal: 20,
     paddingBottom: 8,
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
   },
 
   // Group
-  group: { marginHorizontal: 16, borderRadius: 12, overflow: "hidden" },
+  group: { marginHorizontal: 16, borderRadius: 12, overflow: "hidden", borderWidth: 1, borderColor: 'rgba(255,255,255,0.04)' },
 
   // Category Grid
-  catGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
-  catCard: { borderRadius: 14, paddingVertical: 14, paddingHorizontal: 14, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 4 },
+  catGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  catCard: { borderRadius: 12, paddingVertical: 12, paddingHorizontal: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.04)' },
   catCardTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 },
-  catIcon: { width: 40, height: 40, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  catIcon: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   alertDot: { width: 8, height: 8, borderRadius: 4, marginTop: 2 },
-  catName: { fontSize: 15, fontWeight: "600" },
-  catMeta: { fontSize: 13, marginTop: 2 },
+  catName: { fontSize: 15, fontFamily: fonts.semiBold },
+  catMeta: { fontSize: 13, marginTop: 2, fontFamily: fonts.regular },
 
   // Urgent header
   urgentHeader: {
@@ -463,7 +546,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingRight: 20,
   },
-  seeAll: { color: "#007AFF", fontSize: 15, fontWeight: "500" },
+  seeAll: { fontSize: 15, fontFamily: fonts.medium },
 
   // Compact doc row (single line per doc)
   docRow: {
@@ -474,31 +557,36 @@ const styles = StyleSheet.create({
     minHeight: 44,
   },
   docDot: { width: 8, height: 8, borderRadius: 4, marginRight: 10 },
-  docTitle: { fontSize: 17, flex: 1 },
-  docDays: { fontSize: 13, fontWeight: "600", marginLeft: 8 },
+  docTitle: { fontSize: 17, flex: 1, fontFamily: fonts.regular },
+  docDays: { fontSize: 13, marginLeft: 8, fontFamily: fonts.semiBold },
 
   // Health Score bar
-  scoreCard: { flexDirection: "row", alignItems: "center", borderRadius: 12, padding: 14, gap: 14 },
-  scoreNumber: { fontSize: 28, fontWeight: "800", letterSpacing: -1, minWidth: 38, textAlign: "center" },
-  scoreBarWrap: { flex: 1, gap: 5 },
-  scoreLabelRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  scoreLabel: { fontSize: 13, fontWeight: "500" },
-  scoreHint: { fontSize: 12, fontWeight: "600" },
-  scoreTrack: { height: 6, borderRadius: 3, overflow: "hidden" },
-  scoreFill: { height: 6, borderRadius: 3 },
+  scoreCard: { flexDirection: "row", alignItems: "stretch", borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.04)' },
+  scoreLeft: { flexDirection: "row", alignItems: "center", flex: 1, gap: 10, paddingVertical: 12, paddingLeft: 12, paddingRight: 8 },
+  scoreNumber: { fontSize: 16, letterSpacing: -0.3, textAlign: "center", fontFamily: fonts.extraBold },
+  scoreBarWrap: { flex: 1, gap: 2 },
+  scoreLabel: { fontSize: 13, fontFamily: fonts.medium },
+  scoreHint: { fontSize: 12, fontFamily: fonts.semiBold },
+  scoreRight: { alignItems: "flex-end", justifyContent: "center", paddingVertical: 12, paddingRight: 12, paddingLeft: 12, borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: "rgba(255,255,255,0.06)", minWidth: 100, maxWidth: 160 },
+  scoreNextTitle: { fontSize: 13, fontFamily: fonts.medium, textAlign: "right" },
+  scoreNextDays: { fontSize: 12, fontFamily: fonts.semiBold, marginTop: 2 },
 
   // Empty
   emptyState: { alignItems: "center", paddingVertical: 60, paddingHorizontal: 32 },
   emptyIconWrap: {
     width: 80, height: 80, borderRadius: 20,
-    backgroundColor: "rgba(0,122,255,0.12)",
     alignItems: "center", justifyContent: "center", marginBottom: 20,
   },
-  emptyTitle: { fontSize: 20, fontWeight: "600" },
-  emptySub: { fontSize: 15, lineHeight: 22, marginTop: 8, textAlign: "center" },
+  emptyTitle: { fontSize: 20, fontFamily: fonts.semiBold },
+  emptySub: { fontSize: 15, lineHeight: 22, marginTop: 8, textAlign: "center", fontFamily: fonts.regular },
+
+  // Streak badge
+  streakBadge: { flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 10, paddingHorizontal: 14, borderRadius: 14 },
+  streakText: { fontSize: 18, fontFamily: fonts.bold },
+  streakLabel: { fontSize: 13, fontFamily: fonts.regular },
 
   // Demo banner
-  demoBanner: { flexDirection: "row", alignItems: "center", padding: 12, borderRadius: 10, borderWidth: 1 },
-  demoBannerText: { fontSize: 14, lineHeight: 20 },
+  demoBanner: { flexDirection: "row", alignItems: "center", padding: 12, borderRadius: 12, borderWidth: 1 },
+  demoBannerText: { fontSize: 14, lineHeight: 20, fontFamily: fonts.regular },
   demoBannerBtn: { padding: 8, marginLeft: 8 },
 });

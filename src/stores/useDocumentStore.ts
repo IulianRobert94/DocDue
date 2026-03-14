@@ -60,6 +60,7 @@ interface DocumentsState {
   addDocuments: (data: Omit<RawDocument, "id">[]) => void;
   updateDocument: (data: RawDocument) => void;
   deleteDocument: (id: string) => void;
+  undoDelete: () => void;
   markAsPaid: (doc: EnrichedDocument) => "paid_next" | "resolved";
   resetToDemo: () => void;
   clearAll: () => void;
@@ -75,14 +76,17 @@ function persistDocs(documents: RawDocument[]) {
   const lang = useSettingsStore?.getState?.()?.settings?.language || "en";
   // Serialize writes: each persist waits for the previous one to finish,
   // so the last write always wins and we never lose data from race conditions.
+  const prevPersisted = _lastPersistedDocs;
+  _lastPersistedDocs = documents;
   _persistChain = _persistChain.then(() => {
     const payload = { version: DATA_VERSION, documents };
     return AsyncStorage.setItem(STORAGE_KEY_DOCUMENTS, JSON.stringify(payload))
-      .then(() => { _lastPersistedDocs = documents; })
+      .then(() => { /* persisted successfully */ })
       .catch((e) => {
         if (__DEV__) console.warn("DocDue: persist error", e);
-        if (_lastPersistedDocs !== null) {
-          useDocumentStore.setState({ documents: _lastPersistedDocs });
+        if (prevPersisted !== null) {
+          _lastPersistedDocs = prevPersisted;
+          useDocumentStore.setState({ documents: prevPersisted });
         }
         Alert.alert(t(lang, "save_error_title"), t(lang, "save_error_msg"));
       });
@@ -95,6 +99,18 @@ function cleanupAttachments(doc: RawDocument) {
   if (!doc.attachments?.length) return;
   for (const att of doc.attachments) {
     FileSystem.deleteAsync(att.uri, { idempotent: true }).catch(() => {});
+  }
+}
+
+// ─── Undo delete buffer ─────────────────────────────────
+
+let _undoBuffer: { doc: RawDocument; timer: ReturnType<typeof setTimeout> } | null = null;
+
+function flushUndoBuffer() {
+  if (_undoBuffer) {
+    cleanupAttachments(_undoBuffer.doc);
+    clearTimeout(_undoBuffer.timer);
+    _undoBuffer = null;
   }
 }
 
@@ -227,8 +243,29 @@ export const useDocumentStore = create<DocumentsState>()((set, get) => ({
 
   deleteDocument: (id) => {
     const toDelete = get().documents.find((d) => d.id === id);
-    if (toDelete) cleanupAttachments(toDelete);
+    if (!toDelete) return;
+    // Flush any previous undo buffer
+    flushUndoBuffer();
+    // Don't clean attachments yet — store in undo buffer for 5s
+    _undoBuffer = {
+      doc: toDelete,
+      timer: setTimeout(() => {
+        if (_undoBuffer?.doc.id === toDelete.id) {
+          cleanupAttachments(toDelete);
+          _undoBuffer = null;
+        }
+      }, 5500),
+    };
     set((state) => ({ documents: state.documents.filter((d) => d.id !== id) }));
+    afterMutation(get().documents, true);
+  },
+
+  undoDelete: () => {
+    if (!_undoBuffer) return;
+    const doc = _undoBuffer.doc;
+    clearTimeout(_undoBuffer.timer);
+    _undoBuffer = null;
+    set((state) => ({ documents: [...state.documents, doc] }));
     afterMutation(get().documents, true);
   },
 
@@ -244,7 +281,8 @@ export const useDocumentStore = create<DocumentsState>()((set, get) => ({
     const recDays = getRecurrenceDays(fresh.rec);
     if (recDays > 0) {
       const MONTH_MAP: Record<string, number> = {
-        monthly: 1, annual: 12,
+        monthly: 1, quarterly: 3, biannual: 6, annual: 12,
+        "2years": 24, "5years": 60, "10years": 120,
       };
       const months = MONTH_MAP[fresh.rec];
       const nextDue = months
@@ -259,11 +297,11 @@ export const useDocumentStore = create<DocumentsState>()((set, get) => ({
       maybeRequestReview(get().documents.length).catch(() => {});
       return "paid_next";
     } else {
-      // Non-recurring: resolve but preserve payment history in the final state
-      const raw = get().documents.find((d) => d.id === doc.id);
-      if (raw) cleanupAttachments(raw);
+      // Non-recurring: mark as resolved (keep for analytics history)
       set((state) => ({
-        documents: state.documents.filter((d) => d.id !== doc.id),
+        documents: state.documents.map((d) =>
+          d.id === doc.id ? { ...d, paymentHistory: history, resolved: getTodayString() } : d
+        ),
       }));
       afterMutation(get().documents, true);
       return "resolved";
@@ -294,6 +332,7 @@ export function useEnrichedDocuments(): EnrichedDocument[] {
   const documents = useDocumentStore((s) => s.documents);
   return useMemo(() =>
     documents
+      .filter((d) => !d.resolved)
       .map((d) => enrichDocument(d))
       .sort((a, b) => a._daysUntil - b._daysUntil),
     [documents]

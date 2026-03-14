@@ -94,13 +94,17 @@
         {
           "image": "./assets/splash-icon.png",
           "backgroundColor": "#0A0E17",
-          "imageWidth": 280
+          "imageWidth": 200
         }
       ],
       "@react-native-community/datetimepicker",
       "expo-calendar",
       "expo-notifications",
-      "react-native-iap"
+      "react-native-iap",
+      ["@sentry/react-native", {
+        "organization": "docdueapp",
+        "project": "docdue"
+      }]
     ],
     "extra": {
       "router": {},

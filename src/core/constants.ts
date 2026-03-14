@@ -27,7 +27,7 @@ export const MAX_ATTACHMENTS = 5;
 // ─── TypeScript Types ───────────────────────────────────
 
 export type DocumentStatus = "expired" | "warning" | "ok";
-export type RecurrenceValue = "none" | "weekly" | "monthly" | "annual";
+export type RecurrenceValue = "none" | "weekly" | "biweekly" | "monthly" | "quarterly" | "biannual" | "annual" | "2years" | "5years" | "10years";
 export type SortField = "urgency" | "date" | "amount" | "name";
 export type SortDirection = "asc" | "desc";
 export type CurrencyCode = "RON" | "EUR" | "USD";
@@ -107,6 +107,8 @@ export interface RawDocument {
   notes?: string;
   attachments?: Attachment[];
   paymentHistory?: PaymentRecord[];
+  resolved?: string; // "YYYY-MM-DD" when non-recurring doc was marked as paid
+  reminderDays?: number[]; // Custom reminder days override (null = auto based on recurrence)
 }
 
 /** Documentul îmbogățit (cu câmpuri calculate la runtime) */
@@ -128,15 +130,32 @@ export interface AppSettings {
   firstOpenDate: string | null;
   reviewPrompted: boolean;
   customSubtypes: Record<CategoryId, string[]>;
+  recentSearches: string[];
+  streakDays: number;
+  lastStreakCheck: string | null;
+  bestStreak: number;
 }
 
 // ─── Recurrence Options ─────────────────────────────────
 
-export const RECURRENCE_OPTIONS: RecurrenceOption[] = [
+/** Quick options shown as chips on the form (most common) */
+export const RECURRENCE_QUICK: RecurrenceOption[] = [
   { value: "none",    labelKey: "rec_none",    days: 0 },
-  { value: "weekly",  labelKey: "rec_weekly",  days: 7 },
   { value: "monthly", labelKey: "rec_monthly", days: 30 },
   { value: "annual",  labelKey: "rec_annual",  days: 365 },
+];
+
+/** All options including custom ones (shown in Custom picker) */
+export const RECURRENCE_OPTIONS: RecurrenceOption[] = [
+  { value: "weekly",    labelKey: "rec_weekly",     days: 7 },
+  { value: "biweekly",  labelKey: "rec_biweekly",   days: 14 },
+  { value: "monthly",   labelKey: "rec_monthly",     days: 30 },
+  { value: "quarterly", labelKey: "rec_quarterly",   days: 90 },
+  { value: "biannual",  labelKey: "rec_biannual",    days: 182 },
+  { value: "annual",    labelKey: "rec_annual",       days: 365 },
+  { value: "2years",   labelKey: "rec_2years",      days: 730 },
+  { value: "5years",   labelKey: "rec_5years",      days: 1825 },
+  { value: "10years",  labelKey: "rec_10years",     days: 3650 },
 ];
 
 // ─── Sort Options ───────────────────────────────────────
@@ -175,7 +194,7 @@ export const CATEGORIES: Record<CategoryId, Category> = {
     labelKey: "cat_vehicule",
     icon: "car-outline",
     iconFilled: "car",
-    color: "#007AFF",
+    color: "#0A79F1",
 
     subtypes: [
       "RCA", "ITP", "CASCO", "Rovignetă", "Impozit auto", "Revizie service",
@@ -256,4 +275,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   firstOpenDate: null,
   reviewPrompted: false,
   customSubtypes: { vehicule: [], personal: [], casa: [], financiar: [] },
+  recentSearches: [],
+  streakDays: 0,
+  lastStreakCheck: null,
+  bestStreak: 0,
 };

@@ -26,7 +26,7 @@ export function updateWidgetData(documents: RawDocument[]): void {
     const WidgetModule = require("expo-widgets");
     if (!WidgetModule?.reloadAllTimelines) return;
 
-    const enriched = documents.map((d) => enrichDocument(d));
+    const enriched = documents.filter((d) => !d.resolved).map((d) => enrichDocument(d));
     const urgent = enriched.filter(
       (d) => d._status === "expired" || d._status === "warning"
     );

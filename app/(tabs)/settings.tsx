@@ -39,6 +39,7 @@ import { AnimatedPressable } from '../../src/components/AnimatedUI';
 import { RowDivider, InfoRow, SegmentedControl } from '../../src/components/settings/SettingsUI';
 import { BackupRestoreSection } from '../../src/components/settings/BackupRestoreSection';
 import { DataSection } from '../../src/components/settings/DataSection';
+import { fonts } from '../../src/theme/typography';
 
 // ─── Main Settings Screen ───────────────────────────
 
@@ -57,6 +58,13 @@ export default function SettingsScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [biometricAvailable, setBiometricAvailable] = useState(false);
 
+  // Safety timeout: if loading overlay is stuck for 30s, dismiss it
+  useEffect(() => {
+    if (!isLoading) return;
+    const timeout = setTimeout(() => setIsLoading(false), 30000);
+    return () => clearTimeout(timeout);
+  }, [isLoading]);
+
   useEffect(() => {
     LocalAuthentication.hasHardwareAsync().then((has) => {
       if (has) {
@@ -68,6 +76,7 @@ export default function SettingsScreen() {
   }, []);
 
   const handleToggleNotifications = async (enabled: boolean) => {
+    Haptics.selectionAsync().catch(() => {});
     if (enabled) {
       const granted = await requestNotificationPermission();
       if (!granted) {
@@ -102,7 +111,10 @@ export default function SettingsScreen() {
     <View style={[s.container, { backgroundColor: theme.background }]}>
       {isLoading && (
         <View style={s.loadingOverlay}>
-          <ActivityIndicator size="large" color="#007AFF" />
+          <ActivityIndicator size="large" color={theme.primary} />
+          <Text style={{ color: theme.textSecondary, fontSize: 14, fontFamily: fonts.regular, marginTop: 12 }}>
+            {t(language, 'settings_processing')}
+          </Text>
         </View>
       )}
       <ScrollView
@@ -130,11 +142,11 @@ export default function SettingsScreen() {
               <Ionicons
                 name={settings.isPremium ? 'shield-checkmark' : 'star-outline'}
                 size={18}
-                color={settings.isPremium ? '#FFD700' : '#007AFF'}
+                color={settings.isPremium ? '#FFD700' : theme.primary}
                 style={{ marginRight: 8 }}
               />
               <View style={{ flex: 1 }}>
-                <Text style={[s.rowLabel, { color: settings.isPremium ? '#FFD700' : '#007AFF' }]}>
+                <Text style={[s.rowLabel, { color: settings.isPremium ? '#FFD700' : theme.primary }]}>
                   {t(language, settings.isPremium ? 'premium_active' : 'premium_upgrade')}
                 </Text>
                 {!settings.isPremium && (
@@ -150,15 +162,14 @@ export default function SettingsScreen() {
           <AnimatedPressable
             style={s.row}
             onPress={() => {
-              if (!settings.isPremium) { router.push('/premium'); return; }
-              router.push('/analytics');
+              router.push(settings.isPremium ? '/analytics' : '/premium');
             }}
             accessibilityLabel={t(language, 'analytics_title')}
           >
             <Ionicons name="bar-chart-outline" size={18} color="#34C759" style={{ marginRight: 8 }} />
             <Text style={[s.rowLabel, { color: '#34C759', flex: 1 }]}>
               {t(language, 'analytics_title')}
-              {!settings.isPremium && <Text style={{ fontSize: 11, fontWeight: '700', color: '#FFD700' }}> PRO</Text>}
+              {!settings.isPremium && <Text style={{ fontSize: 11, fontWeight: '700', fontFamily: fonts.bold, color: '#FFD700' }}> PRO</Text>}
             </Text>
             <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
           </AnimatedPressable>
@@ -227,40 +238,9 @@ export default function SettingsScreen() {
                 <Text style={[s.rowLabel, { color: theme.text, marginBottom: 4 }]}>
                   {t(language, 'settings_reminder_days')}
                 </Text>
-                <Text style={[s.footerText, { color: theme.textSecondary, marginBottom: 12 }]}>
-                  {t(language, 'settings_reminder_days_desc')}
+                <Text style={[s.footerText, { color: theme.textSecondary }]}>
+                  {t(language, 'settings_smart_reminders_desc')}
                 </Text>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                  {REMINDER_DAYS_OPTIONS.map((day) => {
-                    const isSelected = settings.reminderDays.includes(day);
-                    return (
-                      <AnimatedPressable
-                        key={day}
-                        style={{
-                          paddingHorizontal: 16,
-                          paddingVertical: 8,
-                          borderRadius: 18,
-                          minHeight: 44,
-                          backgroundColor: isSelected
-                            ? '#007AFF'
-                            : theme.inputFill,
-                        }}
-                        onPress={() => handleToggleReminderDay(day)}
-                        hapticStyle="selection"
-                        accessibilityLabel={`${day} ${t(language, 'settings_days_suffix')}`}
-                        accessibilityState={{ selected: isSelected }}
-                      >
-                        <Text style={{
-                          fontSize: 14,
-                          fontWeight: '600',
-                          color: isSelected ? '#FFF' : theme.textSecondary,
-                        }}>
-                          {day} {t(language, 'settings_days_suffix')}
-                        </Text>
-                      </AnimatedPressable>
-                    );
-                  })}
-                </View>
               </View>
             </>
           )}
@@ -285,6 +265,7 @@ export default function SettingsScreen() {
                 <Switch
                   value={settings.biometricEnabled}
                   onValueChange={async (val) => {
+                    Haptics.selectionAsync().catch(() => {});
                     try {
                       if (val) {
                         const result = await LocalAuthentication.authenticateAsync({
@@ -334,7 +315,7 @@ export default function SettingsScreen() {
             onPress={() => router.push('/privacy')}
             accessibilityLabel={t(language, 'settings_privacy')}
           >
-            <Text style={[s.rowLabel, { color: '#007AFF' }]}>
+            <Text style={[s.rowLabel, { color: theme.primary }]}>
               {t(language, 'settings_privacy')}
             </Text>
             <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
@@ -345,8 +326,8 @@ export default function SettingsScreen() {
             onPress={() => Linking.openURL('mailto:andreiiulianrobert@gmail.com?subject=DocDue%20Support').catch(() => {})}
             accessibilityLabel={t(language, 'settings_contact_support')}
           >
-            <Ionicons name="mail-outline" size={18} color="#007AFF" style={{ marginRight: 8 }} />
-            <Text style={[s.rowLabel, { color: '#007AFF', flex: 1 }]}>
+            <Ionicons name="mail-outline" size={18} color={theme.primary} style={{ marginRight: 8 }} />
+            <Text style={[s.rowLabel, { color: theme.primary, flex: 1 }]}>
               {t(language, 'settings_contact_support')}
             </Text>
             <Ionicons name="open-outline" size={16} color={theme.textMuted} />
@@ -426,32 +407,36 @@ const s = StyleSheet.create({
   },
   largeTitle: {
     fontSize: 34,
-    fontWeight: '700',
+    fontFamily: fonts.bold,
     paddingHorizontal: 20,
     paddingTop: 4,
     paddingBottom: 8,
   },
   sectionHeader: {
-    fontSize: 13,
-    fontWeight: '400',
+    fontSize: 12,
+    fontFamily: fonts.semiBold,
     textTransform: 'uppercase',
+    letterSpacing: 0.8,
     paddingHorizontal: 20,
     paddingTop: 24,
     paddingBottom: 8,
   },
   group: {
     marginHorizontal: 16,
-    borderRadius: 10,
+    borderRadius: 14,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.04)',
+
   },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    minHeight: 44,
+    minHeight: 48,
     paddingHorizontal: 16,
     paddingVertical: 11,
   },
-  rowLabel: { fontSize: 17 },
-  footerText: { fontSize: 13, lineHeight: 18 },
+  rowLabel: { fontSize: 17, fontFamily: fonts.regular },
+  footerText: { fontSize: 13, lineHeight: 18, fontFamily: fonts.regular },
 });

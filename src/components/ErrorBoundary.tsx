@@ -12,11 +12,16 @@ import {
   Pressable,
   StyleSheet,
   StatusBar,
+  Alert,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Sentry from '@sentry/react-native';
 import { t } from '../core/i18n';
 import { useSettingsStore } from '../stores/useSettingsStore';
 import { createTheme } from '../theme/colors';
+import { fonts } from '../theme/typography';
 
 interface Props {
   children: React.ReactNode;
@@ -47,6 +52,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     if (__DEV__) console.error('ErrorBoundary caught:', error, errorInfo);
+    Sentry.captureException(error, { extra: { componentStack: errorInfo.componentStack } });
   }
 
   handleReset = () => {
@@ -72,12 +78,44 @@ export class ErrorBoundary extends React.Component<Props, State> {
             </Text>
           )}
           <Pressable
-            style={s.button}
+            style={[s.button, { overflow: 'hidden' }]}
             onPress={this.handleReset}
             accessibilityRole="button"
             accessibilityLabel={t(lang, 'error_retry')}
           >
-            <Text style={s.buttonText}>{t(lang, 'error_retry')}</Text>
+            <LinearGradient
+              colors={['#0E8BFF', '#0A79F1']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{ paddingVertical: 14, paddingHorizontal: 32, alignItems: 'center', justifyContent: 'center' }}
+            >
+              <Text style={s.buttonText}>{t(lang, 'error_retry')}</Text>
+            </LinearGradient>
+          </Pressable>
+          <Pressable
+            style={{ marginTop: 16, padding: 12 }}
+            onPress={() => {
+              Alert.alert(
+                t(lang, 'error_clear_title'),
+                t(lang, 'error_clear_msg'),
+                [
+                  { text: t(lang, 'confirm_cancel'), style: 'cancel' },
+                  {
+                    text: t(lang, 'error_clear_btn'),
+                    style: 'destructive',
+                    onPress: async () => {
+                      await AsyncStorage.clear();
+                      this.handleReset();
+                    },
+                  },
+                ]
+              );
+            }}
+            accessibilityRole="button"
+          >
+            <Text style={{ color: theme.textMuted, fontSize: 14, fontFamily: fonts.regular }}>
+              {t(lang, 'error_clear_btn')}
+            </Text>
           </Pressable>
         </View>
       );
@@ -97,32 +135,32 @@ const s = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: '700',
+    fontFamily: fonts.bold,
     marginBottom: 4,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 17,
+    fontFamily: fonts.regular,
     marginBottom: 16,
     textAlign: 'center',
   },
   message: {
     fontSize: 13,
+    fontFamily: fonts.regular,
     textAlign: 'center',
     marginBottom: 24,
     lineHeight: 18,
   },
   button: {
-    backgroundColor: '#007AFF',
-    paddingVertical: 14,
-    paddingHorizontal: 32,
     borderRadius: 12,
     minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
+    overflow: 'hidden',
   },
   buttonText: {
     color: '#FFFFFF',
     fontSize: 17,
     fontWeight: '600',
+    fontFamily: fonts.semiBold,
   },
 });

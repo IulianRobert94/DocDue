@@ -21,8 +21,6 @@ interface StoredData {
 /** Migrate legacy recurrence values removed in v12 simplification */
 const RECURRENCE_MIGRATION: Record<string, RecurrenceValue> = {
   daily: "weekly",
-  quarterly: "monthly",
-  biannual: "annual",
 };
 
 function migrateRecurrence(doc: RawDocument): RawDocument {

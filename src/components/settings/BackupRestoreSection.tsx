@@ -17,6 +17,7 @@ import type { RawDocument, AppSettings, LanguageCode, CurrencyCode, ThemeMode } 
 import type { AppTheme } from '../../theme/colors';
 import { AnimatedPressable } from '../AnimatedUI';
 import { RowDivider } from './SettingsUI';
+import { fonts } from '../../theme/typography';
 
 interface BackupRestoreSectionProps {
   theme: AppTheme;
@@ -172,7 +173,7 @@ export function BackupRestoreSection({
         typeof d.type === 'string' &&
         ['vehicule', 'casa', 'personal', 'financiar'].includes(d.cat) &&
         /^\d{4}-\d{2}-\d{2}$/.test(d.due) &&
-        ['none', 'weekly', 'monthly', 'annual'].includes(d.rec || 'none')
+        ['none', 'weekly', 'biweekly', 'monthly', 'quarterly', 'biannual', 'annual', '2years', '5years', '10years'].includes(d.rec || 'none')
       );
 
       if (backupDocs.length === 0) {
@@ -262,11 +263,11 @@ export function BackupRestoreSection({
       </Text>
       <View style={[styles.group, { backgroundColor: theme.card }]}>
         <AnimatedPressable style={styles.row} onPress={handleCreateBackup} disabled={isLoading} hapticStyle="light" accessibilityLabel={t(language, 'backup_create')}>
-          <Ionicons name="cloud-upload-outline" size={18} color="#007AFF" style={{ marginRight: 8 }} />
+          <Ionicons name="cloud-upload-outline" size={18} color={theme.primary} style={{ marginRight: 8 }} />
           <View style={{ flex: 1 }}>
-            <Text style={[styles.rowLabel, { color: '#007AFF' }]}>
+            <Text style={[styles.rowLabel, { color: theme.primary }]}>
               {t(language, 'backup_create')}
-              {!isPremium && <Text style={{ fontSize: 11, fontWeight: '700', color: '#FFD700' }}> PRO</Text>}
+              {!isPremium && <Text style={{ fontSize: 11, fontWeight: '700', fontFamily: fonts.bold, color: '#FFD700' }}> PRO</Text>}
             </Text>
             {settings.lastBackupDate && (
               <Text style={[styles.footerText, { color: theme.textMuted, marginTop: 2 }]}>
@@ -278,10 +279,10 @@ export function BackupRestoreSection({
         </AnimatedPressable>
         <RowDivider theme={theme} />
         <AnimatedPressable style={styles.row} onPress={handleRestoreBackup} disabled={isLoading} hapticStyle="light" accessibilityLabel={t(language, 'backup_restore')}>
-          <Ionicons name="cloud-download-outline" size={18} color="#007AFF" style={{ marginRight: 8 }} />
-          <Text style={[styles.rowLabel, { color: '#007AFF', flex: 1 }]}>
+          <Ionicons name="cloud-download-outline" size={18} color={theme.primary} style={{ marginRight: 8 }} />
+          <Text style={[styles.rowLabel, { color: theme.primary, flex: 1 }]}>
             {t(language, 'backup_restore')}
-            {!isPremium && <Text style={{ fontSize: 11, fontWeight: '700', color: '#FFD700' }}> PRO</Text>}
+            {!isPremium && <Text style={{ fontSize: 11, fontWeight: '700', fontFamily: fonts.bold, color: '#FFD700' }}> PRO</Text>}
           </Text>
           <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
         </AnimatedPressable>
@@ -313,6 +314,7 @@ const styles = StyleSheet.create({
   sectionHeader: {
     fontSize: 13,
     fontWeight: '400',
+    fontFamily: fonts.regular,
     textTransform: 'uppercase',
     paddingHorizontal: 20,
     paddingTop: 24,
@@ -322,6 +324,8 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     borderRadius: 10,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.04)',
   },
   row: {
     flexDirection: 'row',
@@ -331,6 +335,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 11,
   },
-  rowLabel: { fontSize: 17 },
-  footerText: { fontSize: 13, lineHeight: 18 },
+  rowLabel: { fontSize: 17, fontFamily: fonts.regular },
+  footerText: { fontSize: 13, fontFamily: fonts.regular, lineHeight: 18 },
 });

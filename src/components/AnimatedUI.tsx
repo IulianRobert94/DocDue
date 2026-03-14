@@ -16,6 +16,7 @@ import * as Haptics from "expo-haptics";
 
 interface AnimatedPressableProps {
   onPress?: () => void;
+  onLongPress?: () => void;
   style?: StyleProp<ViewStyle>;
   children: React.ReactNode;
   scaleValue?: number;
@@ -30,6 +31,7 @@ interface AnimatedPressableProps {
 
 export const AnimatedPressable = React.memo(function AnimatedPressable({
   onPress,
+  onLongPress,
   style,
   children,
   scaleValue = 0.97,
@@ -82,10 +84,11 @@ export const AnimatedPressable = React.memo(function AnimatedPressable({
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         onPress={handlePress}
+        onLongPress={onLongPress}
         style={style}
         accessibilityLabel={accessibilityLabel}
         accessibilityRole={accessibilityRole}
-        accessibilityState={accessibilityState}
+        accessibilityState={{ ...accessibilityState, disabled: disabled || accessibilityState?.disabled }}
         hitSlop={hitSlop}
         disabled={disabled}
       >
@@ -195,7 +198,7 @@ export function AnimatedCounter({ value, duration = 800, delay = 200, style }: A
     };
   }, [value, duration, delay]);
 
-  return <Text style={style}>{display}</Text>;
+  return <Text style={style} accessibilityLiveRegion="polite">{display}</Text>;
 }
 
 // ─── AnimatedBar (width animates from 0%) ─────────────
@@ -230,6 +233,11 @@ export function AnimatedBar({ percentage, color, delay = 300, style }: AnimatedB
   });
 
   return (
-    <Animated.View style={[{ width: animWidth, backgroundColor: color }, style]} />
+    <Animated.View
+      style={[{ width: animWidth, backgroundColor: color }, style]}
+      accessible
+      accessibilityRole="progressbar"
+      accessibilityValue={{ min: 0, max: 100, now: percentage }}
+    />
   );
 }

@@ -13,13 +13,15 @@ import * as StoreReview from "expo-store-review";
 import { useSettingsStore } from "../stores/useSettingsStore";
 import { getTodayString, calculateDaysUntil } from "../core/dateUtils";
 
-const MIN_DAYS = 7;
-const MIN_DOCS = 3;
+const MIN_DAYS = 3;
+const TRIGGER_COUNTS = [5, 10];
 
 /**
  * Check conditions and show review prompt if appropriate.
  * Accepts documentCount to avoid importing useDocumentStore (prevents require cycle).
  * Safe to call multiple times — will only trigger once.
+ *
+ * Triggers at 5th or 10th document/markAsPaid, at least 3 days after first open.
  */
 export async function maybeRequestReview(documentCount?: number): Promise<void> {
   const settings = useSettingsStore.getState().settings;
@@ -34,8 +36,8 @@ export async function maybeRequestReview(documentCount?: number): Promise<void> 
     return; // Wait until next launch
   }
 
-  // Check minimum documents
-  if (docCount < MIN_DOCS) return;
+  // Check document count hits one of the trigger points
+  if (!TRIGGER_COUNTS.includes(docCount)) return;
 
   // Check minimum days since first open
   // calculateDaysUntil returns negative for past dates, so negate to get positive days elapsed

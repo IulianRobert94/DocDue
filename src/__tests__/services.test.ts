@@ -134,18 +134,19 @@ describe("notification scheduling logic", () => {
     expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
   });
 
-  it("does not schedule when reminder days is empty", async () => {
+  it("does not schedule for resolved documents", async () => {
     const { rescheduleAllNotifications } = require("../services/notifications");
 
     const docs: RawDocument[] = [
       {
         id: "1", cat: "vehicule", type: "RCA", title: "Test",
         due: addDaysToDate(getTodayString(), 30), amt: 500, rec: "annual",
+        resolved: getTodayString(),
       },
     ];
 
     (Notifications.scheduleNotificationAsync as jest.Mock).mockClear();
-    await rescheduleAllNotifications(docs, [], "ro");
+    await rescheduleAllNotifications(docs, [7, 3, 1], "ro");
 
     expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
   });

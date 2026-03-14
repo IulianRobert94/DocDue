@@ -1492,9 +1492,9 @@ describe("constants integrity", () => {
     expect(STATUS_DISPLAY.ok.color).toBe("#34C759");
   });
 
-  it("RECURRENCE_OPTIONS has 4 entries in correct order", () => {
-    expect(RECURRENCE_OPTIONS).toHaveLength(4);
-    expect(RECURRENCE_OPTIONS.map((r) => r.value)).toEqual(["none", "weekly", "monthly", "annual"]);
+  it("RECURRENCE_OPTIONS has 9 entries for custom picker", () => {
+    expect(RECURRENCE_OPTIONS).toHaveLength(9);
+    expect(RECURRENCE_OPTIONS.map((r) => r.value)).toEqual(["weekly", "biweekly", "monthly", "quarterly", "biannual", "annual", "2years", "5years", "10years"]);
   });
 
   it("CURRENCY_OPTIONS has 3 entries", () => {
@@ -1541,16 +1541,16 @@ describe("migration recurrence upgrade", () => {
     expect(result![0].rec).toBe("weekly");
   });
 
-  it("migrates legacy quarterly → monthly", () => {
+  it("preserves quarterly recurrence (no longer migrated)", () => {
     const docs = [{ id: "1", cat: "financiar", type: "Tax", title: "Test", due: "2024-01-01", amt: 100, rec: "quarterly" }];
     const result = migrateData(docs as any);
-    expect(result![0].rec).toBe("monthly");
+    expect(result![0].rec).toBe("quarterly");
   });
 
-  it("migrates legacy biannual → annual", () => {
+  it("preserves biannual recurrence (no longer migrated)", () => {
     const docs = [{ id: "1", cat: "vehicule", type: "ITP", title: "Test", due: "2024-01-01", amt: null, rec: "biannual" }];
     const result = migrateData(docs as any);
-    expect(result![0].rec).toBe("annual");
+    expect(result![0].rec).toBe("biannual");
   });
 
   it("preserves current recurrence values unchanged", () => {
@@ -1563,5 +1563,212 @@ describe("migration recurrence upgrade", () => {
     expect(result![0].rec).toBe("monthly");
     expect(result![1].rec).toBe("annual");
     expect(result![2].rec).toBe("none");
+  });
+
+  it("preserves new recurrence types (2years, 5years, 10years)", () => {
+    const docs = [
+      { id: "1", cat: "personal", type: "CI", title: "ID", due: "2024-01-01", amt: null, rec: "2years" },
+      { id: "2", cat: "personal", type: "Pașaport", title: "Passport", due: "2024-01-01", amt: null, rec: "10years" },
+    ];
+    const result = migrateData(docs as any);
+    expect(result![0].rec).toBe("2years");
+    expect(result![1].rec).toBe("10years");
+  });
+
+  it("preserves resolved and reminderDays fields through migration", () => {
+    const stored = {
+      version: 12,
+      documents: [
+        { id: "1", cat: "casa", type: "Gaz", title: "A", due: "2024-01-01", amt: 50, rec: "monthly", resolved: "2024-01-15", reminderDays: [1, 7, 30] },
+      ],
+    };
+    const result = migrateData(stored as any);
+    expect(result![0].resolved).toBe("2024-01-15");
+    expect(result![0].reminderDays).toEqual([1, 7, 30]);
+  });
+});
+
+// ─── Smart Reminders ───────────────────────────────────
+
+import { getAutoReminderDays, getEffectiveReminderDays } from "../core/enrichment";
+
+describe("getAutoReminderDays", () => {
+  it("returns short reminders for weekly recurrence", () => {
+    expect(getAutoReminderDays("weekly")).toEqual([1, 3]);
+  });
+
+  it("returns medium reminders for monthly recurrence", () => {
+    expect(getAutoReminderDays("monthly")).toEqual([1, 3, 7]);
+  });
+
+  it("returns long reminders for annual recurrence", () => {
+    expect(getAutoReminderDays("annual")).toEqual([1, 7, 30]);
+  });
+
+  it("returns very long reminders for 10years recurrence", () => {
+    const days = getAutoReminderDays("10years");
+    expect(days).toContain(90);
+    expect(days).toContain(30);
+    expect(days).toContain(1);
+  });
+
+  it("returns reasonable reminders for 'none' (one-time)", () => {
+    expect(getAutoReminderDays("none")).toEqual([1, 7, 30]);
+  });
+});
+
+describe("getEffectiveReminderDays", () => {
+  const makeDoc = (rec: string, reminderDays?: number[]): RawDocument => ({
+    id: "1", cat: "casa" as any, type: "Test", title: "Test",
+    due: "2026-06-01", amt: null, rec: rec as any,
+    ...(reminderDays ? { reminderDays } : {}),
+  });
+
+  it("returns auto days when no custom override", () => {
+    const doc = makeDoc("annual");
+    expect(getEffectiveReminderDays(doc)).toEqual([1, 7, 30]);
+  });
+
+  it("returns custom days when override is set", () => {
+    const doc = makeDoc("annual", [60, 30, 7]);
+    expect(getEffectiveReminderDays(doc)).toEqual([60, 30, 7]);
+  });
+
+  it("returns auto days when override is empty array", () => {
+    const doc = makeDoc("monthly", []);
+    expect(getEffectiveReminderDays(doc)).toEqual([1, 3, 7]);
+  });
+});
+
+// ─── Extended Recurrence ────────────────────────────────
+
+import { RECURRENCE_QUICK } from "../core/constants";
+
+describe("RECURRENCE_QUICK", () => {
+  it("has exactly 3 quick options", () => {
+    expect(RECURRENCE_QUICK).toHaveLength(3);
+  });
+
+  it("includes none, monthly, annual", () => {
+    expect(RECURRENCE_QUICK.map(r => r.value)).toEqual(["none", "monthly", "annual"]);
+  });
+});
+
+describe("extended recurrence — enrichment", () => {
+  it("quarterly warning threshold is 14 days", () => {
+    const doc = enrichDocument({ id: "1", cat: "financiar", type: "Tax", title: "Q", due: addDaysToDate(getTodayString(), 10), amt: 100, rec: "quarterly" });
+    expect(doc._status).toBe("warning");
+  });
+
+  it("2years warning threshold is 60 days", () => {
+    const doc = enrichDocument({ id: "1", cat: "personal", type: "CI", title: "ID", due: addDaysToDate(getTodayString(), 50), amt: null, rec: "2years" });
+    expect(doc._status).toBe("warning");
+  });
+
+  it("10years warning threshold is 180 days", () => {
+    const doc = enrichDocument({ id: "1", cat: "personal", type: "Pașaport", title: "P", due: addDaysToDate(getTodayString(), 100), amt: null, rec: "10years" });
+    expect(doc._status).toBe("warning");
+  });
+
+  it("10years doc with 200 days left is ok", () => {
+    const doc = enrichDocument({ id: "1", cat: "personal", type: "Pașaport", title: "P", due: addDaysToDate(getTodayString(), 200), amt: null, rec: "10years" });
+    expect(doc._status).toBe("ok");
+  });
+});
+
+describe("extended recurrence — getRecurrenceDays", () => {
+  it("returns 90 for quarterly", () => {
+    expect(getRecurrenceDays("quarterly")).toBe(90);
+  });
+
+  it("returns 182 for biannual", () => {
+    expect(getRecurrenceDays("biannual")).toBe(182);
+  });
+
+  it("returns 730 for 2years", () => {
+    expect(getRecurrenceDays("2years")).toBe(730);
+  });
+
+  it("returns 1825 for 5years", () => {
+    expect(getRecurrenceDays("5years")).toBe(1825);
+  });
+
+  it("returns 3650 for 10years", () => {
+    expect(getRecurrenceDays("10years")).toBe(3650);
+  });
+});
+
+// ─── Resolved Document Integrity ────────────────────────
+
+describe("resolved document handling", () => {
+  it("resolved field survives enrich + strip cycle", () => {
+    const doc: RawDocument = {
+      id: "1", cat: "casa", type: "Gaz", title: "Gas", due: "2026-01-01", amt: 50, rec: "monthly",
+      resolved: "2026-01-15", paymentHistory: [{ date: "2026-01-15", dueDate: "2026-01-01", amt: 50 }],
+    };
+    const enriched = enrichDocument(doc);
+    const stripped = stripEnrichedFields(enriched);
+    expect(stripped.resolved).toBe("2026-01-15");
+    expect(stripped.paymentHistory).toHaveLength(1);
+  });
+
+  it("reminderDays field survives enrich + strip cycle", () => {
+    const doc: RawDocument = {
+      id: "1", cat: "vehicule", type: "RCA", title: "Insurance", due: "2027-06-01", amt: 1200, rec: "annual",
+      reminderDays: [90, 30, 7, 1],
+    };
+    const enriched = enrichDocument(doc);
+    const stripped = stripEnrichedFields(enriched);
+    expect(stripped.reminderDays).toEqual([90, 30, 7, 1]);
+  });
+});
+
+// ─── i18n Completeness (new keys) ───────────────────────
+
+describe("i18n — new recurrence keys", () => {
+  it("all recurrence keys exist in Romanian", () => {
+    const recKeys = ["rec_biweekly", "rec_quarterly", "rec_biannual", "rec_2years", "rec_5years", "rec_10years", "rec_custom"];
+    for (const key of recKeys) {
+      const val = t("ro", key);
+      expect(val).not.toBe(key); // not falling back to raw key
+    }
+  });
+
+  it("all recurrence short keys exist in both languages", () => {
+    const shortKeys = ["rec_biweekly_short", "rec_quarterly_short", "rec_biannual_short", "rec_2years_short", "rec_5years_short", "rec_10years_short"];
+    for (const key of shortKeys) {
+      expect(t("ro", key)).not.toBe(key);
+      expect(t("en", key)).not.toBe(key);
+    }
+  });
+
+  it("smart reminders description exists in both languages", () => {
+    expect(t("ro", "settings_smart_reminders_desc")).not.toBe("settings_smart_reminders_desc");
+    expect(t("en", "settings_smart_reminders_desc")).not.toBe("settings_smart_reminders_desc");
+  });
+
+  it("form reminder keys exist in both languages", () => {
+    const keys = ["form_reminder", "form_reminder_auto", "form_reminder_days_suffix", "form_reminder_reset"];
+    for (const key of keys) {
+      expect(t("ro", key)).not.toBe(key);
+      expect(t("en", key)).not.toBe(key);
+    }
+  });
+
+  it("alerts_no_docs keys exist in both languages", () => {
+    expect(t("ro", "alerts_no_docs_title")).not.toBe("alerts_no_docs_title");
+    expect(t("en", "alerts_no_docs")).not.toBe("alerts_no_docs");
+  });
+
+  it("scan_btn key exists in both languages", () => {
+    expect(t("ro", "scan_btn")).not.toBe("scan_btn");
+    expect(t("en", "scan_btn")).not.toBe("scan_btn");
+  });
+
+  it("confirm_clear_msg_count supports interpolation", () => {
+    const ro = t("ro", "confirm_clear_msg_count", { n: 5 });
+    expect(ro).toContain("5");
+    const en = t("en", "confirm_clear_msg_count", { n: 3 });
+    expect(en).toContain("3");
   });
 });

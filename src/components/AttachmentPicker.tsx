@@ -28,6 +28,7 @@ import type { Attachment } from "../core/constants";
 import type { LanguageCode } from "../core/constants";
 import type { AppTheme } from "../theme/colors";
 import { AnimatedPressable } from "./AnimatedUI";
+import { fonts } from "../theme/typography";
 
 const ATTACHMENTS_DIR = `${FileSystem.documentDirectory}attachments/`;
 
@@ -236,8 +237,8 @@ export function AttachmentPicker({
             hapticStyle="light"
             accessibilityLabel={t(language, "add_photo")}
           >
-            <Ionicons name="camera-outline" size={18} color="#007AFF" />
-            <Text style={[styles.addBtnText, { color: "#007AFF" }]}>
+            <Ionicons name="camera-outline" size={18} color={theme.primary} />
+            <Text style={[styles.addBtnText, { color: theme.primary }]}>
               {t(language, "add_photo")}
             </Text>
           </AnimatedPressable>
@@ -247,8 +248,8 @@ export function AttachmentPicker({
             hapticStyle="light"
             accessibilityLabel={t(language, "add_file")}
           >
-            <Ionicons name="attach-outline" size={18} color="#007AFF" />
-            <Text style={[styles.addBtnText, { color: "#007AFF" }]}>
+            <Ionicons name="attach-outline" size={18} color={theme.primary} />
+            <Text style={[styles.addBtnText, { color: theme.primary }]}>
               {t(language, "add_file")}
             </Text>
           </AnimatedPressable>
@@ -297,6 +298,7 @@ const styles = StyleSheet.create({
   fileExt: {
     fontSize: 9,
     fontWeight: "700",
+    fontFamily: fonts.bold,
     marginTop: 2,
   },
   removeBtn: {
@@ -326,9 +328,11 @@ const styles = StyleSheet.create({
   addBtnText: {
     fontSize: 14,
     fontWeight: "500",
+    fontFamily: fonts.medium,
   },
   limitText: {
     fontSize: 13,
+    fontFamily: fonts.regular,
     paddingHorizontal: 16,
     paddingVertical: 8,
   },

@@ -13,7 +13,7 @@ import { CATEGORIES } from "../core/constants";
 import { t } from "../core/i18n";
 import { parseLocalDate } from "../core/dateUtils";
 import { formatDate } from "../core/formatters";
-import { enrichDocument } from "../core/enrichment";
+import { enrichDocument, getEffectiveReminderDays } from "../core/enrichment";
 import { calculateHealthScore } from "../core/healthScore";
 
 // ─── Constants ──────────────────────────────────────────
@@ -42,7 +42,7 @@ export function configureNotifications(): void {
       name: "Document Reminders",
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 250, 250, 250],
-      lightColor: "#007AFF",
+      lightColor: "#0A79F1",
       sound: "default",
     }).catch(() => {
       // Channel setup may fail in Expo Go
@@ -122,18 +122,18 @@ export async function rescheduleAllNotifications(
   const hasPermission = await checkNotificationPermission();
   if (!hasPermission) return;
 
-  // 3. No reminder days = disabled
-  if (reminderDays.length === 0) return;
-
-  // 4. Build entries
+  // 3. Build entries — use per-document smart reminders
   const now = Date.now();
   const entries: ScheduleEntry[] = [];
 
   for (const doc of documents) {
+    if (doc.resolved) continue; // skip resolved docs
     const dueDate = parseLocalDate(doc.due);
     if (isNaN(dueDate.getTime())) continue;
 
-    for (const daysBefore of reminderDays) {
+    // Use per-document override or auto-computed from recurrence
+    const docReminders = getEffectiveReminderDays(doc);
+    for (const daysBefore of docReminders) {
       const fireDate = new Date(dueDate);
       fireDate.setDate(fireDate.getDate() - daysBefore);
       fireDate.setHours(FIRE_HOUR, 0, 0, 0);

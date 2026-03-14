@@ -5,6 +5,8 @@
  */
 
 import { View, StyleSheet } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { BlurView } from "expo-blur";
 import { Tabs, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -12,6 +14,7 @@ import { useTheme, useLanguage, useSettingsStore } from "../../src/stores/useSet
 import { useGlobalStats, useDocumentStore } from "../../src/stores/useDocumentStore";
 import { t } from "../../src/core/i18n";
 import { FREE_DOCUMENT_LIMIT } from "../../src/core/constants";
+import { fonts } from "../../src/theme/typography";
 
 export default function TabLayout() {
   const theme = useTheme();
@@ -26,16 +29,25 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: theme.barBackground,
-          borderTopColor: 'rgba(100,140,200,0.08)',
+          position: 'absolute',
+          backgroundColor: 'transparent',
+          borderTopColor: 'rgba(100,140,200,0.06)',
           borderTopWidth: StyleSheet.hairlineWidth,
           paddingTop: 6,
+          elevation: 0,
         },
-        tabBarActiveTintColor: "#007AFF",
+        tabBarBackground: () => (
+          <BlurView
+            intensity={40}
+            tint="dark"
+            style={StyleSheet.absoluteFill}
+          />
+        ),
+        tabBarActiveTintColor: theme.primary,
         tabBarInactiveTintColor: theme.textSecondary,
         tabBarLabelStyle: {
           fontSize: 11,
-          fontWeight: "500",
+          fontFamily: fonts.medium,
         },
       }}
     >
@@ -55,7 +67,7 @@ export default function TabLayout() {
         options={{
           title: t(lang, "nav_alerts"),
           tabBarBadge: stats.urgentCount > 0 ? stats.urgentCount : undefined,
-          tabBarBadgeStyle: { backgroundColor: '#FF3B30', fontSize: 11 },
+          tabBarBadgeStyle: { backgroundColor: '#FF3B30', fontSize: 11, fontFamily: fonts.bold },
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? "notifications" : "notifications-outline"} size={24} color={color} />
           ),
@@ -77,11 +89,22 @@ export default function TabLayout() {
         options={{
           title: "",
           tabBarAccessibilityLabel: t(lang, "a11y_add_document"),
-          tabBarIcon: () => (
-            <View style={addStyles.addBtn} accessibilityLabel={t(lang, "a11y_add_document")}>
-              <Ionicons name="add" size={26} color="#FFFFFF" />
-            </View>
-          ),
+          tabBarIcon: () => {
+            const atLimit = !isPremium && docCount >= FREE_DOCUMENT_LIMIT;
+            return (
+              <View>
+                <LinearGradient
+                  colors={atLimit ? ['#3A3A3C', '#2C2C2E'] : ['#0E8BFF', '#0A79F1']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={[addStyles.addBtn, { shadowColor: atLimit ? '#000' : theme.primary }]}
+                  accessibilityLabel={t(lang, "a11y_add_document")}
+                >
+                  <Ionicons name={atLimit ? "lock-closed" : "add"} size={atLimit ? 22 : 26} color="#FFFFFF" />
+                </LinearGradient>
+              </View>
+            );
+          },
         }}
       />
       <Tabs.Screen
@@ -110,17 +133,15 @@ export default function TabLayout() {
 
 const addStyles = StyleSheet.create({
   addBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#007AFF',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 4,
-    shadowColor: '#007AFF',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
     elevation: 4,
   },
 });

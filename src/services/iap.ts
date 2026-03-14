@@ -11,16 +11,21 @@
  * 3. Both with Product ID: com.docdueapp.pro.lifetime
  */
 
-import {
-  initConnection,
-  endConnection,
-  fetchProducts,
-  getAvailablePurchases,
-  requestPurchase,
-  finishTransaction,
-  type Product,
-  type Purchase,
-} from "react-native-iap";
+// Lazy-load react-native-iap to avoid crash in Expo Go (NitroModules not supported)
+let _iap: typeof import("react-native-iap") | null = null;
+async function getIAP() {
+  if (!_iap) {
+    try {
+      _iap = await import("react-native-iap");
+    } catch {
+      _iap = null;
+    }
+  }
+  return _iap;
+}
+
+type Product = import("react-native-iap").Product;
+type Purchase = import("react-native-iap").Purchase;
 
 // ─── Configuration ───────────────────────────────────────
 
@@ -37,7 +42,9 @@ let _initialized = false;
 export async function initializeIAP(): Promise<void> {
   if (_initialized) return;
   try {
-    await initConnection();
+    const iap = await getIAP();
+    if (!iap) { if (__DEV__) console.log("DocDue: IAP not available — using early access mode"); return; }
+    await iap.initConnection();
     _initialized = true;
     if (__DEV__) console.log("DocDue: IAP connected to store");
   } catch (e) {
@@ -52,7 +59,9 @@ export async function initializeIAP(): Promise<void> {
 export async function checkPremiumStatus(): Promise<boolean> {
   if (!_initialized) return false;
   try {
-    const purchases = await getAvailablePurchases();
+    const iap = await getIAP();
+    if (!iap) return false;
+    const purchases = await iap.getAvailablePurchases();
     return purchases.some((p) => p.productId === PRODUCT_ID);
   } catch {
     return false;
@@ -73,7 +82,9 @@ export interface IAPPackage {
 export async function getOfferings(): Promise<IAPPackage[]> {
   if (!_initialized) return [];
   try {
-    const products = (await fetchProducts({ skus: [PRODUCT_ID], type: "in-app" })) as Product[] | null;
+    const iap = await getIAP();
+    if (!iap) return [];
+    const products = (await iap.fetchProducts({ skus: [PRODUCT_ID], type: "in-app" })) as Product[] | null;
     if (!products) return [];
     return products.map((product) => ({
       id: product.id,
@@ -96,7 +107,9 @@ export type PurchaseResult =
 
 export async function purchasePackage(productId: string): Promise<PurchaseResult> {
   try {
-    const purchase = await requestPurchase({
+    const iap = await getIAP();
+    if (!iap) return { success: false, cancelled: false, error: "IAP not available" };
+    const purchase = await iap.requestPurchase({
       request: {
         apple: { sku: productId, andDangerouslyFinishTransactionAutomatically: false },
         google: { skus: [productId] },
@@ -108,16 +121,12 @@ export async function purchasePackage(productId: string): Promise<PurchaseResult
     const p = Array.isArray(purchase) ? purchase[0] : purchase;
     if (p) {
       try {
-        await finishTransaction({ purchase: p, isConsumable: false });
+        await iap.finishTransaction({ purchase: p, isConsumable: false });
       } catch (finishError) {
-        // finishTransaction failure is critical — the purchase may be refunded
-        // if not acknowledged. Retry once before giving up.
         if (__DEV__) console.warn("DocDue: finishTransaction failed, retrying", finishError);
         try {
-          await finishTransaction({ purchase: p, isConsumable: false });
+          await iap.finishTransaction({ purchase: p, isConsumable: false });
         } catch {
-          // Even if finish fails, the purchase went through on the store side.
-          // The store will retry acknowledgment automatically on next app launch.
           if (__DEV__) console.warn("DocDue: finishTransaction retry failed — store will auto-retry");
         }
       }
@@ -126,7 +135,6 @@ export async function purchasePackage(productId: string): Promise<PurchaseResult
     return { success: false, cancelled: false, error: "No purchase returned" };
   } catch (e: unknown) {
     const err = e as { code?: string; message?: string };
-    // User cancelled — not an error
     if (err.code === "E_USER_CANCELLED" || err.message?.includes("cancel")) {
       return { success: false, cancelled: true };
     }
@@ -141,7 +149,9 @@ export async function purchasePackage(productId: string): Promise<PurchaseResult
 export async function restorePurchases(): Promise<boolean> {
   if (!_initialized) return false;
   try {
-    const purchases = await getAvailablePurchases();
+    const iap = await getIAP();
+    if (!iap) return false;
+    const purchases = await iap.getAvailablePurchases();
     return purchases.some((p) => p.productId === PRODUCT_ID);
   } catch {
     return false;
@@ -159,7 +169,8 @@ export function isIAPConfigured(): boolean {
 export async function endIAP(): Promise<void> {
   if (!_initialized) return;
   try {
-    await endConnection();
+    const iap = await getIAP();
+    if (iap) await iap.endConnection();
     _initialized = false;
   } catch {
     // Ignore cleanup errors
