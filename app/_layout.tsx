@@ -47,13 +47,14 @@ import { evaluateStreak } from "../src/core/streak";
 
 SplashScreen.preventAutoHideAsync();
 
-// Initialize Sentry for production error tracking
-Sentry.init({
-  dsn: "YOUR_SENTRY_DSN_HERE", // TODO: Replace with your Sentry DSN from sentry.io
-  enabled: !__DEV__,
-  tracesSampleRate: 0.2,
-  attachScreenshot: true,
-});
+// Initialize Sentry for production error tracking (skip in dev/Expo Go)
+if (!__DEV__) {
+  Sentry.init({
+    dsn: "YOUR_SENTRY_DSN_HERE", // TODO: Replace with your Sentry DSN from sentry.io
+    tracesSampleRate: 0.2,
+    attachScreenshot: true,
+  });
+}
 
 // Force dark system bars on Android immediately (before component renders)
 if (Platform.OS === "android") {

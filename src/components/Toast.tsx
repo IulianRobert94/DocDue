@@ -72,7 +72,7 @@ export function Toast() {
     opacity: opacity.value,
   }));
 
-  if (!visible && opacity.value === 0) return null;
+  if (!visible) return null;
 
   const variant = VARIANTS[type];
 
