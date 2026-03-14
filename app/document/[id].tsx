@@ -234,42 +234,56 @@ export default function DocumentDetailScreen() {
             <View style={[s.group, { backgroundColor: theme.card, padding: 12 }]}>
               <View style={s.attachGrid}>
                 {doc.attachments.map((att) => (
-                  <AnimatedPressable
-                    key={att.id}
-                    style={s.attachItem}
-                    onPress={() => {
-                      if (att.type === 'image') {
-                        setViewImage(att.uri);
-                      } else {
-                        Sharing.shareAsync(att.uri).catch(() => {});
-                      }
-                    }}
-                    onLongPress={() => {
-                      Haptics.selectionAsync().catch(() => {});
-                      Sharing.shareAsync(att.uri).catch(() => {});
-                    }}
-                    scaleValue={0.95}
-                    accessibilityLabel={att.type === 'image' ? `${att.name} — ${t(language, 'share_file')}` : t(language, 'open_file')}
-                  >
-                    {att.type === 'image' ? (
-                      <>
+                  <View key={att.id} style={s.attachItem}>
+                    <AnimatedPressable
+                      onPress={() => {
+                        if (att.type === 'image') {
+                          setViewImage(att.uri);
+                        } else {
+                          Sharing.shareAsync(att.uri).catch(() => {});
+                        }
+                      }}
+                      scaleValue={0.95}
+                      accessibilityLabel={`${att.name} — ${t(language, 'open_file')}`}
+                    >
+                      {att.type === 'image' ? (
                         <Image source={{ uri: att.uri }} style={s.attachThumb} accessibilityLabel={att.name} accessibilityRole="image" onError={() => {}} />
-                        <View style={s.shareIcon}>
-                          <Ionicons name="share-outline" size={12} color="#FFF" />
+                      ) : (
+                        <View style={[s.attachThumb, s.attachFile, { backgroundColor: theme.inputFill }]}>
+                          <Ionicons name="document-text" size={28} color="#FF3B30" />
+                          <Text style={[s.attachExt, { color: theme.textMuted }]} numberOfLines={1}>
+                            {att.name.split('.').pop()?.toUpperCase()}
+                          </Text>
                         </View>
-                      </>
-                    ) : (
-                      <View style={[s.attachThumb, s.attachFile, { backgroundColor: theme.inputFill }]}>
-                        <Ionicons name="document-text" size={28} color="#FF3B30" />
-                        <Text style={[s.attachExt, { color: theme.textMuted }]} numberOfLines={1}>
-                          {att.name.split('.').pop()?.toUpperCase()}
-                        </Text>
-                      </View>
-                    )}
+                      )}
+                    </AnimatedPressable>
                     <Text style={[s.attachName, { color: theme.textMuted }]} numberOfLines={1}>
                       {att.name}
                     </Text>
-                  </AnimatedPressable>
+                    <View style={s.attachActions}>
+                      <AnimatedPressable
+                        onPress={() => {
+                          if (att.type === 'image') setViewImage(att.uri);
+                          else Sharing.shareAsync(att.uri).catch(() => {});
+                        }}
+                        style={[s.attachActionBtn, { backgroundColor: theme.inputFill }]}
+                        haptic={false}
+                        accessibilityLabel={t(language, 'open_file')}
+                        hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+                      >
+                        <Ionicons name="eye-outline" size={14} color={theme.textSecondary} />
+                      </AnimatedPressable>
+                      <AnimatedPressable
+                        onPress={() => Sharing.shareAsync(att.uri).catch(() => {})}
+                        style={[s.attachActionBtn, { backgroundColor: theme.inputFill }]}
+                        hapticStyle="light"
+                        accessibilityLabel={t(language, 'share_file')}
+                        hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+                      >
+                        <Ionicons name="share-outline" size={14} color={theme.primary} />
+                      </AnimatedPressable>
+                    </View>
+                  </View>
                 ))}
               </View>
             </View>
@@ -465,7 +479,8 @@ const s = StyleSheet.create({
   attachItem: { width: 80, alignItems: 'center' },
   attachThumb: { width: 72, height: 72, borderRadius: 10 },
   attachFile: { alignItems: 'center', justifyContent: 'center' },
-  shareIcon: { position: 'absolute', top: 4, right: 4, width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' },
+  attachActions: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 4 },
+  attachActionBtn: { width: 30, height: 26, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
   attachExt: { fontSize: 9, fontWeight: '700', fontFamily: fonts.bold, marginTop: 2 },
   attachName: { fontSize: 11, fontFamily: fonts.regular, marginTop: 4, textAlign: 'center' },
   congratsOverlay: {
