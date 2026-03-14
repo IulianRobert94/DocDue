@@ -1,12 +1,30 @@
 /**
- * Shared confirmation dialogs for document actions (mark-as-paid).
- * Used by alerts, search, and category screens to avoid duplication.
+ * Shared confirmation dialogs for document actions (mark-as-paid, delete with undo).
+ * Used by alerts, search, category, and document detail screens to avoid duplication.
  */
 
 import { Alert } from 'react-native';
 import { t } from './i18n';
+import { showToast } from '../stores/useToastStore';
 import type { EnrichedDocument, LanguageCode } from './constants';
 import type { IconName } from '../types';
+
+/**
+ * Delete a document and show an undo toast.
+ * Consolidates the delete+undo pattern used across all screens.
+ */
+export function deleteWithUndo(
+  id: string,
+  language: LanguageCode,
+  deleteDocument: (id: string) => void,
+  undoDelete: () => void,
+) {
+  deleteDocument(id);
+  showToast(t(language, 'toast_deleted'), 'info', {
+    label: t(language, 'toast_undo'),
+    onPress: () => { undoDelete(); showToast(t(language, 'toast_undo_success')); },
+  });
+}
 
 /**
  * Build the secondaryAction config for SwipeableRow's mark-as-paid action.

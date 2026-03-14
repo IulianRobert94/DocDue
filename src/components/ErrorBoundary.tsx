@@ -17,7 +17,6 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as Sentry from '@sentry/react-native';
 import { t } from '../core/i18n';
 import { useSettingsStore } from '../stores/useSettingsStore';
 import { createTheme } from '../theme/colors';
@@ -51,8 +50,8 @@ export class ErrorBoundary extends React.Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    // Sentry.wrap() in _layout.tsx already captures this error — no manual report needed
     if (__DEV__) console.error('ErrorBoundary caught:', error, errorInfo);
-    Sentry.captureException(error, { extra: { componentStack: errorInfo.componentStack } });
   }
 
   handleReset = () => {

@@ -3,6 +3,7 @@
  */
 
 import type { EnrichedDocument } from "./constants";
+import { getTodayString } from "./dateUtils";
 
 interface StreakResult {
   streakDays: number;
@@ -16,7 +17,7 @@ export function evaluateStreak(
   bestStreak: number,
   lastCheck: string | null,
 ): StreakResult {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getTodayString();
 
   // Already checked today
   if (lastCheck === today) {

@@ -12,7 +12,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import Constants from 'expo-constants';
 
 import { t } from '../../core/i18n';
-import { DATA_VERSION, MAX_IMPORT_LIMIT, DEFAULT_SETTINGS } from '../../core/constants';
+import { DATA_VERSION, MAX_IMPORT_LIMIT, DEFAULT_SETTINGS, VALID_RECURRENCE_VALUES } from '../../core/constants';
 import type { RawDocument, AppSettings, LanguageCode, CurrencyCode, ThemeMode } from '../../core/constants';
 import type { AppTheme } from '../../theme/colors';
 import { AnimatedPressable } from '../AnimatedUI';
@@ -173,7 +173,7 @@ export function BackupRestoreSection({
         typeof d.type === 'string' &&
         ['vehicule', 'casa', 'personal', 'financiar'].includes(d.cat) &&
         /^\d{4}-\d{2}-\d{2}$/.test(d.due) &&
-        ['none', 'weekly', 'biweekly', 'monthly', 'quarterly', 'biannual', 'annual', '2years', '5years', '10years'].includes(d.rec || 'none')
+        VALID_RECURRENCE_VALUES.has(d.rec || 'none')
       );
 
       if (backupDocs.length === 0) {

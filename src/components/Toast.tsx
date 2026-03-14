@@ -44,19 +44,23 @@ export function Toast() {
 
   useEffect(() => {
     if (visible) {
-      translateY.value = withSpring(0, { damping: 20, stiffness: 300 });
+      // Slide in with spring, then auto-dismiss after duration
+      translateY.value = withSpring(0, { damping: 20, stiffness: 300 }, (finished) => {
+        if (finished) {
+          // Schedule auto-dismiss only after spring settles
+          translateY.value = withDelay(
+            duration - 400,
+            withTiming(-100, { duration: 300 }, (done) => {
+              if (done) runOnJS(dismiss)();
+            })
+          );
+          opacity.value = withDelay(duration - 400, withTiming(0, { duration: 300 }));
+        }
+      });
       opacity.value = withTiming(1, { duration: 200 });
       // Haptic
       if (type === "success") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       else if (type === "error") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
-      // Auto-dismiss
-      translateY.value = withDelay(
-        duration,
-        withTiming(-100, { duration: 300 }, (finished) => {
-          if (finished) runOnJS(dismiss)();
-        })
-      );
-      opacity.value = withDelay(duration, withTiming(0, { duration: 300 }));
     } else {
       translateY.value = -100;
       opacity.value = 0;

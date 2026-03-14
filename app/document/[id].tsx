@@ -19,6 +19,7 @@ import { t, translateSubtype } from '../../src/core/i18n';
 import { formatDate, formatMoney, formatDaysRemaining, getRecurrenceLabel } from '../../src/core/formatters';
 import { CATEGORIES, STATUS_DISPLAY } from '../../src/core/constants';
 import { AnimatedPressable, FadeInView } from '../../src/components/AnimatedUI';
+import { deleteWithUndo } from '../../src/core/confirmActions';
 import { fonts } from '../../src/theme/typography';
 import { ImageViewer } from '../../src/components/ImageViewer';
 import { requestCalendarPermission, addDocumentToCalendar } from '../../src/services/calendar';
@@ -91,7 +92,7 @@ export default function DocumentDetailScreen() {
       t(language, 'confirm_delete_msg', { title: doc.title }),
       [
         { text: t(language, 'confirm_cancel'), style: 'cancel' },
-        { text: t(language, 'confirm_delete_btn'), style: 'destructive', onPress: () => { deleteDocument(doc.id); router.back(); showToast(t(language, 'toast_deleted'), 'info', { label: t(language, 'toast_undo'), onPress: () => { undoDelete(); showToast(t(language, 'toast_undo_success')); } }); } },
+        { text: t(language, 'confirm_delete_btn'), style: 'destructive', onPress: () => { deleteWithUndo(doc.id, language, deleteDocument, undoDelete); router.back(); } },
       ]
     );
   };

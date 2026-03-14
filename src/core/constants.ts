@@ -158,6 +158,12 @@ export const RECURRENCE_OPTIONS: RecurrenceOption[] = [
   { value: "10years",  labelKey: "rec_10years",     days: 3650 },
 ];
 
+/** All valid recurrence values — single source of truth for validation */
+export const VALID_RECURRENCE_VALUES: ReadonlySet<string> = new Set([
+  ...RECURRENCE_QUICK.map((o) => o.value),
+  ...RECURRENCE_OPTIONS.map((o) => o.value),
+]);
+
 // ─── Sort Options ───────────────────────────────────────
 
 export const SORT_OPTIONS: SortOption[] = [

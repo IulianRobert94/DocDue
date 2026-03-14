@@ -23,7 +23,7 @@ async function getXLSX() {
 }
 
 import { t, translateSubtype } from '../../core/i18n';
-import { CATEGORIES, FREE_DOCUMENT_LIMIT, MAX_IMPORT_LIMIT } from '../../core/constants';
+import { CATEGORIES, FREE_DOCUMENT_LIMIT, MAX_IMPORT_LIMIT, VALID_RECURRENCE_VALUES } from '../../core/constants';
 import type { CategoryId, RecurrenceValue, RawDocument, AppSettings } from '../../core/constants';
 import type { AppTheme } from '../../theme/colors';
 import { AnimatedPressable } from '../AnimatedUI';
@@ -197,7 +197,7 @@ export function DataSection({
           asset: asset || undefined,
           due: due || new Date().toISOString().slice(0, 10),
           amt: amt !== null && !isNaN(amt) ? amt : null,
-          rec: ['none', 'weekly', 'biweekly', 'monthly', 'quarterly', 'biannual', 'annual', '2years', '5years', '10years'].includes(rec) ? rec : 'none',
+          rec: VALID_RECURRENCE_VALUES.has(rec) ? rec : 'none',
           notes: notes || undefined,
         };
       }).filter((d) => d.title.trim().length > 0);

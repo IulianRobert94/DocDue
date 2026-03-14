@@ -40,6 +40,7 @@ import {
 } from "../src/services/notifications";
 import { initializeIAP, checkPremiumStatus, isIAPConfigured } from "../src/services/iap";
 import { enrichDocument } from "../src/core/enrichment";
+import { getTodayString } from "../src/core/dateUtils";
 import { updateWidgetData } from "../src/services/widgetService";
 import { t } from "../src/core/i18n";
 import { evaluateStreak } from "../src/core/streak";
@@ -134,7 +135,7 @@ function RootLayout() {
           settings.lastStreakCheck ?? null,
         );
         if (streakResult.isNew || streakResult.streakDays !== (settings.streakDays ?? 0)) {
-          const today = new Date().toISOString().slice(0, 10);
+          const today = getTodayString();
           useSettingsStore.getState().updateSetting('streakDays', streakResult.streakDays);
           useSettingsStore.getState().updateSetting('bestStreak', streakResult.bestStreak);
           useSettingsStore.getState().updateSetting('lastStreakCheck', today);
@@ -240,10 +241,14 @@ function RootLayout() {
     }
   }, [router]);
 
-  // Re-schedule morning digest & weekly summary when app returns from background
+  // Re-schedule notifications when app returns from background (debounced — skip if <60s)
+  const lastRescheduleRef = useRef(0);
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (nextState) => {
       if (nextState === "active") {
+        const now = Date.now();
+        if (now - lastRescheduleRef.current < 60000) return;
+        lastRescheduleRef.current = now;
         const settings = useSettingsStore.getState().settings;
         const documents = useDocumentStore.getState().documents;
         if (settings.notificationsEnabled && documents.length > 0) {

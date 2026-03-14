@@ -75,21 +75,18 @@ export default function HomeScreen() {
   );
 
 
-  // Next expiring document (for health score card)
-  const nextExpiring = useMemo(() => {
-    if (enriched.length === 0) return null;
-    const sorted = [...enriched].sort((a, b) => a._daysUntil - b._daysUntil);
-    return sorted[0] || null;
-  }, [enriched]);
+  // Next expiring document (enriched is already sorted by _daysUntil ascending)
+  const nextExpiring = enriched.length > 0 ? enriched[0] : null;
 
   // Celebration when health score hits 100
   const [showCelebration, setShowCelebration] = useState(false);
   useEffect(() => {
     if (healthScore === 100 && enriched.length > 0) {
       setShowCelebration(true);
-      setTimeout(() => setShowCelebration(false), 1000);
+      const timer = setTimeout(() => setShowCelebration(false), 1000);
+      return () => clearTimeout(timer);
     }
-  }, [healthScore]);
+  }, [healthScore, enriched.length]);
 
   // Floating animation for empty state icon
   const floatAnim = useRef(new RNAnimated.Value(0)).current;

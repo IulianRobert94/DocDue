@@ -13,14 +13,13 @@ import { useTheme, useLanguage, useCurrency } from '../../src/stores/useSettings
 import { useEnrichedDocuments, useDocumentStore } from '../../src/stores/useDocumentStore';
 import { t, translateSubtype } from '../../src/core/i18n';
 import { SwipeableRow } from '../../src/components/SwipeableRow';
-import { buildMarkAsPaidAction } from '../../src/core/confirmActions';
+import { buildMarkAsPaidAction, deleteWithUndo } from '../../src/core/confirmActions';
 import { formatDate, formatMoney, formatDaysRemaining } from '../../src/core/formatters';
 import { sortDocumentsByField } from '../../src/core/enrichment';
 import { CATEGORIES, STATUS_DISPLAY, SORT_OPTIONS } from '../../src/core/constants';
 import type { CategoryId, SortField, SortDirection, DocumentStatus } from '../../src/core/constants';
 import Reanimated, { FadeInDown, FadeOut } from 'react-native-reanimated';
 import { AnimatedPressable, FadeInView } from '../../src/components/AnimatedUI';
-import { showToast } from '../../src/stores/useToastStore';
 import { fonts } from '../../src/theme/typography';
 
 export default function CategoryDetailScreen() {
@@ -166,7 +165,7 @@ export default function CategoryDetailScreen() {
           return (
             <Reanimated.View entering={FadeInDown.delay(index * 40).springify()} exiting={FadeOut.duration(200)} style={{ marginHorizontal: 16 }}>
               <SwipeableRow
-                onDelete={() => { deleteDocument(item.id); showToast(t(language, 'toast_deleted'), 'info', { label: t(language, 'toast_undo'), onPress: () => { undoDelete(); showToast(t(language, 'toast_undo_success')); } }); }}
+                onDelete={() => deleteWithUndo(item.id, language, deleteDocument, undoDelete)}
                 confirmTitle={t(language, 'confirm_delete_title')}
                 confirmMessage={t(language, 'confirm_delete_msg', { title: item.title })}
                 confirmCancel={t(language, 'confirm_cancel')}
