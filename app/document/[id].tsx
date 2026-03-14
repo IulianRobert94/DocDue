@@ -209,7 +209,28 @@ export default function DocumentDetailScreen() {
         {/* Attachments */}
         {doc.attachments && doc.attachments.length > 0 && (
           <FadeInView delay={350}>
-            <Text style={[s.sectionHeader, { color: theme.textSecondary }]}>{t(language, 'attachments')}</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingRight: 20 }}>
+              <Text style={[s.sectionHeader, { color: theme.textSecondary }]}>{t(language, 'attachments')}</Text>
+              {doc.attachments.length > 1 && (
+                <AnimatedPressable
+                  onPress={() => {
+                    const uris = doc.attachments!.map((a) => a.uri);
+                    // Share all attachments sequentially (iOS/Android share sheet)
+                    Promise.all(uris.map((uri) => Sharing.isAvailableAsync().then((ok) => ok ? uri : null)))
+                      .then((valid) => {
+                        const first = valid.find(Boolean);
+                        if (first) Sharing.shareAsync(first).catch(() => {});
+                      });
+                  }}
+                  hapticStyle="light"
+                  accessibilityLabel={t(language, 'share_all_attachments')}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  haptic={false}
+                >
+                  <Text style={{ color: theme.primary, fontSize: 15, fontFamily: fonts.regular }}>{t(language, 'share_all_attachments')}</Text>
+                </AnimatedPressable>
+              )}
+            </View>
             <View style={[s.group, { backgroundColor: theme.card, padding: 12 }]}>
               <View style={s.attachGrid}>
                 {doc.attachments.map((att) => (
@@ -223,11 +244,20 @@ export default function DocumentDetailScreen() {
                         Sharing.shareAsync(att.uri).catch(() => {});
                       }
                     }}
+                    onLongPress={() => {
+                      Haptics.selectionAsync().catch(() => {});
+                      Sharing.shareAsync(att.uri).catch(() => {});
+                    }}
                     scaleValue={0.95}
-                    accessibilityLabel={t(language, 'open_file')}
+                    accessibilityLabel={att.type === 'image' ? `${att.name} — ${t(language, 'share_file')}` : t(language, 'open_file')}
                   >
                     {att.type === 'image' ? (
-                      <Image source={{ uri: att.uri }} style={s.attachThumb} accessibilityLabel={att.name} accessibilityRole="image" onError={() => {}} />
+                      <>
+                        <Image source={{ uri: att.uri }} style={s.attachThumb} accessibilityLabel={att.name} accessibilityRole="image" onError={() => {}} />
+                        <View style={s.shareIcon}>
+                          <Ionicons name="share-outline" size={12} color="#FFF" />
+                        </View>
+                      </>
                     ) : (
                       <View style={[s.attachThumb, s.attachFile, { backgroundColor: theme.inputFill }]}>
                         <Ionicons name="document-text" size={28} color="#FF3B30" />
@@ -435,6 +465,7 @@ const s = StyleSheet.create({
   attachItem: { width: 80, alignItems: 'center' },
   attachThumb: { width: 72, height: 72, borderRadius: 10 },
   attachFile: { alignItems: 'center', justifyContent: 'center' },
+  shareIcon: { position: 'absolute', top: 4, right: 4, width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' },
   attachExt: { fontSize: 9, fontWeight: '700', fontFamily: fonts.bold, marginTop: 2 },
   attachName: { fontSize: 11, fontFamily: fonts.regular, marginTop: 4, textAlign: 'center' },
   congratsOverlay: {

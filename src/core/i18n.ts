@@ -249,6 +249,8 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     from_camera: "Din cameră",
     from_gallery: "Din galerie",
     open_file: "Deschide fișier",
+    share_file: "Trimite fișier",
+    share_all_attachments: "Trimite toate",
     attachment_error: "Eroare la adăugarea fișierului",
 
     // Backup & Restore
@@ -688,6 +690,8 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     from_camera: "From Camera",
     from_gallery: "From Gallery",
     open_file: "Open File",
+    share_file: "Share file",
+    share_all_attachments: "Share all",
     attachment_error: "Error adding file",
 
     // Backup & Restore
