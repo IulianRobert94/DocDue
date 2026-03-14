@@ -1771,4 +1771,280 @@ describe("i18n — new recurrence keys", () => {
     const en = t("en", "confirm_clear_msg_count", { n: 3 });
     expect(en).toContain("3");
   });
+
+  it("undo/delete toast keys exist in both languages", () => {
+    expect(t("ro", "toast_deleted")).not.toBe("toast_deleted");
+    expect(t("en", "toast_deleted")).not.toBe("toast_deleted");
+    expect(t("ro", "toast_undo")).not.toBe("toast_undo");
+    expect(t("en", "toast_undo")).not.toBe("toast_undo");
+    expect(t("ro", "toast_undo_success")).not.toBe("toast_undo_success");
+    expect(t("en", "toast_undo_success")).not.toBe("toast_undo_success");
+  });
+
+  it("share/attachment keys exist in both languages", () => {
+    expect(t("ro", "share_file")).not.toBe("share_file");
+    expect(t("en", "share_file")).not.toBe("share_file");
+    expect(t("ro", "share_all_attachments")).not.toBe("share_all_attachments");
+    expect(t("en", "share_all_attachments")).not.toBe("share_all_attachments");
+  });
+});
+
+// ─── VALID_RECURRENCE_VALUES Constant ───────────────────
+
+import { VALID_RECURRENCE_VALUES } from "../core/constants";
+
+describe("VALID_RECURRENCE_VALUES", () => {
+  it("contains all 10 recurrence values", () => {
+    expect(VALID_RECURRENCE_VALUES.size).toBe(10);
+  });
+
+  it("includes none and all extended types", () => {
+    const expected = ["none", "weekly", "biweekly", "monthly", "quarterly", "biannual", "annual", "2years", "5years", "10years"];
+    for (const val of expected) {
+      expect(VALID_RECURRENCE_VALUES.has(val)).toBe(true);
+    }
+  });
+
+  it("rejects invalid recurrence values", () => {
+    expect(VALID_RECURRENCE_VALUES.has("daily")).toBe(false);
+    expect(VALID_RECURRENCE_VALUES.has("yearly")).toBe(false);
+    expect(VALID_RECURRENCE_VALUES.has("")).toBe(false);
+    expect(VALID_RECURRENCE_VALUES.has("3years")).toBe(false);
+  });
+});
+
+// ─── Streak System ──────────────────────────────────────
+
+import { evaluateStreak } from "../core/streak";
+
+describe("evaluateStreak", () => {
+  const makeEnriched = (status: "expired" | "warning" | "ok"): EnrichedDocument => ({
+    id: "1", cat: "vehicule", type: "RCA", title: "Test",
+    due: "2026-06-01", amt: null, rec: "annual",
+    _daysUntil: status === "expired" ? -5 : status === "warning" ? 5 : 100,
+    _status: status,
+  });
+
+  it("increments streak when all docs are ok", () => {
+    const result = evaluateStreak([makeEnriched("ok")], 5, 10, "2026-03-13");
+    expect(result.streakDays).toBe(6);
+    expect(result.isNew).toBe(true);
+  });
+
+  it("resets streak when any doc is expired", () => {
+    const result = evaluateStreak([makeEnriched("expired"), makeEnriched("ok")], 10, 15, "2026-03-13");
+    expect(result.streakDays).toBe(0);
+    expect(result.isNew).toBe(false);
+  });
+
+  it("does not change streak if already checked today", () => {
+    const today = getTodayString();
+    const result = evaluateStreak([makeEnriched("ok")], 5, 10, today);
+    expect(result.streakDays).toBe(5);
+    expect(result.isNew).toBe(false);
+  });
+
+  it("does not increment streak for empty document list", () => {
+    const result = evaluateStreak([], 3, 5, "2026-03-13");
+    expect(result.streakDays).toBe(3);
+    expect(result.isNew).toBe(false);
+  });
+
+  it("updates best streak when current exceeds it", () => {
+    const result = evaluateStreak([makeEnriched("ok")], 10, 8, "2026-03-13");
+    expect(result.bestStreak).toBe(11);
+  });
+
+  it("preserves best streak when current is lower", () => {
+    const result = evaluateStreak([makeEnriched("ok")], 3, 20, "2026-03-13");
+    expect(result.bestStreak).toBe(20);
+  });
+
+  it("warning docs do NOT break streak (only expired does)", () => {
+    const result = evaluateStreak([makeEnriched("warning")], 5, 10, "2026-03-13");
+    expect(result.streakDays).toBe(6);
+    expect(result.isNew).toBe(true);
+  });
+
+  it("handles null lastCheck (first ever check)", () => {
+    const result = evaluateStreak([makeEnriched("ok")], 0, 0, null);
+    expect(result.streakDays).toBe(1);
+    expect(result.isNew).toBe(true);
+    expect(result.bestStreak).toBe(1);
+  });
+});
+
+// ─── deleteWithUndo Helper ──────────────────────────────
+
+import { deleteWithUndo } from "../core/confirmActions";
+
+describe("deleteWithUndo", () => {
+  it("calls deleteDocument with the correct id", () => {
+    const deleteFn = jest.fn();
+    const undoFn = jest.fn();
+    deleteWithUndo("doc-123", "ro", deleteFn, undoFn);
+    expect(deleteFn).toHaveBeenCalledWith("doc-123");
+  });
+
+  it("does not call undoDelete immediately", () => {
+    const deleteFn = jest.fn();
+    const undoFn = jest.fn();
+    deleteWithUndo("doc-123", "en", deleteFn, undoFn);
+    expect(undoFn).not.toHaveBeenCalled();
+  });
+});
+
+// ─── Boundary & Stress Tests ────────────────────────────
+
+describe("boundary stress tests", () => {
+  it("enrichment handles 1000 documents without error", () => {
+    const docs: RawDocument[] = Array.from({ length: 1000 }, (_, i) => ({
+      id: `stress-${i}`, cat: "vehicule" as const, type: "RCA", title: `Doc ${i}`,
+      due: addDaysToDate(getTodayString(), i - 500), amt: i * 10, rec: "annual" as const,
+    }));
+    const enriched = docs.map(d => enrichDocument(d));
+    expect(enriched).toHaveLength(1000);
+    expect(enriched.filter(d => d._status === "expired").length).toBeGreaterThan(0);
+    expect(enriched.filter(d => d._status === "ok").length).toBeGreaterThan(0);
+  });
+
+  it("health score handles 100 expired documents", () => {
+    const docs = Array.from({ length: 100 }, (_, i) => enrichDocument({
+      id: `exp-${i}`, cat: "casa" as const, type: "Gaz", title: `Expired ${i}`,
+      due: addDaysToDate(getTodayString(), -10), amt: 50, rec: "monthly" as const,
+    }));
+    const score = calculateHealthScore(docs);
+    expect(score).toBe(0);
+  });
+
+  it("health score handles 100 ok documents", () => {
+    const docs = Array.from({ length: 100 }, (_, i) => enrichDocument({
+      id: `ok-${i}`, cat: "casa" as const, type: "Gaz", title: `Ok ${i}`,
+      due: addDaysToDate(getTodayString(), 100), amt: 50, rec: "monthly" as const,
+    }));
+    const score = calculateHealthScore(docs);
+    expect(score).toBe(100);
+  });
+
+  it("sortDocumentsByField handles empty array", () => {
+    const sorted = sortDocumentsByField([], "urgency", "asc");
+    expect(sorted).toEqual([]);
+  });
+
+  it("formatMoney handles very large amounts", () => {
+    const result = formatMoney(999999999, "RON", "ro");
+    expect(result).toBeTruthy();
+    expect(result.length).toBeGreaterThan(0);
+  });
+
+  it("formatMoney handles very small amounts", () => {
+    const result = formatMoney(0.01, "EUR", "en");
+    expect(result).toBeTruthy();
+  });
+
+  it("addMonthsToDate handles 120 months (10 years)", () => {
+    const result = addMonthsToDate("2026-01-15", 120);
+    expect(result).toBe("2036-01-15");
+  });
+
+  it("addDaysToDate handles 3650 days (10 years)", () => {
+    const result = addDaysToDate("2026-01-01", 3650);
+    expect(result).toBeTruthy();
+    expect(result.startsWith("2035") || result.startsWith("2036")).toBe(true);
+  });
+
+  it("calculateDaysUntil handles dates 30 years in the future", () => {
+    const days = calculateDaysUntil("2056-01-01");
+    expect(days).toBeGreaterThan(10000);
+  });
+
+  it("calculateDaysUntil handles dates 30 years in the past", () => {
+    const days = calculateDaysUntil("1996-01-01");
+    expect(days).toBeLessThan(-10000);
+  });
+});
+
+// ─── Payment History Integrity ──────────────────────────
+
+describe("payment history edge cases", () => {
+  it("empty paymentHistory array survives round-trip", () => {
+    const doc: RawDocument = {
+      id: "ph-1", cat: "casa", type: "Gaz", title: "Gas",
+      due: "2026-06-01", amt: 100, rec: "monthly", paymentHistory: [],
+    };
+    const stripped = stripEnrichedFields(enrichDocument(doc));
+    expect(stripped.paymentHistory).toEqual([]);
+  });
+
+  it("paymentHistory with null amount survives round-trip", () => {
+    const doc: RawDocument = {
+      id: "ph-2", cat: "vehicule", type: "RCA", title: "RCA",
+      due: "2026-06-01", amt: null, rec: "annual",
+      paymentHistory: [{ date: "2026-01-01", dueDate: "2025-12-31", amt: null }],
+    };
+    const stripped = stripEnrichedFields(enrichDocument(doc));
+    expect(stripped.paymentHistory![0].amt).toBeNull();
+  });
+
+  it("multiple payment records preserve order", () => {
+    const doc: RawDocument = {
+      id: "ph-3", cat: "casa", type: "Curent electric", title: "Electric",
+      due: "2026-06-01", amt: 200, rec: "monthly",
+      paymentHistory: [
+        { date: "2026-01-01", dueDate: "2025-12-31", amt: 180 },
+        { date: "2026-02-01", dueDate: "2026-01-31", amt: 195 },
+        { date: "2026-03-01", dueDate: "2026-02-28", amt: 210 },
+      ],
+    };
+    const stripped = stripEnrichedFields(enrichDocument(doc));
+    expect(stripped.paymentHistory).toHaveLength(3);
+    expect(stripped.paymentHistory![0].amt).toBe(180);
+    expect(stripped.paymentHistory![2].amt).toBe(210);
+  });
+});
+
+// ─── Cross-Module Consistency ───────────────────────────
+
+describe("cross-module consistency", () => {
+  it("every RECURRENCE_OPTIONS value is in VALID_RECURRENCE_VALUES", () => {
+    for (const opt of RECURRENCE_OPTIONS) {
+      expect(VALID_RECURRENCE_VALUES.has(opt.value)).toBe(true);
+    }
+  });
+
+  it("every RECURRENCE_QUICK value is in VALID_RECURRENCE_VALUES", () => {
+    for (const opt of RECURRENCE_QUICK) {
+      expect(VALID_RECURRENCE_VALUES.has(opt.value)).toBe(true);
+    }
+  });
+
+  it("getRecurrenceDays returns >0 for all non-none recurrence types", () => {
+    const allRecs = [...RECURRENCE_QUICK, ...RECURRENCE_OPTIONS];
+    for (const rec of allRecs) {
+      if (rec.value === "none") {
+        expect(getRecurrenceDays(rec.value)).toBe(0);
+      } else {
+        expect(getRecurrenceDays(rec.value)).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it("getWarningDaysForRecurrence returns >0 for all recurrence types", () => {
+    const allRecs = [...RECURRENCE_QUICK, ...RECURRENCE_OPTIONS];
+    for (const rec of allRecs) {
+      expect(getWarningDaysForRecurrence(rec.value as any)).toBeGreaterThan(0);
+    }
+  });
+
+  it("every category color is a valid 6-digit hex", () => {
+    for (const cat of Object.values(CATEGORIES)) {
+      expect(cat.color).toMatch(/^#[0-9A-Fa-f]{6}$/);
+    }
+  });
+
+  it("every status color is a valid 6-digit hex", () => {
+    for (const status of Object.values(STATUS_DISPLAY)) {
+      expect(status.color).toMatch(/^#[0-9A-Fa-f]{6}$/);
+    }
+  });
 });

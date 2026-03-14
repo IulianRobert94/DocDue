@@ -560,3 +560,103 @@ describe("computed stats logic", () => {
     expect(urgentCount).toBe(2);
   });
 });
+
+// ─── Undo Delete ────────────────────────────────────────
+
+describe("undoDelete", () => {
+  beforeEach(() => {
+    useDocumentStore.setState({ documents: [], _hydrated: true });
+  });
+
+  it("restores a deleted document", () => {
+    useDocumentStore.getState().addDocument({ cat: "vehicule", type: "RCA", title: "Undo Test", due: "2026-12-31", amt: 500, rec: "annual" });
+    const docs = useDocumentStore.getState().documents;
+    expect(docs).toHaveLength(1);
+    const id = docs[0].id;
+
+    useDocumentStore.getState().deleteDocument(id);
+    expect(useDocumentStore.getState().documents).toHaveLength(0);
+
+    useDocumentStore.getState().undoDelete();
+    expect(useDocumentStore.getState().documents).toHaveLength(1);
+    expect(useDocumentStore.getState().documents[0].id).toBe(id);
+    expect(useDocumentStore.getState().documents[0].title).toBe("Undo Test");
+  });
+
+  it("does nothing when no document was deleted", () => {
+    useDocumentStore.getState().addDocument({ cat: "casa", type: "Gaz", title: "Keep", due: "2026-06-01", amt: null, rec: "monthly" });
+    const countBefore = useDocumentStore.getState().documents.length;
+    useDocumentStore.getState().undoDelete();
+    expect(useDocumentStore.getState().documents.length).toBe(countBefore);
+  });
+
+  it("only restores the last deleted document (not older ones)", () => {
+    useDocumentStore.getState().addDocument({ cat: "vehicule", type: "RCA", title: "First", due: "2026-12-31", amt: null, rec: "annual" });
+    useDocumentStore.getState().addDocument({ cat: "casa", type: "Gaz", title: "Second", due: "2026-12-31", amt: null, rec: "monthly" });
+    const docs = useDocumentStore.getState().documents;
+
+    useDocumentStore.getState().deleteDocument(docs[0].id);
+    useDocumentStore.getState().deleteDocument(docs[1].id);
+
+    useDocumentStore.getState().undoDelete();
+    const restored = useDocumentStore.getState().documents;
+    expect(restored).toHaveLength(1);
+    expect(restored[0].title).toBe("Second");
+  });
+});
+
+// ─── Toast Store ────────────────────────────────────────
+
+import { useToastStore, showToast } from "../stores/useToastStore";
+
+describe("useToastStore", () => {
+  beforeEach(() => {
+    useToastStore.setState({ visible: false, message: "", type: "success", action: null });
+  });
+
+  it("show sets visible, message, and type", () => {
+    useToastStore.getState().show("Test message", "error");
+    const state = useToastStore.getState();
+    expect(state.visible).toBe(true);
+    expect(state.message).toBe("Test message");
+    expect(state.type).toBe("error");
+  });
+
+  it("show defaults to success type", () => {
+    useToastStore.getState().show("Hello");
+    expect(useToastStore.getState().type).toBe("success");
+  });
+
+  it("show with action stores the action", () => {
+    const action = { label: "Undo", onPress: jest.fn() };
+    useToastStore.getState().show("Deleted", "info", action);
+    const state = useToastStore.getState();
+    expect(state.action).not.toBeNull();
+    expect(state.action!.label).toBe("Undo");
+  });
+
+  it("hide clears visible and action", () => {
+    useToastStore.getState().show("Msg", "info", { label: "X", onPress: jest.fn() });
+    useToastStore.getState().hide();
+    const state = useToastStore.getState();
+    expect(state.visible).toBe(false);
+    expect(state.action).toBeNull();
+  });
+
+  it("showToast convenience function works", () => {
+    showToast("Quick toast", "error");
+    const state = useToastStore.getState();
+    expect(state.visible).toBe(true);
+    expect(state.message).toBe("Quick toast");
+    expect(state.type).toBe("error");
+  });
+
+  it("showToast with action works", () => {
+    const onPress = jest.fn();
+    showToast("Deleted", "info", { label: "Undo", onPress });
+    const state = useToastStore.getState();
+    expect(state.action!.label).toBe("Undo");
+    state.action!.onPress();
+    expect(onPress).toHaveBeenCalledTimes(1);
+  });
+});
