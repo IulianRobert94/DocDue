@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, Alert, Image, Share, ActivityIndicator, Animated } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Alert, Image, Share, ActivityIndicator, Animated, Platform, ActionSheetIOS } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { showToast } from '../../src/stores/useToastStore';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -234,56 +234,53 @@ export default function DocumentDetailScreen() {
             <View style={[s.group, { backgroundColor: theme.card, padding: 12 }]}>
               <View style={s.attachGrid}>
                 {doc.attachments.map((att) => (
-                  <View key={att.id} style={s.attachItem}>
-                    <AnimatedPressable
-                      onPress={() => {
-                        if (att.type === 'image') {
-                          setViewImage(att.uri);
-                        } else {
-                          Sharing.shareAsync(att.uri).catch(() => {});
-                        }
-                      }}
-                      scaleValue={0.95}
-                      accessibilityLabel={`${att.name} — ${t(language, 'open_file')}`}
-                    >
-                      {att.type === 'image' ? (
-                        <Image source={{ uri: att.uri }} style={s.attachThumb} accessibilityLabel={att.name} accessibilityRole="image" onError={() => {}} />
-                      ) : (
-                        <View style={[s.attachThumb, s.attachFile, { backgroundColor: theme.inputFill }]}>
-                          <Ionicons name="document-text" size={28} color="#FF3B30" />
-                          <Text style={[s.attachExt, { color: theme.textMuted }]} numberOfLines={1}>
-                            {att.name.split('.').pop()?.toUpperCase()}
-                          </Text>
-                        </View>
-                      )}
-                    </AnimatedPressable>
+                  <AnimatedPressable
+                    key={att.id}
+                    style={s.attachItem}
+                    onPress={() => {
+                      const viewLabel = att.type === 'image' ? t(language, 'open_file') : t(language, 'open_file');
+                      const shareLabel = t(language, 'share_file');
+                      const cancelLabel = t(language, 'confirm_cancel');
+                      if (Platform.OS === 'ios') {
+                        ActionSheetIOS.showActionSheetWithOptions(
+                          { options: [cancelLabel, viewLabel, shareLabel], cancelButtonIndex: 0 },
+                          (idx) => {
+                            if (idx === 1) {
+                              if (att.type === 'image') setViewImage(att.uri);
+                              else Sharing.shareAsync(att.uri).catch(() => {});
+                            } else if (idx === 2) {
+                              Sharing.shareAsync(att.uri).catch(() => {});
+                            }
+                          }
+                        );
+                      } else {
+                        Alert.alert(att.name, undefined, [
+                          { text: cancelLabel, style: 'cancel' },
+                          { text: viewLabel, onPress: () => {
+                            if (att.type === 'image') setViewImage(att.uri);
+                            else Sharing.shareAsync(att.uri).catch(() => {});
+                          }},
+                          { text: shareLabel, onPress: () => Sharing.shareAsync(att.uri).catch(() => {}) },
+                        ]);
+                      }
+                    }}
+                    scaleValue={0.95}
+                    accessibilityLabel={att.name}
+                  >
+                    {att.type === 'image' ? (
+                      <Image source={{ uri: att.uri }} style={s.attachThumb} accessibilityLabel={att.name} accessibilityRole="image" onError={() => {}} />
+                    ) : (
+                      <View style={[s.attachThumb, s.attachFile, { backgroundColor: theme.inputFill }]}>
+                        <Ionicons name="document-text" size={28} color="#FF3B30" />
+                        <Text style={[s.attachExt, { color: theme.textMuted }]} numberOfLines={1}>
+                          {att.name.split('.').pop()?.toUpperCase()}
+                        </Text>
+                      </View>
+                    )}
                     <Text style={[s.attachName, { color: theme.textMuted }]} numberOfLines={1}>
                       {att.name}
                     </Text>
-                    <View style={s.attachActions}>
-                      <AnimatedPressable
-                        onPress={() => {
-                          if (att.type === 'image') setViewImage(att.uri);
-                          else Sharing.shareAsync(att.uri).catch(() => {});
-                        }}
-                        style={[s.attachActionBtn, { backgroundColor: theme.inputFill }]}
-                        haptic={false}
-                        accessibilityLabel={t(language, 'open_file')}
-                        hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-                      >
-                        <Ionicons name="eye-outline" size={14} color={theme.textSecondary} />
-                      </AnimatedPressable>
-                      <AnimatedPressable
-                        onPress={() => Sharing.shareAsync(att.uri).catch(() => {})}
-                        style={[s.attachActionBtn, { backgroundColor: theme.inputFill }]}
-                        hapticStyle="light"
-                        accessibilityLabel={t(language, 'share_file')}
-                        hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-                      >
-                        <Ionicons name="share-outline" size={14} color={theme.primary} />
-                      </AnimatedPressable>
-                    </View>
-                  </View>
+                  </AnimatedPressable>
                 ))}
               </View>
             </View>
@@ -479,8 +476,6 @@ const s = StyleSheet.create({
   attachItem: { width: 80, alignItems: 'center' },
   attachThumb: { width: 72, height: 72, borderRadius: 10 },
   attachFile: { alignItems: 'center', justifyContent: 'center' },
-  attachActions: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 4 },
-  attachActionBtn: { width: 30, height: 26, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
   attachExt: { fontSize: 9, fontWeight: '700', fontFamily: fonts.bold, marginTop: 2 },
   attachName: { fontSize: 11, fontFamily: fonts.regular, marginTop: 4, textAlign: 'center' },
   congratsOverlay: {
