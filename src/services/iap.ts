@@ -43,13 +43,13 @@ export async function initializeIAP(): Promise<void> {
   if (_initialized) return;
   try {
     const iap = await getIAP();
-    if (!iap) { if (__DEV__) console.log("DocDue: IAP not available — using early access mode"); return; }
+    if (!iap) { if (__DEV__) console.log("DocDue: IAP not available — IAP module not available (Expo Go or store unavailable)"); return; }
     await iap.initConnection();
     _initialized = true;
     if (__DEV__) console.log("DocDue: IAP connected to store");
   } catch (e) {
     // Expected in Expo Go or when store is unavailable
-    if (__DEV__) console.log("DocDue: IAP not available — using early access mode");
+    if (__DEV__) console.log("DocDue: IAP not available — IAP module not available (Expo Go or store unavailable)");
   }
 }
 
@@ -68,7 +68,7 @@ export async function checkPremiumStatus(): Promise<boolean> {
   }
 }
 
-// ─── Get Products (replaces RevenueCat "offerings") ──────
+// ─── Get Products ───────────────────────────────────────
 // Fetches product info (price, title) from the store.
 
 export interface IAPPackage {
