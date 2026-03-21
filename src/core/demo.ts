@@ -69,32 +69,26 @@ export function createDemoDocuments(lang: LanguageCode = "ro"): RawDocument[] {
   const demoId = () => `${DEMO_ID_PREFIX}${generateId()}`;
 
   return [
-    // ─── Vehicule (blue) ──────────────────────────────
+    // ─── Vehicule (blue) — 1 expired + 1 ok ─────────
     { id: demoId(), cat: "vehicule", type: "RCA", title: d("t_rca", lang), asset: plate, due: offset(-3), amt: 1850, rec: "annual", notes: d("n_rca", lang) },
     { id: demoId(), cat: "vehicule", type: "ITP", title: d("t_itp", lang), asset: plate, due: offset(18), amt: 180, rec: "annual", notes: d("n_itp", lang) },
-    { id: demoId(), cat: "vehicule", type: "CASCO", title: d("t_casco", lang), asset: plate, due: offset(145), amt: 3200, rec: "annual", notes: d("n_casco", lang) },
-    { id: demoId(), cat: "vehicule", type: "Rovignetă", title: d("t_rovig", lang), asset: plate, due: offset(85), amt: 28, rec: "annual", notes: d("n_rovig", lang) },
 
-    // ─── Casă & Utilități (green) ─────────────────────
-    { id: demoId(), cat: "casa", type: "Întreținere", title: d("t_intret", lang), asset: apt, due: offset(-1), amt: 480, rec: "monthly", notes: d("n_intret", lang) },
+    // ─── Casă & Utilități (green) — 1 warning + 1 ok
     { id: demoId(), cat: "casa", type: "Curent electric", title: d("t_curent", lang), asset: apt, due: offset(5), amt: 295, rec: "monthly", notes: d("n_curent", lang), paymentHistory: [
       { date: offset(-62), dueDate: offset(-60), amt: 280 },
       { date: offset(-31), dueDate: offset(-29), amt: 295 },
     ] },
     { id: demoId(), cat: "casa", type: "Internet", title: d("t_internet", lang), asset: apt, due: offset(21), amt: 55, rec: "monthly", notes: d("n_internet", lang) },
-    { id: demoId(), cat: "casa", type: "Asigurare PAD", title: d("t_pad", lang), asset: apt, due: offset(68), amt: 130, rec: "annual", notes: d("n_pad", lang) },
 
-    // ─── Personal (purple) ────────────────────────────
+    // ─── Personal (purple) — 1 warning + 1 ok ───────
     { id: demoId(), cat: "personal", type: "Carte de identitate", title: d("t_ci", lang), asset: owner, due: offset(25), amt: null, rec: "none", notes: d("n_ci", lang) },
-    { id: demoId(), cat: "personal", type: "Permis conducere", title: d("t_permis", lang), asset: owner, due: offset(290), amt: null, rec: "none", notes: d("n_permis", lang) },
     { id: demoId(), cat: "personal", type: "Fișă medicală", title: d("t_fisa", lang), asset: owner, due: offset(3), amt: 250, rec: "annual", notes: d("n_fisa", lang) },
 
-    // ─── Financiar (orange) ───────────────────────────
+    // ─── Financiar (orange) — 1 expired + 1 warning ──
     { id: demoId(), cat: "financiar", type: "Impozit ANAF", title: d("t_anaf", lang), asset: biz, due: offset(-2), amt: 4200, rec: "monthly", notes: d("n_anaf", lang) },
     { id: demoId(), cat: "financiar", type: "Rată leasing", title: d("t_leasing", lang), asset: plate, due: offset(7), amt: 1450, rec: "monthly", notes: d("n_leasing", lang), paymentHistory: [
       { date: offset(-61), dueDate: offset(-58), amt: 1450 },
       { date: offset(-30), dueDate: offset(-27), amt: 1450 },
     ] },
-    { id: demoId(), cat: "financiar", type: "Contract client", title: d("t_contract", lang), asset: biz, due: offset(42), amt: null, rec: "annual", notes: d("n_contract", lang) },
   ];
 }

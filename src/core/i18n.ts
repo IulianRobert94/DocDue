@@ -411,9 +411,8 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     insight_all_clear: "Toate documentele sunt la zi!",
     insight_tip: "Sfat: Adaugă documente recurente ca să nu ratezi nicio scadență",
 
-    // Premium early access
-    premium_early_access_note: "Toate funcțiile sunt gratuite în perioada de early access.",
-    premium_unlock_free: "Activează gratuit",
+    // Premium — IAP unavailable fallback
+    premium_unavailable_note: "Achiziția nu este disponibilă momentan. Dacă ai cumpărat deja, folosește Restaurare.",
 
     // Purchase terms
     premium_terms: "Achiziție unică — fără abonament, fără plăți recurente.",
@@ -852,9 +851,8 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     insight_all_clear: "All documents are up to date!",
     insight_tip: "Tip: Add recurring documents to never miss a deadline",
 
-    // Premium early access
-    premium_early_access_note: "All features are free during early access.",
-    premium_unlock_free: "Unlock for free",
+    // Premium — IAP unavailable fallback
+    premium_unavailable_note: "Purchase is not available right now. If you already purchased, use Restore.",
 
     // Purchase terms
     premium_terms: "One-time purchase — no subscription, no recurring charges.",

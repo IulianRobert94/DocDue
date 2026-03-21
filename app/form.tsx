@@ -26,7 +26,7 @@ import type { CategoryId, RecurrenceValue, RawDocument, Attachment } from '../sr
 import { LinearGradient } from 'expo-linear-gradient';
 import { AnimatedPressable, FadeInView } from '../src/components/AnimatedUI';
 import { SegmentedControl, RowDivider } from '../src/components/settings/SettingsUI';
-import { AttachmentPicker } from '../src/components/AttachmentPicker';
+import { AttachmentPicker, deleteAttachmentFiles } from '../src/components/AttachmentPicker';
 import { getSmartDefaults, autoCategorize } from '../src/core/smartDefaults';
 import { getAutoReminderDays } from '../src/core/enrichment';
 import { findDuplicate } from '../src/core/helpers';
@@ -105,6 +105,7 @@ export default function FormScreen() {
   const amtRef = useRef(amt);
   const notesRef = useRef(notes);
   const [attachments, setAttachments] = useState<Attachment[]>(existingDoc?.attachments || []);
+  const originalAttachmentIds = useRef(new Set((existingDoc?.attachments || []).map((a) => a.id)));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [scanning, setScanning] = useState(false);
@@ -158,6 +159,12 @@ export default function FormScreen() {
        attachments.length !== (existingDoc?.attachments?.length || 0))
     : (titleRef.current.trim().length > 0 || assetRef.current.trim().length > 0 || amtRef.current.trim().length > 0 || notesRef.current.trim().length > 0);
 
+  const cleanupNewAttachments = () => {
+    // Delete files for attachments added during this session (not in original)
+    const added = attachments.filter((a) => !originalAttachmentIds.current.has(a.id));
+    if (added.length > 0) deleteAttachmentFiles(added);
+  };
+
   const handleCancel = () => {
     Keyboard.dismiss();
     if (getHasUnsavedData()) {
@@ -166,10 +173,11 @@ export default function FormScreen() {
         t(language, 'confirm_discard_msg'),
         [
           { text: t(language, 'confirm_cancel'), style: 'cancel' },
-          { text: t(language, 'confirm_discard_btn'), style: 'destructive', onPress: () => router.back() },
+          { text: t(language, 'confirm_discard_btn'), style: 'destructive', onPress: () => { cleanupNewAttachments(); router.back(); } },
         ]
       );
     } else {
+      cleanupNewAttachments();
       router.back();
     }
   };
@@ -316,6 +324,10 @@ export default function FormScreen() {
     try {
       if (effectiveEdit && existingDoc) {
         updateDocument({ ...docData, id: existingDoc.id } as RawDocument);
+        // Clean up files for attachments that were removed during edit
+        const savedIds = new Set(attachments.map((a) => a.id));
+        const removed = (existingDoc.attachments || []).filter((a) => !savedIds.has(a.id));
+        if (removed.length > 0) deleteAttachmentFiles(removed);
       } else {
         addDocument(docData);
       }

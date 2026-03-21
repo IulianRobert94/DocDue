@@ -1,7 +1,7 @@
 /**
  * Premium Paywall Screen — Apple HIG 2025
  * Animated paywall with pricing tiers + restore purchases
- * Uses RevenueCat when configured, falls back to early access mode
+ * Uses react-native-iap (direct Apple StoreKit / Google Play Billing)
  */
 
 import React, { useEffect, useState, useRef } from 'react';
@@ -107,13 +107,6 @@ export default function PremiumScreen() {
     } finally {
       setRestoring(false);
     }
-  };
-
-  // Early access mode (RevenueCat not yet configured)
-  const handleUnlockEarlyAccess = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    updateSetting('isPremium', true);
-    router.back();
   };
 
   const iapReady = isIAPConfigured() && packages.length > 0;
@@ -277,22 +270,16 @@ export default function PremiumScreen() {
             </>
           ) : (
             <>
-              {/* Early access mode — no IAP configured yet */}
+              {/* IAP not available — show restore + informational message */}
               <Text style={[s.earlyAccessNote, { color: theme.textMuted }]}>
-                {t(language, 'premium_early_access_note')}
+                {t(language, 'premium_unavailable_note')}
               </Text>
-              <AnimatedPressable style={[s.upgradeBtn, { shadowColor: theme.primary, overflow: 'hidden' }]} onPress={handleUnlockEarlyAccess} hapticStyle="medium">
-                <LinearGradient
-                  colors={['#0E8BFF', '#0A79F1']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16 }}
-                >
-                  <Ionicons name="lock-open" size={20} color="#FFF" style={{ marginRight: 8 }} />
-                  <Text style={s.upgradeBtnText}>
-                    {t(language, 'premium_unlock_free')}
-                  </Text>
-                </LinearGradient>
+              <AnimatedPressable onPress={handleRestore} haptic={false} disabled={restoring} style={s.restoreBtn}>
+                {restoring ? (
+                  <ActivityIndicator size="small" color={theme.primary} />
+                ) : (
+                  <Text style={[s.restoreText, { color: theme.primary }]}>{t(language, 'premium_restore')}</Text>
+                )}
               </AnimatedPressable>
             </>
           )}

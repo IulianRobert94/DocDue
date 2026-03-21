@@ -55,9 +55,20 @@ export function getAutoReminderDays(rec: RecurrenceValue): number[] {
  * Uses custom override if set, otherwise auto-computed from recurrence.
  */
 export function getEffectiveReminderDays(doc: RawDocument): number[] {
-  return doc.reminderDays && doc.reminderDays.length > 0
-    ? doc.reminderDays
-    : getAutoReminderDays(doc.rec);
+  if (doc.reminderDays && doc.reminderDays.length > 0) {
+    // Validate: only positive integers up to 365
+    const valid = doc.reminderDays.filter((d) => typeof d === "number" && d > 0 && d <= 365);
+    if (valid.length > 0) return valid;
+  }
+  return getAutoReminderDays(doc.rec);
+}
+
+/**
+ * Filter out resolved documents — single source of truth for "active" docs.
+ * Use this everywhere that needs only non-resolved documents.
+ */
+export function getActiveDocuments(docs: RawDocument[]): RawDocument[] {
+  return docs.filter((d) => !d.resolved);
 }
 
 /**

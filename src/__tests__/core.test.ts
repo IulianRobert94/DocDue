@@ -1301,7 +1301,7 @@ describe("i18n RO/EN parity", () => {
     "demo_banner_text", "demo_banner_dismiss",
     "premium_upgrade", "premium_restore", "premium_limit_title", "premium_limit_msg",
     "premium_active", "premium_section", "premium_free_count", "premium_required",
-    "premium_early_access_note", "premium_unlock_free",
+    "premium_unavailable_note",
     // Payment history
     "payment_history", "total_paid", "paid_on", "payment_count",
     // Notification actions

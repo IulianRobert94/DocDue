@@ -117,19 +117,22 @@ export function BackupRestoreSection({
     if (!dirInfo.exists) {
       await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
     }
+    const MAX_ATTACHMENT_SIZE = 20 * 1024 * 1024; // 20MB base64 limit
     for (const doc of docs) {
       if (doc.attachments) {
         for (const att of doc.attachments) {
           const key = `${doc.id}_${att.id}`;
           const base64 = attachmentsData[key];
-          const MAX_ATTACHMENT_SIZE = 20 * 1024 * 1024; // 20MB base64 limit
-          const isValidPath = att.uri && att.uri.startsWith('file://') && att.uri.includes('/attachments/') && !att.uri.includes('..');
-          if (base64 && base64.length < MAX_ATTACHMENT_SIZE && isValidPath) {
-            try {
-              await FileSystem.writeAsStringAsync(att.uri, base64, { encoding: FileSystem.EncodingType.Base64 });
-            } catch {
-              // Skip failed writes
-            }
+          if (!base64 || base64.length >= MAX_ATTACHMENT_SIZE) continue;
+          // Remap URI to current sandbox — extract filename from old path
+          const oldFileName = att.uri?.split('/').pop();
+          if (!oldFileName || oldFileName.includes('..')) continue;
+          const newUri = `${dir}${oldFileName}`;
+          try {
+            await FileSystem.writeAsStringAsync(newUri, base64, { encoding: FileSystem.EncodingType.Base64 });
+            att.uri = newUri; // Update to current sandbox path
+          } catch {
+            // Skip failed writes
           }
         }
       }
@@ -192,6 +195,10 @@ export function BackupRestoreSection({
             onPress: async () => {
               setIsLoading(true);
               try {
+                // Remap attachment URIs to current sandbox BEFORE adding docs
+                if (backup.attachments) {
+                  await restoreAttachmentFiles(backupDocs, backup.attachments);
+                }
                 const existingKeys = new Set(
                   documents.map((d) => `${d.title}|${d.due}|${d.cat}`)
                 );
@@ -204,9 +211,6 @@ export function BackupRestoreSection({
                     return rest;
                   });
                   addDocuments(docsWithoutId);
-                }
-                if (backup.attachments) {
-                  await restoreAttachmentFiles(backupDocs, backup.attachments);
                 }
                 Alert.alert(t(language, 'alert_success'), t(language, 'restore_success'));
               } finally {
@@ -221,6 +225,10 @@ export function BackupRestoreSection({
               setIsLoading(true);
               try {
                 clearAll();
+                // Remap attachment URIs to current sandbox BEFORE adding docs
+                if (backup.attachments) {
+                  await restoreAttachmentFiles(backupDocs, backup.attachments);
+                }
                 const docsWithoutId = backupDocs.map((d: RawDocument) => {
                   const { id, ...rest } = d;
                   return rest;
@@ -239,9 +247,6 @@ export function BackupRestoreSection({
                   if (typeof s.includeAttachmentsInBackup === 'boolean') updateSetting('includeAttachmentsInBackup', s.includeAttachmentsInBackup);
                   if (typeof s.firstOpenDate === 'string' || s.firstOpenDate === null) updateSetting('firstOpenDate', s.firstOpenDate ?? null);
                   if (typeof s.reviewPrompted === 'boolean') updateSetting('reviewPrompted', s.reviewPrompted);
-                }
-                if (backup.attachments) {
-                  await restoreAttachmentFiles(backupDocs, backup.attachments);
                 }
                 Alert.alert(t(language, 'alert_success'), t(language, 'restore_success'));
               } finally {

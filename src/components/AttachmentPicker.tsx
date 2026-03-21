@@ -185,8 +185,8 @@ export function AttachmentPicker({
   };
 
   const handleRemove = (att: Attachment) => {
-    // Delete the file
-    FileSystem.deleteAsync(att.uri, { idempotent: true }).catch(() => {});
+    // Don't delete the file here — form.tsx handles cleanup on save
+    // so that cancel preserves the original attachment files
     onRemove(att.id);
   };
 
