@@ -30,7 +30,7 @@ import {
 } from '../../src/stores/useSettingsStore';
 import { useDocumentStore } from '../../src/stores/useDocumentStore';
 import { t } from '../../src/core/i18n';
-import { REMINDER_DAYS_OPTIONS, CURRENCY_OPTIONS, CATEGORIES, FREE_DOCUMENT_LIMIT } from '../../src/core/constants';
+import { CURRENCY_OPTIONS, CATEGORIES, FREE_DOCUMENT_LIMIT } from '../../src/core/constants';
 import {
   requestNotificationPermission,
   rescheduleAllNotifications,
@@ -91,17 +91,6 @@ export default function SettingsScreen() {
     } else {
       updateSetting('notificationsEnabled', false);
       ExpoNotifications.cancelAllScheduledNotificationsAsync().catch(() => {});
-    }
-  };
-
-  const handleToggleReminderDay = (day: number) => {
-    const current = settings.reminderDays;
-    const next = current.includes(day)
-      ? current.filter((d) => d !== day)
-      : [...current, day].sort((a, b) => b - a);
-    updateSetting('reminderDays', next);
-    if (settings.notificationsEnabled) {
-      rescheduleAllNotifications(documents, next, language).catch(() => {});
     }
   };
 

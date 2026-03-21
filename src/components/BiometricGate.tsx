@@ -11,6 +11,7 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { View, Text, StyleSheet, AppState, Platform } from "react-native";
 import * as LocalAuthentication from "expo-local-authentication";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 
 import { LinearGradient } from "expo-linear-gradient";
@@ -21,6 +22,28 @@ import { fonts } from "../theme/typography";
 
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_DURATIONS = [30_000, 60_000, 300_000]; // 30s, 60s, 5min
+const LOCKOUT_STORAGE_KEY = "dt12_biometric_lockout";
+
+interface LockoutState {
+  lockoutRound: number;
+  lockoutUntil: number | null; // timestamp or null
+}
+
+async function loadLockoutState(): Promise<LockoutState> {
+  try {
+    const raw = await AsyncStorage.getItem(LOCKOUT_STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch { /* ignore */ }
+  return { lockoutRound: 0, lockoutUntil: null };
+}
+
+function saveLockoutState(state: LockoutState) {
+  AsyncStorage.setItem(LOCKOUT_STORAGE_KEY, JSON.stringify(state)).catch(() => {});
+}
+
+function clearLockoutState() {
+  AsyncStorage.removeItem(LOCKOUT_STORAGE_KEY).catch(() => {});
+}
 
 export function BiometricGate({ children }: { children: React.ReactNode }) {
   const biometricEnabled = useSettingsStore((s) => s.settings.biometricEnabled);
@@ -35,6 +58,25 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
   const appState = useRef(AppState.currentState);
   const authInProgress = useRef(false);
   const justUnlocked = useRef(false);
+  const hydrated = useRef(false);
+
+  // Hydrate lockout state from AsyncStorage on mount
+  useEffect(() => {
+    if (!biometricEnabled) return;
+    loadLockoutState().then((persisted) => {
+      lockoutRound.current = persisted.lockoutRound;
+      if (persisted.lockoutUntil && persisted.lockoutUntil > Date.now()) {
+        // Resume active lockout
+        const remainingMs = persisted.lockoutUntil - Date.now();
+        setFailCount(MAX_ATTEMPTS); // triggers lockout UI
+        setLockoutSeconds(Math.ceil(remainingMs / 1000));
+      } else if (persisted.lockoutUntil) {
+        // Lockout expired — keep escalation round, clear lockoutUntil
+        saveLockoutState({ lockoutRound: persisted.lockoutRound, lockoutUntil: null });
+      }
+      hydrated.current = true;
+    });
+  }, [biometricEnabled]);
 
   const authenticate = useCallback(async () => {
     if (authInProgress.current) return;
@@ -51,6 +93,8 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
         setLocked(false);
         setFailed(false);
         setFailCount(0);
+        lockoutRound.current = 0;
+        clearLockoutState();
         setTimeout(() => { justUnlocked.current = false; }, 3000);
       } else {
         setFailed(true);
@@ -104,15 +148,21 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
   // Escalating lockout: 30s → 60s → 5min with visible countdown
   useEffect(() => {
     if (failCount >= MAX_ATTEMPTS) {
-      const durationMs = LOCKOUT_DURATIONS[Math.min(lockoutRound.current, LOCKOUT_DURATIONS.length - 1)];
+      const roundIdx = Math.min(lockoutRound.current, LOCKOUT_DURATIONS.length - 1);
+      const durationMs = LOCKOUT_DURATIONS[roundIdx];
       lockoutRound.current++;
-      setLockoutSeconds(Math.round(durationMs / 1000));
+      const lockoutUntil = Date.now() + durationMs;
+      saveLockoutState({ lockoutRound: lockoutRound.current, lockoutUntil });
+      // Only set seconds if not already counting (hydration may have already set it)
+      setLockoutSeconds((prev) => prev > 0 ? prev : Math.round(durationMs / 1000));
 
       const interval = setInterval(() => {
         setLockoutSeconds((prev) => {
           if (prev <= 1) {
             clearInterval(interval);
             setFailCount(0);
+            // Lockout expired — keep escalation, clear timer
+            saveLockoutState({ lockoutRound: lockoutRound.current, lockoutUntil: null });
             return 0;
           }
           return prev - 1;

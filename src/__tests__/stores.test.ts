@@ -73,7 +73,7 @@ jest.mock("react-native-iap", () => ({
 // ─── Imports ────────────────────────────────────────────
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useDocumentStore } from "../stores/useDocumentStore";
+import { useDocumentStore, clearPendingCleanups } from "../stores/useDocumentStore";
 import { useSettingsStore } from "../stores/useSettingsStore";
 import type { RawDocument, EnrichedDocument } from "../core/constants";
 import { addDaysToDate, getTodayString } from "../core/dateUtils";
@@ -106,6 +106,7 @@ describe("useDocumentStore", () => {
 
   afterEach(() => {
     // Clear any pending debounce timers from store mutations
+    clearPendingCleanups();
     jest.runAllTimers();
   });
 

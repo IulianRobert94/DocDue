@@ -26,20 +26,64 @@ interface SettingsState {
   _hydrate: () => Promise<void>;
 }
 
-// ─── Persist helper ─────────────────────────────────────
+// ─── Persist helper (with safe revert on failure) ───────
 
 let _settingsPersistChain: Promise<void> = Promise.resolve();
+let _lastPersistedSettings: AppSettings | null = null;
 
 function persistSettings(settings: AppSettings) {
   const lang = settings?.language || "en";
+  const prevPersisted = _lastPersistedSettings;
+  _lastPersistedSettings = settings;
   _settingsPersistChain = _settingsPersistChain.then(() =>
-    AsyncStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(settings)).catch(
-      (e) => {
+    AsyncStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(settings))
+      .then(() => { /* persisted successfully */ })
+      .catch((e) => {
         if (__DEV__) console.warn("DocDue: settings persist error", e);
+        // Revert to last known good state
+        if (prevPersisted !== null) {
+          _lastPersistedSettings = prevPersisted;
+          useSettingsStore.setState({ settings: prevPersisted });
+        }
         Alert.alert(t(lang, "save_error_title"), t(lang, "save_error_msg"));
-      }
-    )
+      })
   );
+}
+
+// ─── Hydration type validation ──────────────────────────
+
+function validateHydratedSettings(cleaned: Record<string, unknown>): Record<string, unknown> {
+  // Validate critical fields — fall back to defaults for corrupted types
+  if (typeof cleaned.language !== "string" || !["ro", "en"].includes(cleaned.language)) {
+    cleaned.language = DEFAULT_SETTINGS.language;
+  }
+  if (typeof cleaned.currency !== "string" || !["RON", "EUR", "USD"].includes(cleaned.currency)) {
+    cleaned.currency = DEFAULT_SETTINGS.currency;
+  }
+  if (typeof cleaned.notificationsEnabled !== "boolean") {
+    cleaned.notificationsEnabled = DEFAULT_SETTINGS.notificationsEnabled;
+  }
+  if (typeof cleaned.biometricEnabled !== "boolean") {
+    cleaned.biometricEnabled = DEFAULT_SETTINGS.biometricEnabled;
+  }
+  if (typeof cleaned.isPremium !== "boolean") {
+    cleaned.isPremium = DEFAULT_SETTINGS.isPremium;
+  }
+  if (!Array.isArray(cleaned.reminderDays) ||
+      !cleaned.reminderDays.every((d: unknown) => typeof d === "number" && d > 0 && d < 366)) {
+    cleaned.reminderDays = DEFAULT_SETTINGS.reminderDays;
+  }
+  if (cleaned.customSubtypes && typeof cleaned.customSubtypes === "object") {
+    const cs = cleaned.customSubtypes as Record<string, unknown>;
+    for (const key of Object.keys(cs)) {
+      if (!Array.isArray(cs[key]) || !cs[key].every((v: unknown) => typeof v === "string")) {
+        cs[key] = [];
+      }
+    }
+  } else {
+    cleaned.customSubtypes = DEFAULT_SETTINGS.customSubtypes;
+  }
+  return cleaned;
 }
 
 // ─── Store ──────────────────────────────────────────────
@@ -78,7 +122,10 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
           for (const key of validKeys) {
             if (key in obj) cleaned[key] = obj[key];
           }
-          set({ settings: { ...DEFAULT_SETTINGS, ...cleaned } as AppSettings, _hydrated: true });
+          const validated = validateHydratedSettings(cleaned);
+          const merged = { ...DEFAULT_SETTINGS, ...validated } as AppSettings;
+          _lastPersistedSettings = merged;
+          set({ settings: merged, _hydrated: true });
           return;
         }
       }

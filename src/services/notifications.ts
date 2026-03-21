@@ -13,7 +13,7 @@ import { CATEGORIES } from "../core/constants";
 import { t } from "../core/i18n";
 import { parseLocalDate } from "../core/dateUtils";
 import { formatDate } from "../core/formatters";
-import { enrichDocument, getEffectiveReminderDays } from "../core/enrichment";
+import { enrichDocument, getActiveDocuments, getEffectiveReminderDays } from "../core/enrichment";
 import { calculateHealthScore } from "../core/healthScore";
 
 // ─── Constants ──────────────────────────────────────────
@@ -112,7 +112,7 @@ interface ScheduleEntry {
  */
 export async function rescheduleAllNotifications(
   documents: RawDocument[],
-  reminderDays: number[],
+  _reminderDays: number[], // kept for call-site compat; actual reminders are per-document
   language: LanguageCode,
 ): Promise<void> {
   // 1. Cancel all existing
@@ -302,8 +302,8 @@ export async function scheduleMorningDigest(
     }
   }
 
-  // Calculate current stats for the digest
-  const enriched = documents.map((d) => enrichDocument(d));
+  // Calculate current stats for the digest (active docs only)
+  const enriched = getActiveDocuments(documents).map((d) => enrichDocument(d));
   const score = calculateHealthScore(enriched);
   const needsAttention = enriched.filter(
     (d) => d._status === "expired" || d._status === "warning"
@@ -363,8 +363,8 @@ export async function scheduleWeeklySummary(
     }
   }
 
-  // Calculate stats for the week
-  const enriched = documents.map((d) => enrichDocument(d));
+  // Calculate stats for the week (active docs only)
+  const enriched = getActiveDocuments(documents).map((d) => enrichDocument(d));
   const score = calculateHealthScore(enriched);
   const thisWeek = enriched.filter(
     (d) => d._daysUntil >= 0 && d._daysUntil <= 7

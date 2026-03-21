@@ -106,10 +106,14 @@ function cleanupAttachments(doc: RawDocument) {
 
 let _undoBuffer: { doc: RawDocument; timer: ReturnType<typeof setTimeout> } | null = null;
 
+// Pending attachment cleanup timers — survive undo buffer replacement
+// so that files are only deleted after their undo window expires
+const _pendingCleanups = new Map<string, ReturnType<typeof setTimeout>>();
+
 function flushUndoBuffer() {
   if (_undoBuffer) {
-    cleanupAttachments(_undoBuffer.doc);
-    clearTimeout(_undoBuffer.timer);
+    // Don't cancel the cleanup timer — let it expire and delete the files.
+    // Just remove the undo reference so undoDelete() can't restore this doc.
     _undoBuffer = null;
   }
 }
@@ -244,18 +248,16 @@ export const useDocumentStore = create<DocumentsState>()((set, get) => ({
   deleteDocument: (id) => {
     const toDelete = get().documents.find((d) => d.id === id);
     if (!toDelete) return;
-    // Flush any previous undo buffer
+    // Discard previous undo reference (its cleanup timer stays alive)
     flushUndoBuffer();
-    // Don't clean attachments yet — store in undo buffer for 5s
-    _undoBuffer = {
-      doc: toDelete,
-      timer: setTimeout(() => {
-        if (_undoBuffer?.doc.id === toDelete.id) {
-          cleanupAttachments(toDelete);
-          _undoBuffer = null;
-        }
-      }, 5500),
-    };
+    // Schedule attachment cleanup after undo window expires
+    const cleanupTimer = setTimeout(() => {
+      _pendingCleanups.delete(id);
+      cleanupAttachments(toDelete);
+      if (_undoBuffer?.doc.id === id) _undoBuffer = null;
+    }, 5500);
+    _pendingCleanups.set(id, cleanupTimer);
+    _undoBuffer = { doc: toDelete, timer: cleanupTimer };
     set((state) => ({ documents: state.documents.filter((d) => d.id !== id) }));
     afterMutation(get().documents, true);
   },
@@ -263,6 +265,12 @@ export const useDocumentStore = create<DocumentsState>()((set, get) => ({
   undoDelete: () => {
     if (!_undoBuffer) return;
     const doc = _undoBuffer.doc;
+    // Cancel the cleanup timer — user wants the doc (and its files) back
+    const pendingTimer = _pendingCleanups.get(doc.id);
+    if (pendingTimer) {
+      clearTimeout(pendingTimer);
+      _pendingCleanups.delete(doc.id);
+    }
     clearTimeout(_undoBuffer.timer);
     _undoBuffer = null;
     set((state) => ({ documents: [...state.documents, doc] }));
@@ -316,13 +324,24 @@ export const useDocumentStore = create<DocumentsState>()((set, get) => ({
   },
 
   clearAll: () => {
-    // Clean up all attachment files
+    // Clean up all attachment files + pending undo timers
     const docs = get().documents;
     for (const doc of docs) cleanupAttachments(doc);
+    clearPendingCleanups();
     set({ documents: [] });
     afterMutation([]);
   },
 }));
+
+/** Cancel all pending undo cleanup timers (used by clearAll and test teardown) */
+export function clearPendingCleanups() {
+  for (const timer of _pendingCleanups.values()) clearTimeout(timer);
+  _pendingCleanups.clear();
+  if (_undoBuffer) {
+    clearTimeout(_undoBuffer.timer);
+    _undoBuffer = null;
+  }
+}
 
 // ─── Computed Selectors (memoized for performance) ──────
 
