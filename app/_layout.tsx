@@ -39,7 +39,7 @@ import {
   scheduleWeeklySummary,
 } from "../src/services/notifications";
 import { initializeIAP, checkPremiumStatus, isIAPConfigured } from "../src/services/iap";
-import { enrichDocument } from "../src/core/enrichment";
+import { enrichDocument, getActiveDocuments } from "../src/core/enrichment";
 import { getTodayString } from "../src/core/dateUtils";
 import { updateWidgetData } from "../src/services/widgetService";
 import { t } from "../src/core/i18n";
@@ -47,10 +47,12 @@ import { evaluateStreak } from "../src/core/streak";
 
 SplashScreen.preventAutoHideAsync();
 
-// Initialize Sentry for production error tracking (skip in dev/Expo Go)
-if (!__DEV__) {
+// Initialize Sentry for production error tracking
+// Set EXPO_PUBLIC_SENTRY_DSN in EAS secrets or .env to enable
+const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN;
+if (!__DEV__ && SENTRY_DSN) {
   Sentry.init({
-    dsn: "YOUR_SENTRY_DSN_HERE", // TODO: Replace with your Sentry DSN from sentry.io
+    dsn: SENTRY_DSN,
     tracesSampleRate: 0.2,
     attachScreenshot: true,
   });
@@ -66,6 +68,10 @@ if (Platform.OS === "android") {
 
 // Configure notification behavior before component renders
 configureNotifications();
+
+// Track processed notification responses to avoid handling the same tap twice
+// (cold-start bootstrap + live listener can both fire for the same response)
+const _processedNotifIds = new Set<string>();
 
 function RootLayout() {
   const theme = useTheme();
@@ -127,8 +133,8 @@ function RootLayout() {
         }
         updateWidgetData(documents);
 
-        // Evaluate streak
-        const enrichedDocs = documents.map(enrichDocument);
+        // Evaluate streak (only active / non-resolved docs)
+        const enrichedDocs = getActiveDocuments(documents).map(enrichDocument);
         const streakResult = evaluateStreak(
           enrichedDocs,
           settings.streakDays ?? 0,
@@ -142,7 +148,10 @@ function RootLayout() {
           useSettingsStore.getState().updateSetting('lastStreakCheck', today);
         }
 
-        // Review prompt moved to document store (triggers after positive actions)
+        // Cold-start notification: handle tap that launched the app from killed state
+        Notifications.getLastNotificationResponseAsync().then((response) => {
+          if (response) handleNotificationResponse(response);
+        }).catch(() => {});
 
         // Set up Quick Actions (3D Touch / long press on app icon)
         try {
@@ -181,36 +190,40 @@ function RootLayout() {
     init().finally(() => clearTimeout(splashTimeout));
   }, []);
 
-  // Handle notification taps and action buttons
-  useEffect(() => {
-    responseListener.current = Notifications.addNotificationResponseReceivedListener(
-      (response) => {
-        const docId = getDocumentIdFromNotification(response);
-        if (!docId) return;
+  // Shared handler for notification taps (used by both live listener and cold-start bootstrap)
+  const handleNotificationResponse = (response: Notifications.NotificationResponse) => {
+    // Dedup: don't process the same notification response twice
+    const responseId = response.notification.request.identifier;
+    if (_processedNotifIds.has(responseId)) return;
+    _processedNotifIds.add(responseId);
 
-        const actionId = response.actionIdentifier;
-        const content = response.notification.request.content;
+    const docId = getDocumentIdFromNotification(response);
+    if (!docId) return;
 
-        if (actionId === "MARK_PAID") {
-          // Find the document, enrich it, and mark as paid
-          const raw = useDocumentStore.getState().documents.find((d) => d.id === docId);
-          if (raw) {
-            useDocumentStore.getState().markAsPaid(enrichDocument(raw));
-          }
-        } else if (actionId === "SNOOZE_1DAY") {
-          // Reschedule for tomorrow — pass notification ID to cancel original
-          const notifId = response.notification.request.identifier;
-          snoozeNotification(docId, notifId, content.title || "", content.body || "")
-            .catch((e) => { if (__DEV__) console.warn("DocDue: snooze error", e); });
-        } else {
-          // Default tap — open document detail (verify doc still exists)
-          const exists = useDocumentStore.getState().documents.some((d) => d.id === docId);
-          if (exists) {
-            setTimeout(() => router.push(`/document/${docId}`), 100);
-          }
-        }
+    const actionId = response.actionIdentifier;
+    const content = response.notification.request.content;
+
+    if (actionId === "MARK_PAID") {
+      const raw = useDocumentStore.getState().documents.find((d) => d.id === docId);
+      if (raw) {
+        useDocumentStore.getState().markAsPaid(enrichDocument(raw));
       }
-    );
+    } else if (actionId === "SNOOZE_1DAY") {
+      const notifId = response.notification.request.identifier;
+      snoozeNotification(docId, notifId, content.title || "", content.body || "")
+        .catch((e) => { if (__DEV__) console.warn("DocDue: snooze error", e); });
+    } else {
+      // Default tap — open document detail (verify doc still exists)
+      const exists = useDocumentStore.getState().documents.some((d) => d.id === docId);
+      if (exists) {
+        setTimeout(() => router.push(`/document/${docId}`), 100);
+      }
+    }
+  };
+
+  // Live listener for notification taps while app is running
+  useEffect(() => {
+    responseListener.current = Notifications.addNotificationResponseReceivedListener(handleNotificationResponse);
     return () => {
       responseListener.current?.remove();
     };

@@ -356,8 +356,12 @@ export default function DocumentDetailScreen() {
                     Alert.alert(t(language, 'alert_notice'), t(language, 'cal_permission_denied'));
                     return;
                   }
-                  await addDocumentToCalendar(doc, language);
-                  showToast(t(language, 'toast_calendar'));
+                  const added = await addDocumentToCalendar(doc, language);
+                  if (added) {
+                    showToast(t(language, 'toast_calendar'));
+                  } else {
+                    showToast(t(language, 'cal_error'), 'error');
+                  }
                 } catch (e) {
                   showToast(t(language, 'cal_error'), 'error');
                 } finally {
