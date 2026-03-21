@@ -2,7 +2,7 @@
   "expo": {
     "name": "DocDue",
     "slug": "docdue",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "docdue",
@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.docdueapp",
-      "buildNumber": "1",
+      "buildNumber": "15",
       "infoPlist": {
         "NSDocumentsFolderUsageDescription": "DocDue needs access to import Excel files with your documents.",
         "NSFaceIDUsageDescription": "DocDue uses Face ID to protect your documents.",
@@ -63,7 +63,7 @@
         "backgroundColor": "#0A0E17"
       },
       "package": "com.docdueapp",
-      "versionCode": 1,
+      "versionCode": 26,
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.USE_BIOMETRIC",
