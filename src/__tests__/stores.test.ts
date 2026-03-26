@@ -440,6 +440,46 @@ describe("useDocumentStore", () => {
       expect(useDocumentStore.getState().documents).toHaveLength(0);
     });
   });
+
+  // ─── Undo Delete ────────────────────────────────────────
+
+  describe("undoDelete", () => {
+    it("restores a deleted document", () => {
+      useDocumentStore.getState().addDocument({ cat: "vehicule", type: "RCA", title: "Undo Test", due: "2026-12-31", amt: 500, rec: "annual" });
+      const docs = useDocumentStore.getState().documents;
+      expect(docs).toHaveLength(1);
+      const id = docs[0].id;
+
+      useDocumentStore.getState().deleteDocument(id);
+      expect(useDocumentStore.getState().documents).toHaveLength(0);
+
+      useDocumentStore.getState().undoDelete();
+      expect(useDocumentStore.getState().documents).toHaveLength(1);
+      expect(useDocumentStore.getState().documents[0].id).toBe(id);
+      expect(useDocumentStore.getState().documents[0].title).toBe("Undo Test");
+    });
+
+    it("does nothing when no document was deleted", () => {
+      useDocumentStore.getState().addDocument({ cat: "casa", type: "Gaz", title: "Keep", due: "2026-06-01", amt: null, rec: "monthly" });
+      const countBefore = useDocumentStore.getState().documents.length;
+      useDocumentStore.getState().undoDelete();
+      expect(useDocumentStore.getState().documents.length).toBe(countBefore);
+    });
+
+    it("only restores the last deleted document (not older ones)", () => {
+      useDocumentStore.getState().addDocument({ cat: "vehicule", type: "RCA", title: "First", due: "2026-12-31", amt: null, rec: "annual" });
+      useDocumentStore.getState().addDocument({ cat: "casa", type: "Gaz", title: "Second", due: "2026-12-31", amt: null, rec: "monthly" });
+      const docs = useDocumentStore.getState().documents;
+
+      useDocumentStore.getState().deleteDocument(docs[0].id);
+      useDocumentStore.getState().deleteDocument(docs[1].id);
+
+      useDocumentStore.getState().undoDelete();
+      const restored = useDocumentStore.getState().documents;
+      expect(restored).toHaveLength(1);
+      expect(restored[0].title).toBe("Second");
+    });
+  });
 });
 
 // ─── Settings Store ─────────────────────────────────────
@@ -562,50 +602,6 @@ describe("computed stats logic", () => {
     const urgentCount = expired + warning;
 
     expect(urgentCount).toBe(2);
-  });
-});
-
-// ─── Undo Delete ────────────────────────────────────────
-
-describe("undoDelete", () => {
-  beforeEach(() => {
-    useDocumentStore.setState({ documents: [], _hydrated: true });
-  });
-
-  it("restores a deleted document", () => {
-    useDocumentStore.getState().addDocument({ cat: "vehicule", type: "RCA", title: "Undo Test", due: "2026-12-31", amt: 500, rec: "annual" });
-    const docs = useDocumentStore.getState().documents;
-    expect(docs).toHaveLength(1);
-    const id = docs[0].id;
-
-    useDocumentStore.getState().deleteDocument(id);
-    expect(useDocumentStore.getState().documents).toHaveLength(0);
-
-    useDocumentStore.getState().undoDelete();
-    expect(useDocumentStore.getState().documents).toHaveLength(1);
-    expect(useDocumentStore.getState().documents[0].id).toBe(id);
-    expect(useDocumentStore.getState().documents[0].title).toBe("Undo Test");
-  });
-
-  it("does nothing when no document was deleted", () => {
-    useDocumentStore.getState().addDocument({ cat: "casa", type: "Gaz", title: "Keep", due: "2026-06-01", amt: null, rec: "monthly" });
-    const countBefore = useDocumentStore.getState().documents.length;
-    useDocumentStore.getState().undoDelete();
-    expect(useDocumentStore.getState().documents.length).toBe(countBefore);
-  });
-
-  it("only restores the last deleted document (not older ones)", () => {
-    useDocumentStore.getState().addDocument({ cat: "vehicule", type: "RCA", title: "First", due: "2026-12-31", amt: null, rec: "annual" });
-    useDocumentStore.getState().addDocument({ cat: "casa", type: "Gaz", title: "Second", due: "2026-12-31", amt: null, rec: "monthly" });
-    const docs = useDocumentStore.getState().documents;
-
-    useDocumentStore.getState().deleteDocument(docs[0].id);
-    useDocumentStore.getState().deleteDocument(docs[1].id);
-
-    useDocumentStore.getState().undoDelete();
-    const restored = useDocumentStore.getState().documents;
-    expect(restored).toHaveLength(1);
-    expect(restored[0].title).toBe("Second");
   });
 });
 

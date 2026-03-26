@@ -128,6 +128,7 @@ async function doReschedule(documents: RawDocument[], attempt = 1) {
   // to avoid duplicate notification scheduling
   if (_rescheduleRunning && attempt === 1) return;
   _rescheduleRunning = true;
+  let retryScheduled = false;
   try {
     const settings = useSettingsStore?.getState?.()?.settings;
     if (settings?.notificationsEnabled) {
@@ -138,7 +139,7 @@ async function doReschedule(documents: RawDocument[], attempt = 1) {
       } catch (e) {
         if (__DEV__) console.warn("DocDue: notification reschedule error", e);
         if (attempt < 3) {
-          _rescheduleRunning = false;
+          retryScheduled = true;
           setTimeout(() => doReschedule(documents, attempt + 1), attempt * 2000);
           return;
         } else if (__DEV__) {
@@ -148,7 +149,7 @@ async function doReschedule(documents: RawDocument[], attempt = 1) {
     }
     updateWidgetData(documents);
   } finally {
-    _rescheduleRunning = false;
+    if (!retryScheduled) _rescheduleRunning = false;
   }
 }
 

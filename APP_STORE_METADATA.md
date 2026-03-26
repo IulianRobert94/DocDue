@@ -98,23 +98,23 @@ Secondary: Utilities
 ---
 
 ## Privacy URL
-https://iulianrobert94.github.io/DocDue/privacy
+https://iulianrobert94.github.io/DocDue/privacy.html
 
 ## Support URL
-https://iulianrobert94.github.io/DocDue/support
+https://iulianrobert94.github.io/DocDue/support.html
 
 ## Contact
 andreiiulianrobert@gmail.com
 
 ---
 
-## What's New (v1.0.0)
+## What's New (v1.0.1)
 
 RO:
-Prima versiune DocDue! Organizează-ți toate documentele cu scadență într-un singur loc. Scor de sănătate, alerte inteligente, scanare OCR și multe altele.
+Îmbunătățiri de stabilitate: blocare biometrică mai fiabilă, notificări actualizate corect la schimbarea limbii, validare îmbunătățită a setărilor.
 
 EN:
-First DocDue release! Organize all your documents with deadlines in one place. Health score, smart alerts, OCR scanning and much more.
+Stability improvements: more reliable biometric lock, notifications properly updated on language change, improved settings validation.
 
 ---
 
