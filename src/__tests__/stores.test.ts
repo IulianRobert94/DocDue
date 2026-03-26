@@ -105,9 +105,12 @@ describe("useDocumentStore", () => {
   });
 
   afterEach(() => {
-    // Clear any pending debounce timers from store mutations
+    // Clear pending undo + reschedule timers from store mutations
     clearPendingCleanups();
-    jest.runAllTimers();
+    // Note: --detectOpenHandles may still report the undo timer as a false positive
+    // with fake timers. The timer IS cleared by clearPendingCleanups — Jest's tracking
+    // doesn't account for fake timer cancellations. This does not affect test reliability.
+    jest.clearAllTimers();
   });
 
   beforeAll(() => {

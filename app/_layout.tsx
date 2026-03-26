@@ -49,6 +49,8 @@ SplashScreen.preventAutoHideAsync();
 
 // Initialize Sentry for production error tracking
 // Set EXPO_PUBLIC_SENTRY_DSN in EAS secrets or .env to enable
+// COMPLIANCE: If activated, update review-notes.txt and App Store Privacy disclosure
+// to reflect third-party crash data sharing before submitting a new build.
 const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN;
 if (!__DEV__ && SENTRY_DSN) {
   Sentry.init({
@@ -72,6 +74,19 @@ configureNotifications();
 // Track processed notification responses to avoid handling the same tap twice
 // (cold-start bootstrap + live listener can both fire for the same response)
 const _processedNotifIds = new Set<string>();
+const _MAX_PROCESSED_IDS = 50;
+
+function trackProcessedId(id: string) {
+  _processedNotifIds.add(id);
+  if (_processedNotifIds.size > _MAX_PROCESSED_IDS) {
+    // Evict oldest entries (Set iterates in insertion order)
+    const it = _processedNotifIds.values();
+    for (let i = _processedNotifIds.size - _MAX_PROCESSED_IDS; i > 0; i--) {
+      const entry = it.next();
+      if (!entry.done) _processedNotifIds.delete(entry.value);
+    }
+  }
+}
 
 function RootLayout() {
   const theme = useTheme();
@@ -197,7 +212,7 @@ function RootLayout() {
     // Dedup: don't process the same notification response twice
     const responseId = response.notification.request.identifier;
     if (_processedNotifIds.has(responseId)) return;
-    _processedNotifIds.add(responseId);
+    trackProcessedId(responseId);
 
     const docId = getDocumentIdFromNotification(response);
     if (!docId) return;

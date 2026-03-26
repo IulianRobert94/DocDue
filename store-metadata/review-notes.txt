@@ -20,4 +20,6 @@ DocDue is a fully offline document expiration tracker. Key points for review:
 
 9. PRIVACY - No data collection, no analytics, no tracking, no third-party data sharing. Privacy policy available in-app (Settings > Privacy Policy).
 
+NOTE: If crash reporting (Sentry) is activated in a future release via EXPO_PUBLIC_SENTRY_DSN, update this section and the App Privacy disclosure in App Store Connect to reflect third-party crash data sharing before submitting.
+
 CONTACT: andreiiulianrobert@gmail.com

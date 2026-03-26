@@ -83,6 +83,32 @@ function validateHydratedSettings(cleaned: Record<string, unknown>): Record<stri
   } else {
     cleaned.customSubtypes = DEFAULT_SETTINGS.customSubtypes;
   }
+  // Validate remaining fields that could be corrupted from backup/restore
+  if (typeof cleaned.streakDays !== "number" || cleaned.streakDays < 0) {
+    cleaned.streakDays = DEFAULT_SETTINGS.streakDays;
+  }
+  if (typeof cleaned.bestStreak !== "number" || cleaned.bestStreak < 0) {
+    cleaned.bestStreak = DEFAULT_SETTINGS.bestStreak;
+  }
+  if (cleaned.lastStreakCheck !== null && typeof cleaned.lastStreakCheck !== "string") {
+    cleaned.lastStreakCheck = DEFAULT_SETTINGS.lastStreakCheck;
+  }
+  if (cleaned.lastBackupDate !== null && typeof cleaned.lastBackupDate !== "string") {
+    cleaned.lastBackupDate = DEFAULT_SETTINGS.lastBackupDate;
+  }
+  if (!Array.isArray(cleaned.recentSearches) ||
+      !cleaned.recentSearches.every((s: unknown) => typeof s === "string")) {
+    cleaned.recentSearches = DEFAULT_SETTINGS.recentSearches;
+  }
+  if (typeof cleaned.reviewPrompted !== "boolean") {
+    cleaned.reviewPrompted = DEFAULT_SETTINGS.reviewPrompted;
+  }
+  if (cleaned.firstOpenDate !== null && typeof cleaned.firstOpenDate !== "string") {
+    cleaned.firstOpenDate = DEFAULT_SETTINGS.firstOpenDate;
+  }
+  if (typeof cleaned.includeAttachmentsInBackup !== "boolean") {
+    cleaned.includeAttachmentsInBackup = DEFAULT_SETTINGS.includeAttachmentsInBackup;
+  }
   return cleaned;
 }
 

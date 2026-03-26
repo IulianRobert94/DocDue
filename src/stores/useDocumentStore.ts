@@ -333,13 +333,17 @@ export const useDocumentStore = create<DocumentsState>()((set, get) => ({
   },
 }));
 
-/** Cancel all pending undo cleanup timers (used by clearAll and test teardown) */
+/** Cancel all pending timers (undo cleanup + reschedule debounce). Used by clearAll and test teardown. */
 export function clearPendingCleanups() {
   for (const timer of _pendingCleanups.values()) clearTimeout(timer);
   _pendingCleanups.clear();
   if (_undoBuffer) {
     clearTimeout(_undoBuffer.timer);
     _undoBuffer = null;
+  }
+  if (_rescheduleTimer) {
+    clearTimeout(_rescheduleTimer);
+    _rescheduleTimer = null;
   }
 }
 
