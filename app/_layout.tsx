@@ -5,7 +5,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { View, ActivityIndicator, Platform, StatusBar as RNStatusBar, AppState } from "react-native";
-import * as Sentry from "@sentry/react-native";
 import * as NavigationBar from "expo-navigation-bar";
 import { Stack, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -46,19 +45,6 @@ import { t } from "../src/core/i18n";
 import { evaluateStreak } from "../src/core/streak";
 
 SplashScreen.preventAutoHideAsync();
-
-// Initialize Sentry for production error tracking
-// Set EXPO_PUBLIC_SENTRY_DSN in EAS secrets or .env to enable
-// COMPLIANCE: If activated, update review-notes.txt and App Store Privacy disclosure
-// to reflect third-party crash data sharing before submitting a new build.
-const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN;
-if (!__DEV__ && SENTRY_DSN) {
-  Sentry.init({
-    dsn: SENTRY_DSN,
-    tracesSampleRate: 0.2,
-    attachScreenshot: true,
-  });
-}
 
 // Force dark system bars on Android immediately (before component renders)
 if (Platform.OS === "android") {
@@ -355,4 +341,4 @@ function RootLayout() {
   );
 }
 
-export default Sentry.wrap(RootLayout);
+export default RootLayout;

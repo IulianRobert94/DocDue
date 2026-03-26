@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.docdueapp",
-      "buildNumber": "15",
+      "buildNumber": "18",
       "infoPlist": {
         "NSDocumentsFolderUsageDescription": "DocDue needs access to import Excel files with your documents.",
         "NSFaceIDUsageDescription": "DocDue uses Face ID to protect your documents.",
@@ -63,7 +63,7 @@
         "backgroundColor": "#0A0E17"
       },
       "package": "com.docdueapp",
-      "versionCode": 26,
+      "versionCode": 29,
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.USE_BIOMETRIC",
@@ -99,11 +99,7 @@
       "@react-native-community/datetimepicker",
       "expo-calendar",
       "expo-notifications",
-      "react-native-iap",
-      ["@sentry/react-native", {
-        "organization": "docdueapp",
-        "project": "docdue"
-      }]
+      "react-native-iap"
     ],
     "extra": {
       "router": {},

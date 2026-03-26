@@ -50,7 +50,6 @@ export class ErrorBoundary extends React.Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    // Sentry.wrap() in _layout.tsx already captures this error — no manual report needed
     if (__DEV__) console.error('ErrorBoundary caught:', error, errorInfo);
   }
 
