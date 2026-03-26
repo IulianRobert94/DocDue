@@ -26,7 +26,7 @@ build/
 expo-env.d.ts
 # @end expo-cli
 
-# Build artifacts
-builds/
+# Release artifacts
+releases/
 *.ipa
 *.apks
