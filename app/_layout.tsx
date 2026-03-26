@@ -76,9 +76,11 @@ const _processedNotifIds = new Set<string>();
 function RootLayout() {
   const theme = useTheme();
   const router = useRouter();
+  const language = useSettingsStore((s) => s.settings.language);
   const [ready, setReady] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const responseListener = useRef<Notifications.EventSubscription>(null);
+  const prevLanguageRef = useRef<string | null>(null);
 
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
@@ -274,6 +276,33 @@ function RootLayout() {
     });
     return () => subscription.remove();
   }, []);
+
+  // Refresh notification categories, scheduled notifications, and Quick Actions
+  // when language changes (covers settings toggle, backup restore, any source)
+  useEffect(() => {
+    if (!ready) {
+      prevLanguageRef.current = language;
+      return;
+    }
+    if (prevLanguageRef.current === language) return;
+    prevLanguageRef.current = language;
+
+    const documents = useDocumentStore.getState().documents;
+    const settings = useSettingsStore.getState().settings;
+    setupNotificationCategories(language).catch(() => {});
+    if (settings.notificationsEnabled && documents.length > 0) {
+      rescheduleAllNotifications(documents, settings.reminderDays, language).catch(() => {});
+      scheduleMorningDigest(documents, language).catch(() => {});
+      scheduleWeeklySummary(documents, language).catch(() => {});
+    }
+    try {
+      QuickActions.setItems([
+        { id: "add_document", title: t(language, 'quick_action_add'), icon: "add" },
+        { id: "view_alerts", title: t(language, 'quick_action_alerts'), icon: "alarm" },
+        { id: "search", title: t(language, 'quick_action_search'), icon: "search" },
+      ]);
+    } catch { /* Quick Actions not available in Expo Go */ }
+  }, [language, ready]);
 
   if (!ready || !fontsLoaded) {
     return (

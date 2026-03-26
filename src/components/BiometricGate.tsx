@@ -58,6 +58,8 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
   const appState = useRef(AppState.currentState);
   const authInProgress = useRef(false);
   const justUnlocked = useRef(false);
+  const inLockout = useRef(false);
+  const resumingFromStorage = useRef(false);
   const hydrated = useRef(false);
 
   // Hydrate lockout state from AsyncStorage on mount
@@ -66,9 +68,11 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
     loadLockoutState().then((persisted) => {
       lockoutRound.current = persisted.lockoutRound;
       if (persisted.lockoutUntil && persisted.lockoutUntil > Date.now()) {
-        // Resume active lockout
+        // Resume active lockout — flags prevent re-escalation and auto-auth
+        resumingFromStorage.current = true;
+        inLockout.current = true;
         const remainingMs = persisted.lockoutUntil - Date.now();
-        setFailCount(MAX_ATTEMPTS); // triggers lockout UI
+        setFailCount(MAX_ATTEMPTS); // triggers lockout UI + countdown
         setLockoutSeconds(Math.ceil(remainingMs / 1000));
       } else if (persisted.lockoutUntil) {
         // Lockout expired — keep escalation round, clear lockoutUntil
@@ -90,6 +94,7 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
       });
       if (result.success) {
         justUnlocked.current = true;
+        inLockout.current = false;
         setLocked(false);
         setFailed(false);
         setFailCount(0);
@@ -108,10 +113,13 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
     }
   }, [language]);
 
-  // Auto-authenticate on mount if locked
+  // Auto-authenticate on mount / foreground re-lock (skip during active lockout)
   useEffect(() => {
     if (locked) {
-      const timer = setTimeout(() => authenticate(), 500);
+      const timer = setTimeout(() => {
+        if (inLockout.current) return;
+        authenticate();
+      }, 500);
       return () => clearTimeout(timer);
     }
   }, [locked, authenticate]);
@@ -148,19 +156,25 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
   // Escalating lockout: 30s → 60s → 5min with visible countdown
   useEffect(() => {
     if (failCount >= MAX_ATTEMPTS) {
-      const roundIdx = Math.min(lockoutRound.current, LOCKOUT_DURATIONS.length - 1);
-      const durationMs = LOCKOUT_DURATIONS[roundIdx];
-      lockoutRound.current++;
-      const lockoutUntil = Date.now() + durationMs;
-      saveLockoutState({ lockoutRound: lockoutRound.current, lockoutUntil });
-      // Only set seconds if not already counting (hydration may have already set it)
-      setLockoutSeconds((prev) => prev > 0 ? prev : Math.round(durationMs / 1000));
+      inLockout.current = true;
+      // When resuming a persisted lockout, skip escalation — round and seconds
+      // are already correct from hydration
+      if (!resumingFromStorage.current) {
+        const roundIdx = Math.min(lockoutRound.current, LOCKOUT_DURATIONS.length - 1);
+        const durationMs = LOCKOUT_DURATIONS[roundIdx];
+        lockoutRound.current++;
+        const lockoutUntil = Date.now() + durationMs;
+        saveLockoutState({ lockoutRound: lockoutRound.current, lockoutUntil });
+        setLockoutSeconds(Math.round(durationMs / 1000));
+      }
+      resumingFromStorage.current = false;
 
       const interval = setInterval(() => {
         setLockoutSeconds((prev) => {
           if (prev <= 1) {
             clearInterval(interval);
             setFailCount(0);
+            inLockout.current = false;
             // Lockout expired — keep escalation, clear timer
             saveLockoutState({ lockoutRound: lockoutRound.current, lockoutUntil: null });
             return 0;
