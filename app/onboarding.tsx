@@ -161,9 +161,15 @@ export default function OnboardingScreen() {
           useSettingsStore.getState().updateSetting('notificationsEnabled', true);
           const docs = useDocumentStore.getState().documents;
           const settings = useSettingsStore.getState().settings;
-          rescheduleAllNotifications(docs, settings.reminderDays, settings.language).catch(() => {});
-          scheduleMorningDigest(docs, settings.language).catch(() => {});
-          scheduleWeeklySummary(docs, settings.language).catch(() => {});
+          // Sequence so cancelAll (inside rescheduleAll) completes before the
+          // digest/weekly summary are inserted — concurrent calls can wipe them (L6).
+          try {
+            await rescheduleAllNotifications(docs, settings.reminderDays, settings.language);
+            await scheduleMorningDigest(docs, settings.language);
+            await scheduleWeeklySummary(docs, settings.language);
+          } catch (e) {
+            if (__DEV__) console.warn("DocDue: onboarding schedule error", e);
+          }
         }
       }
       if (isLastSlide) {

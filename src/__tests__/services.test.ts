@@ -49,6 +49,8 @@ jest.mock("react-native-iap", () => ({
   getAvailablePurchases: jest.fn(() => Promise.resolve([])),
   requestPurchase: jest.fn(() => Promise.resolve()),
   finishTransaction: jest.fn(() => Promise.resolve()),
+  purchaseUpdatedListener: jest.fn(() => ({ remove: jest.fn() })),
+  purchaseErrorListener: jest.fn(() => ({ remove: jest.fn() })),
 }));
 
 jest.mock("expo-file-system/legacy", () => ({

@@ -26,6 +26,7 @@ async function getIAP() {
 
 type Product = import("react-native-iap").Product;
 type Purchase = import("react-native-iap").Purchase;
+type PurchaseError = import("react-native-iap").PurchaseError;
 
 // ─── Configuration ───────────────────────────────────────
 
@@ -34,10 +35,68 @@ const PRODUCT_ID = "com.docdueapp.pro.lifetime";
 // ─── State ──────────────────────────────────────────────
 
 let _initialized = false;
+type Sub = { remove: () => void };
+let _purchaseUpdateSub: Sub | null = null;
+let _purchaseErrorSub: Sub | null = null;
+// One-shot resolver for an in-flight purchasePackage() call.
+let _pendingPurchase: ((result: PurchaseResult) => void) | null = null;
+// Invoked whenever a purchase is confirmed — including async/deferred delivery
+// that arrives after purchasePackage() already returned — so the app persists PRO.
+let _onPremiumGranted: (() => void) | null = null;
+
+/** Register an app-level callback that grants PRO when any purchase is confirmed. */
+export function setPremiumGrantedCallback(cb: (() => void) | null): void {
+  _onPremiumGranted = cb;
+}
+
+/** A purchase grants PRO only if it's our product and not still pending (Android Ask-to-Buy / slow payment). */
+function isOwnedPro(p: Purchase): boolean {
+  return p.productId === PRODUCT_ID && p.purchaseState !== "pending";
+}
+
+/** Robust cancel detection across lib versions (v14 uses "user-cancelled"; legacy used "E_USER_CANCELLED"). */
+function isCancelled(code?: string, message?: string): boolean {
+  const c = String(code || "").toLowerCase();
+  return c.includes("cancel") || !!message?.toLowerCase().includes("cancel");
+}
 
 // ─── Initialization ─────────────────────────────────────
 // Connects to Apple/Google billing servers.
 // In Expo Go this will fail (no native module) — that's expected.
+
+/**
+ * Register Apple/Google purchase event listeners. Modern react-native-iap
+ * (StoreKit 2 / Play Billing) delivers purchases asynchronously here, so this is
+ * where we finish the transaction and grant PRO. Defensive: a no-op if the module
+ * doesn't expose the listeners (older native module / Expo Go / tests) — the
+ * fallback path in purchasePackage() handles those cases.
+ */
+function registerPurchaseListeners(iap: NonNullable<typeof _iap>): void {
+  if (_purchaseUpdateSub) return; // already registered
+  if (typeof iap.purchaseUpdatedListener !== "function") return;
+  _purchaseUpdateSub = iap.purchaseUpdatedListener((purchase: Purchase) => {
+    if (purchase.productId !== PRODUCT_ID) return;
+    // Must finish the transaction or Apple/Google will auto-refund it.
+    iap.finishTransaction({ purchase, isConsumable: false })
+      .catch(() => iap.finishTransaction({ purchase, isConsumable: false }).catch(() => { /* store will retry */ }));
+    _onPremiumGranted?.();
+    const resolve = _pendingPurchase;
+    _pendingPurchase = null;
+    resolve?.({ success: true });
+  });
+  if (typeof iap.purchaseErrorListener === "function") {
+    _purchaseErrorSub = iap.purchaseErrorListener((error: PurchaseError) => {
+      const resolve = _pendingPurchase;
+      _pendingPurchase = null;
+      if (!resolve) return;
+      resolve(
+        isCancelled(String(error?.code), error?.message)
+          ? { success: false, cancelled: true }
+          : { success: false, cancelled: false, error: error?.message || "Purchase failed" }
+      );
+    });
+  }
+}
 
 export async function initializeIAP(): Promise<void> {
   if (_initialized) return;
@@ -45,6 +104,7 @@ export async function initializeIAP(): Promise<void> {
     const iap = await getIAP();
     if (!iap) { if (__DEV__) console.log("DocDue: IAP not available — IAP module not available (Expo Go or store unavailable)"); return; }
     await iap.initConnection();
+    registerPurchaseListeners(iap);
     _initialized = true;
     if (__DEV__) console.log("DocDue: IAP connected to store");
   } catch (e) {
@@ -56,15 +116,17 @@ export async function initializeIAP(): Promise<void> {
 // ─── Check Premium Status ────────────────────────────────
 // Checks if user has previously purchased the PRO product.
 
-export async function checkPremiumStatus(): Promise<boolean> {
-  if (!_initialized) return false;
+export async function checkPremiumStatus(): Promise<boolean | null> {
+  if (!_initialized) return null;
   try {
     const iap = await getIAP();
-    if (!iap) return false;
+    if (!iap) return null;
     const purchases = await iap.getAvailablePurchases();
-    return purchases.some((p) => p.productId === PRODUCT_ID);
+    return purchases.some(isOwnedPro);
   } catch {
-    return false;
+    // Query failed (offline / throttled / store outage). Return null so the
+    // caller can tell "failed" from "confirmed not owned" and NOT downgrade.
+    return null;
   }
 }
 
@@ -106,9 +168,47 @@ export type PurchaseResult =
   | { success: false; cancelled: boolean; error?: string };
 
 export async function purchasePackage(productId: string): Promise<PurchaseResult> {
+  const iap = await getIAP();
+  if (!iap) return { success: false, cancelled: false, error: "IAP not available" };
+
+  // Modern flow: the purchase is delivered asynchronously to the listeners
+  // registered at init. requestPurchase() often resolves with NO object, so we
+  // must not treat that as failure — wait for purchaseUpdated / purchaseError.
+  if (_purchaseUpdateSub) {
+    return new Promise<PurchaseResult>((resolve) => {
+      let settled = false;
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const handler = (result: PurchaseResult) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        if (_pendingPurchase === handler) _pendingPurchase = null;
+        resolve(result);
+      };
+      _pendingPurchase = handler;
+      // Safety net so the UI spinner never hangs if no event ever arrives.
+      timer = setTimeout(() => handler({ success: false, cancelled: false, error: "Purchase timed out" }), 90000);
+      Promise.resolve(
+        iap.requestPurchase({
+          request: {
+            apple: { sku: productId, andDangerouslyFinishTransactionAutomatically: false },
+            google: { skus: [productId] },
+          },
+          type: "in-app",
+        })
+      ).catch((e: unknown) => {
+        const err = e as { code?: string; message?: string };
+        handler(
+          isCancelled(err.code, err.message)
+            ? { success: false, cancelled: true }
+            : { success: false, cancelled: false, error: err.message || "Purchase failed" }
+        );
+      });
+    });
+  }
+
+  // Fallback (older native module / tests without listeners): trust the return.
   try {
-    const iap = await getIAP();
-    if (!iap) return { success: false, cancelled: false, error: "IAP not available" };
     const purchase = await iap.requestPurchase({
       request: {
         apple: { sku: productId, andDangerouslyFinishTransactionAutomatically: false },
@@ -130,12 +230,13 @@ export async function purchasePackage(productId: string): Promise<PurchaseResult
           if (__DEV__) console.warn("DocDue: finishTransaction retry failed — store will auto-retry");
         }
       }
+      _onPremiumGranted?.();
       return { success: true };
     }
     return { success: false, cancelled: false, error: "No purchase returned" };
   } catch (e: unknown) {
     const err = e as { code?: string; message?: string };
-    if (err.code === "E_USER_CANCELLED" || err.message?.includes("cancel")) {
+    if (isCancelled(err.code, err.message)) {
       return { success: false, cancelled: true };
     }
     return { success: false, cancelled: false, error: err.message || "Purchase failed" };
@@ -152,7 +253,7 @@ export async function restorePurchases(): Promise<boolean> {
     const iap = await getIAP();
     if (!iap) return false;
     const purchases = await iap.getAvailablePurchases();
-    return purchases.some((p) => p.productId === PRODUCT_ID);
+    return purchases.some(isOwnedPro);
   } catch {
     return false;
   }
@@ -169,6 +270,10 @@ export function isIAPConfigured(): boolean {
 export async function endIAP(): Promise<void> {
   if (!_initialized) return;
   try {
+    _purchaseUpdateSub?.remove();
+    _purchaseErrorSub?.remove();
+    _purchaseUpdateSub = null;
+    _purchaseErrorSub = null;
     const iap = await getIAP();
     if (iap) await iap.endConnection();
     _initialized = false;

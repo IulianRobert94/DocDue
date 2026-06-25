@@ -84,11 +84,16 @@ function persistDocs(documents: RawDocument[]) {
       .then(() => { /* persisted successfully */ })
       .catch((e) => {
         if (__DEV__) console.warn("DocDue: persist error", e);
-        if (prevPersisted !== null) {
-          _lastPersistedDocs = prevPersisted;
-          useDocumentStore.setState({ documents: prevPersisted });
+        // Only revert if this is still the latest queued write. A newer write may
+        // have already superseded _lastPersistedDocs and saved successfully —
+        // reverting then would clobber that newer state with a stale snapshot.
+        if (_lastPersistedDocs === documents) {
+          if (prevPersisted !== null) {
+            _lastPersistedDocs = prevPersisted;
+            useDocumentStore.setState({ documents: prevPersisted });
+          }
+          Alert.alert(t(lang, "save_error_title"), t(lang, "save_error_msg"));
         }
-        Alert.alert(t(lang, "save_error_title"), t(lang, "save_error_msg"));
       });
   });
 }
@@ -121,6 +126,7 @@ function flushUndoBuffer() {
 // ─── Notification reschedule helper ──────────────────────
 
 let _rescheduleTimer: ReturnType<typeof setTimeout> | null = null;
+let _retryTimer: ReturnType<typeof setTimeout> | null = null;
 let _rescheduleRunning = false;
 
 async function doReschedule(documents: RawDocument[], attempt = 1) {
@@ -140,7 +146,11 @@ async function doReschedule(documents: RawDocument[], attempt = 1) {
         if (__DEV__) console.warn("DocDue: notification reschedule error", e);
         if (attempt < 3) {
           retryScheduled = true;
-          setTimeout(() => doReschedule(documents, attempt + 1), attempt * 2000);
+          // Re-read fresh state on retry so we never reschedule a stale doc set.
+          _retryTimer = setTimeout(() => {
+            _retryTimer = null;
+            doReschedule(useDocumentStore.getState().documents, attempt + 1);
+          }, attempt * 2000);
           return;
         } else if (__DEV__) {
           console.warn("DocDue: notification reschedule failed after 3 attempts — notifications may be stale");
@@ -155,6 +165,13 @@ async function doReschedule(documents: RawDocument[], attempt = 1) {
 
 function triggerNotificationReschedule(documents: RawDocument[], immediate = false) {
   if (_rescheduleTimer) clearTimeout(_rescheduleTimer);
+  // A fresh mutation supersedes any pending failed-retry: cancel it and clear the
+  // running flag so the newest document set is always (re)scheduled, not stale data.
+  if (_retryTimer) {
+    clearTimeout(_retryTimer);
+    _retryTimer = null;
+    _rescheduleRunning = false;
+  }
   if (immediate) {
     _rescheduleTimer = null;
     doReschedule(documents);
@@ -294,9 +311,21 @@ export const useDocumentStore = create<DocumentsState>()((set, get) => ({
         "2years": 24, "5years": 60, "10years": 120,
       };
       const months = MONTH_MAP[fresh.rec];
-      const nextDue = months
+      const today = getTodayString();
+      let nextDue = months
         ? addMonthsToDate(fresh.due, months)
         : addDaysToDate(fresh.due, recDays);
+      // Catch up an overdue recurring document to its next genuinely-future due
+      // date in a single tap, instead of advancing one period and staying expired
+      // (which forced repeated taps + bogus payment records). ISO dates compare
+      // lexicographically, so this string comparison is timezone-safe.
+      let guard = 0;
+      while (nextDue < today && guard < 1000) {
+        nextDue = months
+          ? addMonthsToDate(nextDue, months)
+          : addDaysToDate(nextDue, recDays);
+        guard++;
+      }
       set((state) => ({
         documents: state.documents.map((d) =>
           d.id === doc.id ? { ...d, due: nextDue, paymentHistory: history } : d
@@ -346,6 +375,11 @@ export function clearPendingCleanups() {
     clearTimeout(_rescheduleTimer);
     _rescheduleTimer = null;
   }
+  if (_retryTimer) {
+    clearTimeout(_retryTimer);
+    _retryTimer = null;
+  }
+  _rescheduleRunning = false;
 }
 
 // ─── Computed Selectors (memoized for performance) ──────
@@ -371,9 +405,9 @@ export function useEnrichedDocument(id: string | undefined): EnrichedDocument | 
   }, [doc]);
 }
 
-export function useGlobalStats(precomputed?: EnrichedDocument[]): GlobalStats {
-  const fallback = useEnrichedDocuments();
-  const enriched = precomputed ?? fallback;
+export function useGlobalStats(enriched: EnrichedDocument[]): GlobalStats {
+  // Enriched docs are passed in (callers already hold them) so we never run a
+  // second enrichment pass here — on the home screen this avoids enriching 3x/render.
   return useMemo(() => {
     let expired = 0, warning = 0, ok = 0, totalDue = 0;
     for (const d of enriched) {
@@ -388,9 +422,7 @@ export function useGlobalStats(precomputed?: EnrichedDocument[]): GlobalStats {
   }, [enriched]);
 }
 
-export function useCategoryStats(precomputed?: EnrichedDocument[]): Record<CategoryId, CategoryStats> {
-  const fallback = useEnrichedDocuments();
-  const enriched = precomputed ?? fallback;
+export function useCategoryStats(enriched: EnrichedDocument[]): Record<CategoryId, CategoryStats> {
   return useMemo(() => {
     const result = {} as Record<CategoryId, CategoryStats>;
     (Object.keys(CATEGORIES) as CategoryId[]).forEach((catId) => {

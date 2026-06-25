@@ -34,6 +34,8 @@ import { CURRENCY_OPTIONS, CATEGORIES, FREE_DOCUMENT_LIMIT } from '../../src/cor
 import {
   requestNotificationPermission,
   rescheduleAllNotifications,
+  scheduleMorningDigest,
+  scheduleWeeklySummary,
 } from '../../src/services/notifications';
 import { AnimatedPressable } from '../../src/components/AnimatedUI';
 import { RowDivider, InfoRow, SegmentedControl } from '../../src/components/settings/SettingsUI';
@@ -87,7 +89,15 @@ export default function SettingsScreen() {
         return;
       }
       updateSetting('notificationsEnabled', true);
-      rescheduleAllNotifications(documents, settings.reminderDays, language).catch(() => {});
+      // Sequence so cancelAll (inside rescheduleAll) finishes before digest/weekly
+      // are scheduled, and so enabling from Settings sets them up immediately (L6/L7).
+      (async () => {
+        try {
+          await rescheduleAllNotifications(documents, settings.reminderDays, language);
+          await scheduleMorningDigest(documents, language);
+          await scheduleWeeklySummary(documents, language);
+        } catch { /* notifications are best-effort */ }
+      })();
     } else {
       updateSetting('notificationsEnabled', false);
       ExpoNotifications.cancelAllScheduledNotificationsAsync().catch(() => {});

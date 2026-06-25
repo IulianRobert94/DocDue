@@ -12,6 +12,7 @@
  */
 
 import type { RawDocument, RecurrenceValue } from "./constants";
+import { CATEGORIES, VALID_RECURRENCE_VALUES } from "./constants";
 
 interface StoredData {
   version?: number;
@@ -23,9 +24,33 @@ const RECURRENCE_MIGRATION: Record<string, RecurrenceValue> = {
   daily: "weekly",
 };
 
+const VALID_CATEGORY_IDS = new Set(Object.keys(CATEGORIES));
+const DUE_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * A stored entry is a usable document only if it has a string id, a YYYY-MM-DD
+ * due date, and a category that is one of the 4 known ids. Mirrors the stricter
+ * validation already done on backup-restore, so a corrupted/foreign record
+ * (e.g. cat:"garbage") can't slip in and desync document lists vs category stats.
+ */
+function isValidStoredDoc(item: unknown): item is RawDocument {
+  if (typeof item !== "object" || item === null) return false;
+  const o = item as Record<string, unknown>;
+  return (
+    typeof o.id === "string" &&
+    typeof o.due === "string" && DUE_DATE_RE.test(o.due) &&
+    typeof o.cat === "string" && VALID_CATEGORY_IDS.has(o.cat)
+  );
+}
+
 function migrateRecurrence(doc: RawDocument): RawDocument {
   const mapped = RECURRENCE_MIGRATION[doc.rec];
-  return mapped ? { ...doc, rec: mapped } : doc;
+  const next = mapped ? { ...doc, rec: mapped } : doc;
+  // Normalize any unknown recurrence value to "none" (matches restore validation).
+  if (!VALID_RECURRENCE_VALUES.has(next.rec)) {
+    return { ...next, rec: "none" };
+  }
+  return next;
 }
 
 /**
@@ -44,13 +69,7 @@ export function migrateData(stored: StoredData | RawDocument[] | null): RawDocum
     // Empty array = user deleted all docs — preserve that state
     if (stored.length === 0) return stored;
     // Filter to only valid document objects (skip corrupted entries)
-    const valid = stored.filter(
-      (item): item is RawDocument =>
-        typeof item === "object" && item !== null &&
-        "id" in item && typeof (item as any).id === "string" &&
-        "due" in item && typeof (item as any).due === "string" &&
-        "cat" in item && typeof (item as any).cat === "string"
-    );
+    const valid = stored.filter(isValidStoredDoc);
     return valid.map(migrateRecurrence);
   }
 
@@ -62,13 +81,7 @@ export function migrateData(stored: StoredData | RawDocument[] | null): RawDocum
 
   if (Array.isArray(stored.documents)) {
     // Filter to only valid document objects
-    const valid = stored.documents.filter(
-      (item): item is RawDocument =>
-        typeof item === "object" && item !== null &&
-        "id" in item && typeof (item as any).id === "string" &&
-        "due" in item && typeof (item as any).due === "string" &&
-        "cat" in item && typeof (item as any).cat === "string"
-    );
+    const valid = stored.documents.filter(isValidStoredDoc);
     return valid.map(migrateRecurrence);
   }
 

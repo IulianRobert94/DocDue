@@ -76,6 +76,12 @@ export async function addDocumentToCalendar(
   const location = doc.asset || "";
 
   try {
+    // Avoid duplicates: if an event with the same title already exists that day,
+    // treat the add as a no-op success instead of creating a second one.
+    try {
+      const existing = await Calendar.getEventsAsync([calendarId], startDate, endDate);
+      if (existing.some((e) => e.title === title)) return true;
+    } catch { /* fall through and create if the lookup fails */ }
     await Calendar.createEventAsync(calendarId, {
       title,
       startDate,

@@ -29,7 +29,9 @@ import { SegmentedControl, RowDivider } from '../src/components/settings/Setting
 import { AttachmentPicker, deleteAttachmentFiles } from '../src/components/AttachmentPicker';
 import { getSmartDefaults, autoCategorize } from '../src/core/smartDefaults';
 import { getAutoReminderDays } from '../src/core/enrichment';
-import { findDuplicate } from '../src/core/helpers';
+import { findDuplicate, isAtFreeLimit } from '../src/core/helpers';
+import { FREE_DOCUMENT_LIMIT } from '../src/core/constants';
+import { validateDocument } from '../src/core/validators';
 import { fonts } from '../src/theme/typography';
 import { isOcrAvailable, scanDocument } from '../src/services/ocr';
 import * as ImagePicker from 'expo-image-picker';
@@ -116,7 +118,6 @@ export default function FormScreen() {
   const recAutoSetTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [autoDetected, setAutoDetected] = useState(false);
   const manualCatRef = useRef(false);
-  const documents = useDocumentStore((s) => s.documents);
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
   const [showTypePicker, setShowTypePicker] = useState(false);
   const [typeSearch, setTypeSearch] = useState('');
@@ -157,7 +158,15 @@ export default function FormScreen() {
        due !== defaultDue ||
        rec !== (existingDoc?.rec || 'none') ||
        attachments.length !== (existingDoc?.attachments?.length || 0))
-    : (titleRef.current.trim().length > 0 || assetRef.current.trim().length > 0 || amtRef.current.trim().length > 0 || notesRef.current.trim().length > 0);
+    : (titleRef.current.trim().length > 0 ||
+       assetRef.current.trim().length > 0 ||
+       amtRef.current.trim().length > 0 ||
+       notesRef.current.trim().length > 0 ||
+       type.trim().length > 0 ||
+       due !== defaultDue ||
+       rec !== 'none' ||
+       attachments.length > 0 ||
+       cat !== initCat);
 
   const cleanupNewAttachments = () => {
     // Delete files for attachments added during this session (not in original)
@@ -295,11 +304,34 @@ export default function FormScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
       return false;
     }
+    // Defense-in-depth: the shared validator must also pass. (It was previously
+    // unused/dead code; routing saves through it makes its rules — and its test
+    // coverage — actually guard the production save path.)
+    const sharedErrors = validateDocument({
+      title: titleRef.current.trim(),
+      due,
+      cat,
+      amt: amtRef.current.trim() ? Number(amtRef.current.trim().replace(',', '.')) : null,
+    }, language);
+    if (sharedErrors.length > 0) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+      return false;
+    }
     return true;
   };
 
   const handleSave = () => {
     if (savingRef.current) return; // Prevent double-tap
+    // Enforce the free-tier limit at the save layer, not just the add-tab button —
+    // otherwise Duplicate / category-add routes into this form bypass it.
+    if (!effectiveEdit) {
+      const isPremium = useSettingsStore.getState().settings.isPremium;
+      const docCount = useDocumentStore.getState().documents.length;
+      if (isAtFreeLimit(docCount, isPremium)) {
+        router.push('/premium');
+        return;
+      }
+    }
     if (!validate()) return;
     savingRef.current = true;
     setSaving(true);
@@ -450,7 +482,7 @@ export default function FormScreen() {
                           setTimeout(() => setAutoDetected(false), 2500);
                         }
                       }
-                      const dup = findDuplicate(documents, cat, type, titleRef.current, editId);
+                      const dup = findDuplicate(useDocumentStore.getState().documents, cat, type, titleRef.current, editId);
                       setDuplicateWarning(dup ? dup.title : null);
                     }}
                     placeholder={t(language, 'form_title_placeholder')} placeholderTextColor={theme.textDim}
@@ -641,6 +673,8 @@ export default function FormScreen() {
                               setCustomReminders(next.length > 0 ? next : null);
                             }}
                             hapticStyle="selection"
+                            accessibilityRole="button"
+                            accessibilityState={{ selected: isSelected }}
                           >
                             <Text style={{
                               fontSize: 14,

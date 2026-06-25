@@ -65,7 +65,9 @@ export function Toast() {
       translateY.value = -100;
       opacity.value = 0;
     }
-  }, [visible, message, type]);
+    // `duration` is derived from `action`; include it so an action/plain toast
+    // swap with the same message/type still uses the correct auto-dismiss timing.
+  }, [visible, message, type, duration]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.value }],

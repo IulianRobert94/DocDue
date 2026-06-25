@@ -201,6 +201,8 @@ export default function SearchScreen() {
                   }}
                   haptic={false}
                   hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                  accessibilityRole="button"
+                  accessibilityLabel={t(language, 'search_remove_recent')}
                 >
                   <Ionicons name="close" size={12} color={theme.textDim} />
                 </AnimatedPressable>
@@ -332,7 +334,7 @@ export default function SearchScreen() {
           const category = CATEGORIES[item.cat] ?? CATEGORIES.vehicule;
 
           return (
-            <Reanimated.View entering={FadeInDown.delay(index * 40).springify()} exiting={FadeOut.duration(200)}>
+            <Reanimated.View entering={FadeInDown.delay(Math.min(index, 8) * 40).springify()} exiting={FadeOut.duration(200)}>
             <SwipeableRow
               onDelete={() => { deleteWithUndo(item.id, language, deleteDocument, undoDelete); }}
               confirmTitle={t(language, 'confirm_delete_title')}
@@ -377,7 +379,7 @@ export default function SearchScreen() {
                       { text: t(language, 'detail_delete'), style: 'destructive', onPress: () => {
                         Alert.alert(t(language, 'confirm_delete_title'), t(language, 'confirm_delete_msg'), [
                           { text: t(language, 'confirm_cancel'), style: 'cancel' },
-                          { text: t(language, 'confirm_delete_btn'), style: 'destructive', onPress: () => deleteDocument(item.id) },
+                          { text: t(language, 'confirm_delete_btn'), style: 'destructive', onPress: () => deleteWithUndo(item.id, language, deleteDocument, undoDelete) },
                         ]);
                       }},
                     ]);

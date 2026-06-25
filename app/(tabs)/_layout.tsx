@@ -11,16 +11,16 @@ import { Tabs, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useTheme, useLanguage, useSettingsStore } from "../../src/stores/useSettingsStore";
-import { useGlobalStats, useDocumentStore } from "../../src/stores/useDocumentStore";
+import { useGlobalStats, useEnrichedDocuments, useDocumentStore } from "../../src/stores/useDocumentStore";
 import { t } from "../../src/core/i18n";
-import { FREE_DOCUMENT_LIMIT } from "../../src/core/constants";
+import { isAtFreeLimit } from "../../src/core/helpers";
 import { fonts } from "../../src/theme/typography";
 
 export default function TabLayout() {
   const theme = useTheme();
   const lang = useLanguage();
   const router = useRouter();
-  const stats = useGlobalStats();
+  const stats = useGlobalStats(useEnrichedDocuments());
   const docCount = useDocumentStore((s) => s.documents.length);
   const isPremium = useSettingsStore((s) => s.settings.isPremium);
 
@@ -79,7 +79,7 @@ export default function TabLayout() {
           tabPress: (e) => {
             e.preventDefault();
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-            if (!isPremium && docCount >= FREE_DOCUMENT_LIMIT) {
+            if (isAtFreeLimit(docCount, isPremium)) {
               router.push('/premium');
             } else {
               router.push('/form');
@@ -90,7 +90,7 @@ export default function TabLayout() {
           title: "",
           tabBarAccessibilityLabel: t(lang, "a11y_add_document"),
           tabBarIcon: () => {
-            const atLimit = !isPremium && docCount >= FREE_DOCUMENT_LIMIT;
+            const atLimit = isAtFreeLimit(docCount, isPremium);
             return (
               <View>
                 <LinearGradient

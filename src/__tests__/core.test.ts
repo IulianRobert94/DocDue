@@ -650,6 +650,25 @@ describe("migrateData edge cases", () => {
     const docs = [{ id: "x1", cat: "personal", type: "CI", title: "ID", due: "2025-01-01", amt: null, rec: "none" }];
     expect(migrateData(docs as any)).toEqual(docs);
   });
+
+  it("drops a document with an unknown category", () => {
+    const docs = [
+      { id: "ok", cat: "vehicule", type: "RCA", title: "Keep", due: "2025-01-01", amt: null, rec: "none" },
+      { id: "bad", cat: "garbage", type: "X", title: "Drop", due: "2025-01-01", amt: null, rec: "none" },
+    ];
+    expect(migrateData(docs as any)).toEqual([docs[0]]);
+  });
+
+  it("drops a document with a malformed due date", () => {
+    const docs = [{ id: "1", cat: "casa", type: "Gaz", title: "Bad date", due: "not-a-date", amt: null, rec: "none" }];
+    expect(migrateData(docs as any)).toEqual([]);
+  });
+
+  it("normalizes an unknown recurrence value to 'none'", () => {
+    const docs = [{ id: "1", cat: "vehicule", type: "RCA", title: "Test", due: "2025-01-01", amt: null, rec: "fortnightly" }];
+    const result = migrateData(docs as any);
+    expect(result![0].rec).toBe("none");
+  });
 });
 
 // ─── Formatter Edge Cases ───────────────────────────────
@@ -2046,5 +2065,25 @@ describe("cross-module consistency", () => {
     for (const status of Object.values(STATUS_DISPLAY)) {
       expect(status.color).toMatch(/^#[0-9A-Fa-f]{6}$/);
     }
+  });
+});
+
+import { isAtFreeLimit } from "../core/helpers";
+import { FREE_DOCUMENT_LIMIT } from "../core/constants";
+
+describe("isAtFreeLimit (free-tier gate)", () => {
+  it("blocks a non-PRO user at or above the limit", () => {
+    expect(isAtFreeLimit(FREE_DOCUMENT_LIMIT, false)).toBe(true);
+    expect(isAtFreeLimit(FREE_DOCUMENT_LIMIT + 5, false)).toBe(true);
+  });
+
+  it("allows a non-PRO user below the limit", () => {
+    expect(isAtFreeLimit(0, false)).toBe(false);
+    expect(isAtFreeLimit(FREE_DOCUMENT_LIMIT - 1, false)).toBe(false);
+  });
+
+  it("never blocks a PRO user, even above the limit", () => {
+    expect(isAtFreeLimit(FREE_DOCUMENT_LIMIT, true)).toBe(false);
+    expect(isAtFreeLimit(FREE_DOCUMENT_LIMIT + 100, true)).toBe(false);
   });
 });

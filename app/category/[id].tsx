@@ -163,7 +163,7 @@ export default function CategoryDetailScreen() {
           const statusColor = STATUS_DISPLAY[item._status]?.color || '#999';
 
           return (
-            <Reanimated.View entering={FadeInDown.delay(index * 40).springify()} exiting={FadeOut.duration(200)} style={{ marginHorizontal: 16 }}>
+            <Reanimated.View entering={FadeInDown.delay(Math.min(index, 8) * 40).springify()} exiting={FadeOut.duration(200)} style={{ marginHorizontal: 16 }}>
               <SwipeableRow
                 onDelete={() => deleteWithUndo(item.id, language, deleteDocument, undoDelete)}
                 confirmTitle={t(language, 'confirm_delete_title')}

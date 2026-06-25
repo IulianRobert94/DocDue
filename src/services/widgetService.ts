@@ -31,6 +31,9 @@ export function updateWidgetData(documents: RawDocument[]): void {
       (d) => d._status === "expired" || d._status === "warning"
     );
 
+    // NOTE: the DocDueWidget component (src/widgets/) also expects a localized
+    // `labels` object, but that widget is WIP / not bundled, so we intentionally
+    // omit it here. When the widget is enabled, add labels built from i18n.
     const widgetData = {
       urgentCount: urgent.length,
       expiredCount: enriched.filter((d) => d._status === "expired").length,

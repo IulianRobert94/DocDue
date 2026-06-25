@@ -68,6 +68,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     search_no_filter_results: "Niciun document pentru filtrele selectate",
     search_all: "Toate",
     search_recent: "Căutări recente",
+    search_remove_recent: "Elimină căutarea recentă",
 
     // Category screen
 
@@ -520,6 +521,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     search_no_filter_results: "No documents match the selected filters",
     search_all: "All",
     search_recent: "Recent searches",
+    search_remove_recent: "Remove recent search",
 
 
     detail_due: "Due date", detail_amount: "Amount", detail_recurrence: "Recurrence",

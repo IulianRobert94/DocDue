@@ -11,6 +11,7 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { View, Text, StyleSheet, AppState, Platform } from "react-native";
 import * as LocalAuthentication from "expo-local-authentication";
+import * as ScreenCapture from "expo-screen-capture";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -50,6 +51,10 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
   const language = useSettingsStore((s) => s.settings.language);
   const theme = useTheme();
   const [locked, setLocked] = useState(biometricEnabled);
+  // Opaque privacy cover shown while the app is backgrounded, so the OS
+  // app-switcher / recents snapshot never captures document content. Separate
+  // from `locked` so a quick (<5s) task-switch doesn't force a re-auth.
+  const [covered, setCovered] = useState(false);
   const [failed, setFailed] = useState(false);
   const [failCount, setFailCount] = useState(0);
   const [lockoutSeconds, setLockoutSeconds] = useState(0);
@@ -131,12 +136,15 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
     const subscription = AppState.addEventListener("change", (nextState) => {
       if (appState.current === "active" && nextState.match(/inactive|background/)) {
         backgroundTime.current = Date.now();
+        // Hide content immediately so the app-switcher / recents snapshot is safe.
+        setCovered(true);
       }
       if (appState.current.match(/inactive|background/) && nextState === "active") {
         const elapsed = Date.now() - backgroundTime.current;
         if (elapsed > 5000 && !authInProgress.current && !justUnlocked.current) {
           setLocked(true);
         }
+        setCovered(false);
       }
       appState.current = nextState;
     });
@@ -148,9 +156,21 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!biometricEnabled) {
       setLocked(false);
+      setCovered(false);
     } else {
       setLocked(true);
     }
+  }, [biometricEnabled]);
+
+  // Block OS screenshots / recents previews (Android FLAG_SECURE, iOS) while the
+  // biometric lock is enabled. Defensive: no-op if the native module is absent.
+  useEffect(() => {
+    if (biometricEnabled) {
+      ScreenCapture.preventScreenCaptureAsync().catch(() => {});
+    } else {
+      ScreenCapture.allowScreenCaptureAsync().catch(() => {});
+    }
+    return () => { ScreenCapture.allowScreenCaptureAsync().catch(() => {}); };
   }, [biometricEnabled]);
 
   // Escalating lockout: 30s → 60s → 5min with visible countdown
@@ -198,6 +218,16 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
   return (
     <View style={{ flex: 1 }}>
       {children}
+      {biometricEnabled && covered && !locked && (
+        <View style={[styles.overlay, { backgroundColor: theme.background }]}>
+          <View style={styles.content}>
+            <View style={[styles.iconCircle, { backgroundColor: theme.primary + '26' }]}>
+              <Ionicons name="lock-closed" size={44} color={theme.primary} />
+            </View>
+            <Text style={[styles.title, { color: theme.text }]}>DocDue</Text>
+          </View>
+        </View>
+      )}
       {locked && (
         <View style={[styles.overlay, { backgroundColor: theme.background }]}>
           <View style={styles.content}>

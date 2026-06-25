@@ -27,7 +27,8 @@ import { ErrorBoundary } from "../src/components/ErrorBoundary";
 import { Toast } from "../src/components/Toast";
 import { BiometricGate } from "../src/components/BiometricGate";
 import * as QuickActions from "expo-quick-actions";
-import { FREE_DOCUMENT_LIMIT, STORAGE_KEY_ONBOARDED } from "../src/core/constants";
+import { STORAGE_KEY_ONBOARDED } from "../src/core/constants";
+import { isAtFreeLimit } from "../src/core/helpers";
 import {
   configureNotifications,
   rescheduleAllNotifications,
@@ -37,7 +38,7 @@ import {
   scheduleMorningDigest,
   scheduleWeeklySummary,
 } from "../src/services/notifications";
-import { initializeIAP, checkPremiumStatus, isIAPConfigured } from "../src/services/iap";
+import { initializeIAP, checkPremiumStatus, isIAPConfigured, setPremiumGrantedCallback } from "../src/services/iap";
 import { enrichDocument, getActiveDocuments } from "../src/core/enrichment";
 import { getTodayString } from "../src/core/dateUtils";
 import { updateWidgetData } from "../src/services/widgetService";
@@ -118,17 +119,30 @@ function RootLayout() {
           .catch((e) => { if (__DEV__) console.warn("DocDue: notification category error", e); });
 
         if (settings.notificationsEnabled) {
-          rescheduleAllNotifications(documents, settings.reminderDays, settings.language)
-            .catch((e) => { if (__DEV__) console.warn("DocDue: notification schedule error", e); });
-          scheduleMorningDigest(documents, settings.language)
-            .catch((e) => { if (__DEV__) console.warn("DocDue: morning digest error", e); });
-          scheduleWeeklySummary(documents, settings.language)
-            .catch((e) => { if (__DEV__) console.warn("DocDue: weekly summary error", e); });
+          // Sequence so cancelAll (inside rescheduleAll) completes before the digest
+          // and weekly summary are inserted — concurrent calls can wipe them (L6).
+          (async () => {
+            try {
+              await rescheduleAllNotifications(documents, settings.reminderDays, settings.language);
+              await scheduleMorningDigest(documents, settings.language);
+              await scheduleWeeklySummary(documents, settings.language);
+            } catch (e) {
+              if (__DEV__) console.warn("DocDue: notification schedule error", e);
+            }
+          })();
         }
 
+        // Persist PRO whenever a purchase is confirmed — including deferred /
+        // async delivery that lands after the premium screen has already closed.
+        setPremiumGrantedCallback(() => {
+          useSettingsStore.getState().updateSetting('isPremium', true);
+        });
         // Sync premium status from store if configured
         if (isIAPConfigured()) {
           checkPremiumStatus().then((isPro) => {
+            // null = store query failed (offline / throttled / outage). Never
+            // downgrade a paying user on uncertainty — act only on a definitive result.
+            if (isPro === null) return;
             if (isPro !== settings.isPremium) {
               useSettingsStore.getState().updateSetting('isPremium', isPro);
             }
@@ -240,7 +254,7 @@ function RootLayout() {
           if (action.id === "add_document") {
             const settings = useSettingsStore.getState().settings;
             const docCount = useDocumentStore.getState().documents.length;
-            if (!settings.isPremium && docCount >= FREE_DOCUMENT_LIMIT) {
+            if (isAtFreeLimit(docCount, settings.isPremium)) {
               router.push("/premium");
             } else {
               router.push("/form");

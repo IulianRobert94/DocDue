@@ -214,13 +214,13 @@ export default function DocumentDetailScreen() {
               {doc.attachments.length > 1 && (
                 <AnimatedPressable
                   onPress={() => {
-                    const uris = doc.attachments!.map((a) => a.uri);
-                    // Share all attachments sequentially (iOS/Android share sheet)
-                    Promise.all(uris.map((uri) => Sharing.isAvailableAsync().then((ok) => ok ? uri : null)))
-                      .then((valid) => {
-                        const first = valid.find(Boolean);
-                        if (first) Sharing.shareAsync(first).catch(() => {});
-                      });
+                    // Share every attachment sequentially — one share sheet per file.
+                    (async () => {
+                      if (!(await Sharing.isAvailableAsync())) return;
+                      for (const att of doc.attachments!) {
+                        await Sharing.shareAsync(att.uri).catch(() => {});
+                      }
+                    })();
                   }}
                   hapticStyle="light"
                   accessibilityLabel={t(language, 'share_all_attachments')}

@@ -131,14 +131,25 @@ export function extractAmount(text: string): number | null {
     /\b(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})\b/g,
   ];
 
-  for (const pattern of patterns) {
+  // Currency/keyword-anchored patterns are reliable — take the first such match.
+  for (const pattern of patterns.slice(0, 3)) {
     const match = pattern.exec(text);
     if (match && match[1]) {
       return parseRomanianNumber(match[1]);
     }
   }
 
-  return null;
+  // No anchored amount: among standalone 2-decimal numbers, pick the largest
+  // plausible one (the total is usually the biggest figure) rather than the
+  // first, which is often a rate, quantity, or serial fragment.
+  const standalone = patterns[3];
+  let best: number | null = null;
+  let m: RegExpExecArray | null;
+  while ((m = standalone.exec(text)) !== null) {
+    const val = parseRomanianNumber(m[1]);
+    if (val !== null && (best === null || val > best)) best = val;
+  }
+  return best;
 }
 
 /**

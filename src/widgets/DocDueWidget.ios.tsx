@@ -1,10 +1,16 @@
 /**
- * DocDue Home Screen Widget
+ * DocDue Home Screen Widget (iOS) — ⚠️ WIP / NOT CURRENTLY BUNDLED
  *
- * Shows urgent document count and upcoming deadlines.
- * Uses @expo/ui SwiftUI components for native widget rendering.
+ * This component does NOT run today: it imports @expo/ui and expo-widgets (which
+ * are not installed), it is excluded from tsconfig, and nothing imports it
+ * (widgetService talks to the native module by string key, not via this file).
+ * To enable: install @expo/ui + expo-widgets, register the config plugin, remove
+ * the src/widgets/** tsconfig exclude, and have widgetService include the
+ * `labels` object (see DocDueWidgetProps.labels) built from i18n — which the live
+ * payload intentionally omits until then. Do not assume this contract works.
  *
- * Requires dev build (npx expo prebuild).
+ * Shows urgent document count and upcoming deadlines via @expo/ui SwiftUI.
+ * Requires a dev build (npx expo prebuild).
  */
 
 import { Text, VStack, HStack } from "@expo/ui/swift-ui";

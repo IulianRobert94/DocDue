@@ -180,6 +180,13 @@ describe("extractAmount", () => {
     const result = extractAmount("Plata: 2.500,00 RON");
     expect(result).toBe(2500);
   });
+
+  it("picks the largest standalone number when no currency/keyword anchor exists", () => {
+    // No RON/lei/EUR/total/etc. anchor — the total (145.50) should win over the
+    // smaller quantity-like figures rather than returning the first one.
+    const result = extractAmount("Qty 2.00 pieces 3.00 each line 145.50 end");
+    expect(result).toBe(145.5);
+  });
 });
 
 // ─── matchDocumentType ──────────────────────────────────

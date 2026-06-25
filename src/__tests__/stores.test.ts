@@ -68,6 +68,8 @@ jest.mock("react-native-iap", () => ({
   getAvailablePurchases: jest.fn(() => Promise.resolve([])),
   requestPurchase: jest.fn(() => Promise.resolve()),
   finishTransaction: jest.fn(() => Promise.resolve()),
+  purchaseUpdatedListener: jest.fn(() => ({ remove: jest.fn() })),
+  purchaseErrorListener: jest.fn(() => ({ remove: jest.fn() })),
 }));
 
 // ─── Imports ────────────────────────────────────────────
@@ -102,6 +104,8 @@ describe("useDocumentStore", () => {
     // Reset store to empty state
     useDocumentStore.setState({ documents: [], _hydrated: true });
     jest.clearAllMocks();
+    // Pin "today" so date-dependent logic (e.g. markAsPaid catch-up) is deterministic.
+    jest.setSystemTime(new Date("2026-01-01T00:00:00"));
   });
 
   afterEach(() => {
@@ -287,6 +291,23 @@ describe("useDocumentStore", () => {
 
       const updated = useDocumentStore.getState().documents[0];
       expect(updated.due).toBe("2026-03-08");
+    });
+
+    it("catches up an overdue recurring doc to a future due date in one tap (L4)", () => {
+      // today is pinned to 2026-01-01; this monthly bill is several periods overdue.
+      useDocumentStore.getState().addDocument(makeDoc({
+        title: "Overdue monthly",
+        due: "2025-08-15",
+        rec: "monthly",
+      }));
+      const doc = useDocumentStore.getState().documents[0];
+      useDocumentStore.getState().markAsPaid(enrichDocument(doc));
+      const updated = useDocumentStore.getState().documents[0];
+      // Advanced past today (not the naive single step 2025-09-15), in one tap...
+      expect(updated.due).toBe("2026-01-15");
+      expect(updated.due >= getTodayString()).toBe(true);
+      // ...and only ONE payment record was appended, not one per skipped period.
+      expect(updated.paymentHistory).toHaveLength(1);
     });
 
     it("marks non-recurring document as resolved and returns 'resolved'", () => {
