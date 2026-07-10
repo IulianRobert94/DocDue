@@ -9,6 +9,7 @@ import type { ThemeMode } from "../core/constants";
 
 export interface AppTheme {
   primary: string;
+  primaryText: string;
   primaryLight: string;
   primaryDim: string;
   background: string;
@@ -38,6 +39,9 @@ export interface AppTheme {
 export function createTheme(_mode?: ThemeMode): AppTheme {
   return {
     primary:         "#0A79F1",
+    // Lighter blue for TEXT/links on dark surfaces — primary itself is only
+    // 4.07:1 on card, below WCAG AA 4.5:1. Fills/gradients keep `primary`.
+    primaryText:     "#2E8CF4",
     primaryLight:    "#0A79F114",
     primaryDim:      "#0A79F108",
     background:      "#0A0E17",
@@ -46,8 +50,10 @@ export function createTheme(_mode?: ThemeMode): AppTheme {
     surface:         "#111827",
     text:            "#F0F2F5",
     textSecondary:   "#8E98AB",
-    textMuted:       "#5A6478",
-    textDim:         "#3D4756",
+    // WCAG AA on card #141C2C: textMuted 4.72:1 (normal text), textDim 3.20:1
+    // (icons / decorative only — not body text). Guarded by core.test.ts.
+    textMuted:       "#7D879C",
+    textDim:         "#616B84",
     inputBackground: "#141C2C",
     inputBorder:     "#1E2A3D",
     border:          "#1E2A3D",

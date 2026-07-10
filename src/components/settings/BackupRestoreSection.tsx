@@ -12,6 +12,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import Constants from 'expo-constants';
 
 import { t } from '../../core/i18n';
+import { restoreAttachmentFiles } from '../../services/backupRestore';
 import { DATA_VERSION, MAX_IMPORT_LIMIT, DEFAULT_SETTINGS, VALID_RECURRENCE_VALUES } from '../../core/constants';
 import type { RawDocument, AppSettings, LanguageCode, CurrencyCode, ThemeMode } from '../../core/constants';
 import type { AppTheme } from '../../theme/colors';
@@ -111,34 +112,6 @@ export function BackupRestoreSection({
     }
   };
 
-  const restoreAttachmentFiles = async (docs: RawDocument[], attachmentsData: Record<string, string>) => {
-    const dir = `${FileSystem.documentDirectory}attachments/`;
-    const dirInfo = await FileSystem.getInfoAsync(dir);
-    if (!dirInfo.exists) {
-      await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
-    }
-    const MAX_ATTACHMENT_SIZE = 20 * 1024 * 1024; // 20MB base64 limit
-    for (const doc of docs) {
-      if (doc.attachments) {
-        for (const att of doc.attachments) {
-          const key = `${doc.id}_${att.id}`;
-          const base64 = attachmentsData[key];
-          if (!base64 || base64.length >= MAX_ATTACHMENT_SIZE) continue;
-          // Remap URI to current sandbox — extract filename from old path
-          const oldFileName = att.uri?.split('/').pop();
-          if (!oldFileName || oldFileName.includes('..')) continue;
-          const newUri = `${dir}${oldFileName}`;
-          try {
-            await FileSystem.writeAsStringAsync(newUri, base64, { encoding: FileSystem.EncodingType.Base64 });
-            att.uri = newUri; // Update to current sandbox path
-          } catch {
-            // Skip failed writes
-          }
-        }
-      }
-    }
-  };
-
   const handleRestoreBackup = async () => {
     if (!isPremium) { onPremiumGate(); return; }
     try {
@@ -195,16 +168,17 @@ export function BackupRestoreSection({
             onPress: async () => {
               setIsLoading(true);
               try {
-                // Remap attachment URIs to current sandbox BEFORE adding docs
-                if (backup.attachments) {
-                  await restoreAttachmentFiles(backupDocs, backup.attachments);
-                }
                 const existingKeys = new Set(
                   documents.map((d) => `${d.title}|${d.due}|${d.cat}`)
                 );
                 const newDocs = backupDocs.filter(
                   (d: RawDocument) => !existingKeys.has(`${d.title}|${d.due}|${d.cat}`)
                 );
+                // Restore attachment files only for docs that will actually be
+                // added — skipped duplicates would leave orphan files behind
+                if (backup.attachments && newDocs.length > 0) {
+                  await restoreAttachmentFiles(newDocs, backup.attachments);
+                }
                 if (newDocs.length > 0) {
                   const docsWithoutId = newDocs.map((d: RawDocument) => {
                     const { id, ...rest } = d;
@@ -270,7 +244,7 @@ export function BackupRestoreSection({
         <AnimatedPressable style={styles.row} onPress={handleCreateBackup} disabled={isLoading} hapticStyle="light" accessibilityLabel={t(language, 'backup_create')}>
           <Ionicons name="cloud-upload-outline" size={18} color={theme.primary} style={{ marginRight: 8 }} />
           <View style={{ flex: 1 }}>
-            <Text style={[styles.rowLabel, { color: theme.primary }]}>
+            <Text style={[styles.rowLabel, { color: theme.primaryText }]}>
               {t(language, 'backup_create')}
               {!isPremium && <Text style={{ fontSize: 11, fontWeight: '700', fontFamily: fonts.bold, color: '#FFD700' }}> PRO</Text>}
             </Text>
@@ -285,7 +259,7 @@ export function BackupRestoreSection({
         <RowDivider theme={theme} />
         <AnimatedPressable style={styles.row} onPress={handleRestoreBackup} disabled={isLoading} hapticStyle="light" accessibilityLabel={t(language, 'backup_restore')}>
           <Ionicons name="cloud-download-outline" size={18} color={theme.primary} style={{ marginRight: 8 }} />
-          <Text style={[styles.rowLabel, { color: theme.primary, flex: 1 }]}>
+          <Text style={[styles.rowLabel, { color: theme.primaryText, flex: 1 }]}>
             {t(language, 'backup_restore')}
             {!isPremium && <Text style={{ fontSize: 11, fontWeight: '700', fontFamily: fonts.bold, color: '#FFD700' }}> PRO</Text>}
           </Text>

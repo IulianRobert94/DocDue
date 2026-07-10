@@ -62,6 +62,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0A0E17"
       },
+      "allowBackup": false,
       "package": "com.docdueapp",
       "versionCode": 30,
       "permissions": [

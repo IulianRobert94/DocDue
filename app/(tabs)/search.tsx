@@ -22,7 +22,7 @@ import { sortDocumentsByField } from '../../src/core/enrichment';
 import { STATUS_DISPLAY, CATEGORIES } from '../../src/core/constants';
 import type { CategoryId, DocumentStatus, SortField } from '../../src/core/constants';
 import Reanimated, { FadeInDown, FadeOut } from 'react-native-reanimated';
-import { AnimatedPressable, FadeInView } from '../../src/components/AnimatedUI';
+import { AnimatedPressable, FadeInView, useReduceMotion } from '../../src/components/AnimatedUI';
 import { fonts } from '../../src/theme/typography';
 import * as Haptics from 'expo-haptics';
 
@@ -48,6 +48,7 @@ export default function SearchScreen() {
   const undoDelete = useDocumentStore((s) => s.undoDelete);
   const markAsPaid = useDocumentStore((s) => s.markAsPaid);
   const inputRef = useRef<TextInput>(null);
+  const reduceMotion = useReduceMotion();
   const cancelOpacity = useRef(new RNAnimated.Value(0)).current;
   const cancelTranslateX = useRef(new RNAnimated.Value(30)).current;
   const recentSearches = useSettingsStore((s) => s.settings.recentSearches || []);
@@ -89,6 +90,11 @@ export default function SearchScreen() {
 
   const handleFocus = () => {
     setIsFocused(true);
+    if (reduceMotion) {
+      cancelOpacity.setValue(1);
+      cancelTranslateX.setValue(0);
+      return;
+    }
     RNAnimated.parallel([
       RNAnimated.timing(cancelOpacity, { toValue: 1, duration: 250, useNativeDriver: true }),
       RNAnimated.timing(cancelTranslateX, { toValue: 0, duration: 250, useNativeDriver: true }),
@@ -102,6 +108,11 @@ export default function SearchScreen() {
     inputRef.current?.clear();
     inputRef.current?.blur();
     Keyboard.dismiss();
+    if (reduceMotion) {
+      cancelOpacity.setValue(0);
+      cancelTranslateX.setValue(30);
+      return;
+    }
     RNAnimated.parallel([
       RNAnimated.timing(cancelOpacity, { toValue: 0, duration: 250, useNativeDriver: true }),
       RNAnimated.timing(cancelTranslateX, { toValue: 30, duration: 250, useNativeDriver: true }),
@@ -172,7 +183,7 @@ export default function SearchScreen() {
           {isFocused && (
             <RNAnimated.View style={{ width: 70, opacity: cancelOpacity, transform: [{ translateX: cancelTranslateX }] }}>
               <AnimatedPressable onPress={handleCancel} haptic={false} style={{ paddingLeft: 12, justifyContent: 'center', minHeight: 44 }}>
-                <Text style={{ color: theme.primary, fontSize: 17, fontFamily: fonts.regular }} numberOfLines={1}>{t(language, 'confirm_cancel')}</Text>
+                <Text style={{ color: theme.primaryText, fontSize: 17, fontFamily: fonts.regular }} numberOfLines={1}>{t(language, 'confirm_cancel')}</Text>
               </AnimatedPressable>
             </RNAnimated.View>
           )}
@@ -219,7 +230,7 @@ export default function SearchScreen() {
           style={{ marginLeft: -20, marginRight: -20 }}
         >
           {([
-            { key: 'all' as StatusFilter, label: t(language, 'search_all'), color: theme.primary, icon: undefined },
+            { key: 'all' as StatusFilter, label: t(language, 'search_all'), color: theme.primaryText, icon: undefined },
             { key: 'expired' as StatusFilter, label: t(language, 'status_expired'), color: STATUS_DISPLAY.expired.color, icon: STATUS_DISPLAY.expired.icon },
             { key: 'warning' as StatusFilter, label: t(language, 'status_warning'), color: STATUS_DISPLAY.warning.color, icon: STATUS_DISPLAY.warning.icon },
             { key: 'ok' as StatusFilter, label: t(language, 'status_ok'), color: STATUS_DISPLAY.ok.color, icon: STATUS_DISPLAY.ok.icon },

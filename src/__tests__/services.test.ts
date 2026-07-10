@@ -55,7 +55,11 @@ jest.mock("react-native-iap", () => ({
 
 jest.mock("expo-file-system/legacy", () => ({
   deleteAsync: jest.fn(() => Promise.resolve()),
+  getInfoAsync: jest.fn(() => Promise.resolve({ exists: true })),
+  makeDirectoryAsync: jest.fn(() => Promise.resolve()),
+  writeAsStringAsync: jest.fn(() => Promise.resolve()),
   documentDirectory: "/mock/documents/",
+  EncodingType: { Base64: "base64" },
 }));
 
 // ─── Imports ────────────────────────────────────────────
@@ -531,5 +535,137 @@ describe("backup validation", () => {
 
     expect(smallBase64.length < MAX_ATTACHMENT_SIZE).toBe(true);
     expect(hugeBase64.length < MAX_ATTACHMENT_SIZE).toBe(false);
+  });
+});
+
+// ─── IAP pending purchases ──────────────────────────────
+
+describe("IAP pending purchases", () => {
+  const PRO_PRODUCT_ID = "com.docdueapp.pro.lifetime";
+  let purchaseCallback: ((purchase: unknown) => void) | undefined;
+  let rniap: any;
+  let iapService: any;
+
+  beforeAll(() => {
+    (globalThis as any).__DEV__ = true;
+  });
+
+  beforeEach(async () => {
+    jest.resetModules();
+    purchaseCallback = undefined;
+    rniap = require("react-native-iap");
+    rniap.purchaseUpdatedListener.mockImplementation((cb: (p: unknown) => void) => {
+      purchaseCallback = cb;
+      return { remove: jest.fn() };
+    });
+    iapService = require("../services/iap");
+    await iapService.initializeIAP();
+  });
+
+  afterEach(async () => {
+    await iapService.endIAP();
+  });
+
+  it("does not grant PRO or finish the transaction for a pending purchase", () => {
+    const granted = jest.fn();
+    iapService.setPremiumGrantedCallback(granted);
+    purchaseCallback!({ productId: PRO_PRODUCT_ID, purchaseState: "pending" });
+    expect(granted).not.toHaveBeenCalled();
+    expect(rniap.finishTransaction).not.toHaveBeenCalled();
+  });
+
+  it("grants PRO and finishes the transaction for a purchased purchase", () => {
+    const granted = jest.fn();
+    iapService.setPremiumGrantedCallback(granted);
+    purchaseCallback!({ productId: PRO_PRODUCT_ID, purchaseState: "purchased" });
+    expect(granted).toHaveBeenCalledTimes(1);
+    expect(rniap.finishTransaction).toHaveBeenCalled();
+  });
+
+  it("ignores purchases for other product ids", () => {
+    const granted = jest.fn();
+    iapService.setPremiumGrantedCallback(granted);
+    purchaseCallback!({ productId: "com.other.app", purchaseState: "purchased" });
+    expect(granted).not.toHaveBeenCalled();
+  });
+
+  it("resolves an in-flight purchase as pending, not success", async () => {
+    const resultPromise = iapService.purchasePackage(PRO_PRODUCT_ID);
+    await Promise.resolve(); // let requestPurchase settle
+    purchaseCallback!({ productId: PRO_PRODUCT_ID, purchaseState: "pending" });
+    const result = await resultPromise;
+    expect(result.success).toBe(false);
+    expect(result.pending).toBe(true);
+    expect(result.cancelled).toBe(false);
+  });
+});
+
+// ─── restoreAttachmentFiles (backup restore) ─────────────
+
+describe("restoreAttachmentFiles", () => {
+  const FS = require("expo-file-system/legacy");
+  const { restoreAttachmentFiles } = require("../services/backupRestore");
+
+  const makeDoc = (id: string, attId: string, uri: string) => ({
+    id,
+    cat: "vehicule",
+    type: "RCA",
+    title: "Test",
+    due: "2026-12-01",
+    rec: "annual",
+    attachments: [{ id: attId, uri, name: "photo.jpg", type: "image" as const }],
+  });
+
+  beforeEach(() => {
+    FS.writeAsStringAsync.mockClear();
+    FS.getInfoAsync.mockResolvedValue({ exists: true });
+  });
+
+  it("writes each attachment under a fresh unique filename, never the old path", async () => {
+    // clearAll() deletes old files asynchronously without awaiting — reusing
+    // the old filename would let an in-flight delete remove the restored file
+    const doc: any = makeDoc("doc1", "att1", "/old/sandbox/attachments/doc1_att1.jpg");
+    await restoreAttachmentFiles([doc], { doc1_att1: "QUJD" });
+
+    expect(FS.writeAsStringAsync).toHaveBeenCalledTimes(1);
+    const writtenPath = FS.writeAsStringAsync.mock.calls[0][0] as string;
+    expect(writtenPath).toMatch(/^\/mock\/documents\/attachments\/.+\.jpg$/);
+    expect(writtenPath).not.toContain("doc1_att1.jpg"); // fresh name, no collision
+    expect(doc.attachments[0].uri).toBe(writtenPath);   // doc remapped to new file
+  });
+
+  it("generates distinct filenames for identical source names", async () => {
+    const docA: any = makeDoc("a", "x", "/sandbox/attachments/same.jpg");
+    const docB: any = makeDoc("b", "x", "/sandbox/attachments/same.jpg");
+    await restoreAttachmentFiles([docA, docB], { a_x: "QUJD", b_x: "QUJD" });
+
+    const paths = FS.writeAsStringAsync.mock.calls.map((c: unknown[]) => c[0]);
+    expect(paths).toHaveLength(2);
+    expect(new Set(paths).size).toBe(2);
+  });
+
+  it("skips attachments with missing or oversized base64 data", async () => {
+    const doc: any = makeDoc("doc1", "att1", "/sandbox/attachments/f.jpg");
+    const huge = "A".repeat(20 * 1024 * 1024);
+    await restoreAttachmentFiles([doc], { doc1_att1: huge });
+    await restoreAttachmentFiles([doc], {});
+    expect(FS.writeAsStringAsync).not.toHaveBeenCalled();
+  });
+
+  it("keeps the original extension, lowercased and sanitized", async () => {
+    const doc: any = makeDoc("doc1", "att1", "/sandbox/attachments/SCAN.PDF");
+    await restoreAttachmentFiles([doc], { doc1_att1: "QUJD" });
+    const writtenPath = FS.writeAsStringAsync.mock.calls[0][0] as string;
+    expect(writtenPath).toMatch(/\.pdf$/);
+  });
+
+  it("creates the attachments directory when missing", async () => {
+    FS.getInfoAsync.mockResolvedValue({ exists: false });
+    const doc: any = makeDoc("doc1", "att1", "/sandbox/attachments/f.jpg");
+    await restoreAttachmentFiles([doc], { doc1_att1: "QUJD" });
+    expect(FS.makeDirectoryAsync).toHaveBeenCalledWith(
+      "/mock/documents/attachments/",
+      { intermediates: true }
+    );
   });
 });

@@ -13,7 +13,7 @@ import * as Haptics from 'expo-haptics';
 import { useTheme, useLanguage, useSettingsStore } from '../src/stores/useSettingsStore';
 import { t } from '../src/core/i18n';
 import { LinearGradient } from 'expo-linear-gradient';
-import { AnimatedPressable, FadeInView } from '../src/components/AnimatedUI';
+import { AnimatedPressable, FadeInView, useReduceMotion } from '../src/components/AnimatedUI';
 import {
   isIAPConfigured,
   getOfferings,
@@ -47,9 +47,11 @@ export default function PremiumScreen() {
   const purchaseInProgress = useRef(false);
 
   // Animated badge glow
+  const reduceMotion = useReduceMotion();
   const glowAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    if (reduceMotion) return; // static badge — no continuous pulsing
     const anim = Animated.loop(
       Animated.sequence([
         Animated.timing(glowAnim, { toValue: 1, duration: 2000, useNativeDriver: true }),
@@ -58,7 +60,7 @@ export default function PremiumScreen() {
     );
     anim.start();
     return () => { anim.stop(); glowAnim.setValue(0); };
-  }, []);
+  }, [reduceMotion]);
 
   // Load offerings from store
   useEffect(() => {
@@ -83,6 +85,10 @@ export default function PremiumScreen() {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
         updateSetting('isPremium', true);
         router.back();
+      } else if (result.pending) {
+        // Payment awaiting confirmation (e.g. Ask-to-Buy) — PRO activates
+        // automatically once the store confirms it.
+        Alert.alert(t(language, 'alert_notice'), t(language, 'purchase_pending'));
       } else if (!result.cancelled) {
         Alert.alert(t(language, 'alert_error'), result.error || t(language, 'purchase_error'));
       }
@@ -244,7 +250,7 @@ export default function PremiumScreen() {
                 {restoring ? (
                   <ActivityIndicator size="small" color={theme.primary} />
                 ) : (
-                  <Text style={[s.restoreText, { color: theme.primary }]}>{t(language, 'premium_restore')}</Text>
+                  <Text style={[s.restoreText, { color: theme.primaryText }]}>{t(language, 'premium_restore')}</Text>
                 )}
               </AnimatedPressable>
 
@@ -254,14 +260,14 @@ export default function PremiumScreen() {
               </Text>
               <Text style={[s.termsText, { color: theme.textMuted }]}>
                 <Text
-                  style={{ color: theme.primary }}
+                  style={{ color: theme.primaryText }}
                   onPress={() => Linking.openURL('https://iulianrobert94.github.io/DocDue/terms.html').catch(() => {})}
                 >
                   {t(language, 'premium_terms_of_use')}
                 </Text>
                 {'  ·  '}
                 <Text
-                  style={{ color: theme.primary }}
+                  style={{ color: theme.primaryText }}
                   onPress={() => Linking.openURL('https://iulianrobert94.github.io/DocDue/privacy.html').catch(() => {})}
                 >
                   {t(language, 'premium_privacy_link')}
@@ -278,7 +284,7 @@ export default function PremiumScreen() {
                 {restoring ? (
                   <ActivityIndicator size="small" color={theme.primary} />
                 ) : (
-                  <Text style={[s.restoreText, { color: theme.primary }]}>{t(language, 'premium_restore')}</Text>
+                  <Text style={[s.restoreText, { color: theme.primaryText }]}>{t(language, 'premium_restore')}</Text>
                 )}
               </AnimatedPressable>
             </>

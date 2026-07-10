@@ -18,6 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSettingsStore, useTheme } from "../stores/useSettingsStore";
 import { t } from "../core/i18n";
+import { setAppLocked } from "../core/lockState";
 import { AnimatedPressable } from "./AnimatedUI";
 import { fonts } from "../theme/typography";
 
@@ -162,6 +163,13 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
     }
   }, [biometricEnabled]);
 
+  // Report lock state so mutations deferred from notification actions
+  // (e.g. "Mark paid") run only after a successful unlock. Reporting
+  // `false` also flushes the deferred queue.
+  useEffect(() => {
+    setAppLocked(locked);
+  }, [locked]);
+
   // Block OS screenshots / recents previews (Android FLAG_SECURE, iOS) while the
   // biometric lock is enabled. Defensive: no-op if the native module is absent.
   useEffect(() => {
@@ -272,7 +280,7 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
                     <Text style={styles.retryText}>{t(language, "biometric_retry")}</Text>
                   </LinearGradient>
                 </AnimatedPressable>
-                <Text style={[styles.passcodeHint, { color: theme.textDim }]}>
+                <Text style={[styles.passcodeHint, { color: theme.textMuted }]}>
                   {Platform.OS === "ios"
                     ? t(language, "biometric_passcode_hint_ios")
                     : t(language, "biometric_passcode_hint_android")}

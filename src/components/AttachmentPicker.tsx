@@ -238,7 +238,7 @@ export function AttachmentPicker({
             accessibilityLabel={t(language, "add_photo")}
           >
             <Ionicons name="camera-outline" size={18} color={theme.primary} />
-            <Text style={[styles.addBtnText, { color: theme.primary }]}>
+            <Text style={[styles.addBtnText, { color: theme.primaryText }]}>
               {t(language, "add_photo")}
             </Text>
           </AnimatedPressable>
@@ -249,7 +249,7 @@ export function AttachmentPicker({
             accessibilityLabel={t(language, "add_file")}
           >
             <Ionicons name="attach-outline" size={18} color={theme.primary} />
-            <Text style={[styles.addBtnText, { color: theme.primary }]}>
+            <Text style={[styles.addBtnText, { color: theme.primaryText }]}>
               {t(language, "add_file")}
             </Text>
           </AnimatedPressable>

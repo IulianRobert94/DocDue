@@ -76,6 +76,16 @@ function registerPurchaseListeners(iap: NonNullable<typeof _iap>): void {
   if (typeof iap.purchaseUpdatedListener !== "function") return;
   _purchaseUpdateSub = iap.purchaseUpdatedListener((purchase: Purchase) => {
     if (purchase.productId !== PRODUCT_ID) return;
+    if (purchase.purchaseState === "pending") {
+      // Payment not confirmed yet (Android Ask-to-Buy / slow payment method).
+      // Don't grant PRO and don't finish the transaction — the store fires
+      // this listener again (or getAvailablePurchases returns the purchase)
+      // once the payment is actually confirmed.
+      const resolve = _pendingPurchase;
+      _pendingPurchase = null;
+      resolve?.({ success: false, cancelled: false, pending: true });
+      return;
+    }
     // Must finish the transaction or Apple/Google will auto-refund it.
     iap.finishTransaction({ purchase, isConsumable: false })
       .catch(() => iap.finishTransaction({ purchase, isConsumable: false }).catch(() => { /* store will retry */ }));
@@ -165,7 +175,7 @@ export async function getOfferings(): Promise<IAPPackage[]> {
 
 export type PurchaseResult =
   | { success: true }
-  | { success: false; cancelled: boolean; error?: string };
+  | { success: false; cancelled: boolean; pending?: boolean; error?: string };
 
 export async function purchasePackage(productId: string): Promise<PurchaseResult> {
   const iap = await getIAP();
@@ -220,6 +230,10 @@ export async function purchasePackage(productId: string): Promise<PurchaseResult
     // Android returns array, iOS returns single object
     const p = Array.isArray(purchase) ? purchase[0] : purchase;
     if (p) {
+      if (p.purchaseState === "pending") {
+        // Same rule as the listener path: no PRO for an unconfirmed payment.
+        return { success: false, cancelled: false, pending: true };
+      }
       try {
         await iap.finishTransaction({ purchase: p, isConsumable: false });
       } catch (finishError) {

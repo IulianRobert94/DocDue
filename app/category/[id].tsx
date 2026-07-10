@@ -46,7 +46,7 @@ export default function CategoryDetailScreen() {
           <Ionicons name="alert-circle-outline" size={40} color={theme.textDim} style={{ marginBottom: 12 }} />
           <Text style={{ color: theme.textMuted, fontSize: 15, fontFamily: fonts.regular }}>{t(language, 'doc_not_found')}</Text>
           <AnimatedPressable onPress={() => router.back()} style={{ marginTop: 20 }} accessibilityLabel={t(language, 'a11y_go_back')}>
-            <Text style={{ color: theme.primary, fontSize: 17, fontFamily: fonts.regular }}>{t(language, 'btn_back')}</Text>
+            <Text style={{ color: theme.primaryText, fontSize: 17, fontFamily: fonts.regular }}>{t(language, 'btn_back')}</Text>
           </AnimatedPressable>
         </View>
       </View>
@@ -101,7 +101,7 @@ export default function CategoryDetailScreen() {
       <FadeInView delay={0} style={[s.navBar, { paddingTop: insets.top, backgroundColor: theme.card, borderBottomColor: theme.divider }]}>
         <AnimatedPressable onPress={() => router.back()} style={s.backBtn} accessibilityLabel={t(language, 'a11y_go_back')}>
           <Ionicons name="chevron-back" size={28} color={theme.primary} />
-          <Text style={{ color: theme.primary, fontSize: 17, fontFamily: fonts.regular, marginLeft: -4 }}>{t(language, 'nav_back')}</Text>
+          <Text style={{ color: theme.primaryText, fontSize: 17, fontFamily: fonts.regular, marginLeft: -4 }}>{t(language, 'nav_back')}</Text>
         </AnimatedPressable>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, justifyContent: 'center' }}>
           <Ionicons name={category?.icon || 'document-outline'} size={18} color={category?.color || '#999'} />

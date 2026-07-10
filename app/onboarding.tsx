@@ -15,7 +15,7 @@ import { STORAGE_KEY_ONBOARDED } from '../src/core/constants';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage, useTheme, useSettingsStore } from '../src/stores/useSettingsStore';
 import { LinearGradient } from 'expo-linear-gradient';
-import { AnimatedPressable } from '../src/components/AnimatedUI';
+import { AnimatedPressable, useReduceMotion } from '../src/components/AnimatedUI';
 import {
   requestNotificationPermission,
   rescheduleAllNotifications,
@@ -68,15 +68,21 @@ const STEPS: OnboardingStep[] = [
 ];
 
 function AnimatedDot({ active, accessibilityLabel }: { active: boolean; accessibilityLabel?: string }) {
+  const reduceMotion = useReduceMotion();
   const width = useRef(new Animated.Value(active ? 28 : 8)).current;
   const bgColor = useRef(new Animated.Value(active ? 1 : 0)).current;
 
   useEffect(() => {
+    if (reduceMotion) {
+      width.setValue(active ? 28 : 8);
+      bgColor.setValue(active ? 1 : 0);
+      return;
+    }
     Animated.parallel([
       Animated.spring(width, { toValue: active ? 28 : 8, useNativeDriver: false, speed: 20, bounciness: 6 }),
       Animated.timing(bgColor, { toValue: active ? 1 : 0, duration: 200, useNativeDriver: false }),
     ]).start();
-  }, [active]);
+  }, [active, reduceMotion]);
 
   const backgroundColor = bgColor.interpolate({
     inputRange: [0, 1],
@@ -87,12 +93,19 @@ function AnimatedDot({ active, accessibilityLabel }: { active: boolean; accessib
 }
 
 function FloatingIcon({ icon, color, glowColor, active }: { icon: IconName; color: string; glowColor: string; active: boolean }) {
+  const reduceMotion = useReduceMotion();
   const floatY = useRef(new Animated.Value(0)).current;
   const glowScale = useRef(new Animated.Value(1)).current;
   const glowOpacity = useRef(new Animated.Value(0.6)).current;
 
   useEffect(() => {
-    if (!active) return;
+    if (!active || reduceMotion) {
+      // Rest state — no continuous float/pulse loops
+      floatY.setValue(0);
+      glowScale.setValue(1);
+      glowOpacity.setValue(0.6);
+      return;
+    }
     const floatAnim = Animated.loop(
       Animated.sequence([
         Animated.timing(floatY, { toValue: -10, duration: 1800, useNativeDriver: true }),
@@ -115,7 +128,7 @@ function FloatingIcon({ icon, color, glowColor, active }: { icon: IconName; colo
     glowAnim.start();
     opacityAnim.start();
     return () => { floatAnim.stop(); glowAnim.stop(); opacityAnim.stop(); };
-  }, [active]);
+  }, [active, reduceMotion]);
 
   return (
     <Animated.View style={[s.iconOuter, { transform: [{ translateY: floatY }] }]}>
@@ -196,7 +209,7 @@ export default function OnboardingScreen() {
       <FloatingIcon icon={item.icon} color={item.iconColor} glowColor={item.glowColor} active={index === currentIndex} />
       <Text style={[s.title, { color: theme.text }]}>{t(lang, item.titleKey)}</Text>
       <Text style={[s.desc, { color: theme.textSecondary }]}>{t(lang, item.descKey)}</Text>
-      <Text style={[s.stepIndicator, { color: theme.textDim }]}>
+      <Text style={[s.stepIndicator, { color: theme.textMuted }]}>
         {index + 1} / {STEPS.length}
       </Text>
     </View>

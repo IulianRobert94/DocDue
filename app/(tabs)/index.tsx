@@ -38,7 +38,7 @@ import { t } from "../../src/core/i18n";
 import { CATEGORIES, QUICK_PREVIEW_LIMIT } from "../../src/core/constants";
 import type { CategoryId } from "../../src/core/constants";
 import { formatDaysRemaining, getCategoryLabel } from "../../src/core/formatters";
-import { AnimatedPressable, AnimatedSection, AnimatedCounter, AnimatedBar } from "../../src/components/AnimatedUI";
+import { AnimatedPressable, AnimatedSection, AnimatedCounter, AnimatedBar, useReduceMotion } from "../../src/components/AnimatedUI";
 import { CircularProgress } from "../../src/components/CircularProgress";
 import { Celebration } from "../../src/components/Celebration";
 import { calculateHealthScore, getHealthScoreColor } from "../../src/core/healthScore";
@@ -89,9 +89,13 @@ export default function HomeScreen() {
   }, [healthScore, enriched.length]);
 
   // Floating animation for empty state icon
+  const reduceMotion = useReduceMotion();
   const floatAnim = useRef(new RNAnimated.Value(0)).current;
   useEffect(() => {
-    if (enriched.length > 0) return;
+    if (enriched.length > 0 || reduceMotion) {
+      floatAnim.setValue(0); // rest position, no continuous float
+      return;
+    }
     const anim = RNAnimated.loop(
       RNAnimated.sequence([
         RNAnimated.timing(floatAnim, { toValue: -8, duration: 1500, useNativeDriver: true }),
@@ -100,7 +104,7 @@ export default function HomeScreen() {
     );
     anim.start();
     return () => anim.stop();
-  }, [enriched.length]);
+  }, [enriched.length, reduceMotion]);
 
   // Demo banner — show only when demo data is present and not dismissed
   const clearAll = useDocumentStore((s) => s.clearAll);
@@ -382,7 +386,7 @@ export default function HomeScreen() {
                 haptic={false}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Text style={[styles.seeAll, { color: theme.primary }]}>{t(lang, "home_see_all")}</Text>
+                <Text style={[styles.seeAll, { color: theme.primaryText }]}>{t(lang, "home_see_all")}</Text>
               </AnimatedPressable>
             </View>
             <View style={[styles.group, { backgroundColor: theme.card }]}>

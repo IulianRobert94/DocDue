@@ -314,7 +314,7 @@ export default function SettingsScreen() {
             onPress={() => router.push('/privacy')}
             accessibilityLabel={t(language, 'settings_privacy')}
           >
-            <Text style={[s.rowLabel, { color: theme.primary }]}>
+            <Text style={[s.rowLabel, { color: theme.primaryText }]}>
               {t(language, 'settings_privacy')}
             </Text>
             <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
@@ -326,7 +326,7 @@ export default function SettingsScreen() {
             accessibilityLabel={t(language, 'settings_contact_support')}
           >
             <Ionicons name="mail-outline" size={18} color={theme.primary} style={{ marginRight: 8 }} />
-            <Text style={[s.rowLabel, { color: theme.primary, flex: 1 }]}>
+            <Text style={[s.rowLabel, { color: theme.primaryText, flex: 1 }]}>
               {t(language, 'settings_contact_support')}
             </Text>
             <Ionicons name="open-outline" size={16} color={theme.textMuted} />

@@ -7,6 +7,8 @@ import React, { useEffect, useRef } from "react";
 import { View, Animated, StyleSheet } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 
+import { useReduceMotion } from "./AnimatedUI";
+
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 interface CircularProgressProps {
@@ -26,18 +28,24 @@ export function CircularProgress({
   trackColor = "rgba(255,255,255,0.06)",
   children,
 }: CircularProgressProps) {
+  const reduceMotion = useReduceMotion();
   const animatedValue = useRef(new Animated.Value(0)).current;
 
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
 
   useEffect(() => {
+    const target = Math.min(Math.max(progress, 0), 100);
+    if (reduceMotion) {
+      animatedValue.setValue(target);
+      return;
+    }
     Animated.timing(animatedValue, {
-      toValue: Math.min(Math.max(progress, 0), 100),
+      toValue: target,
       duration: 800,
       useNativeDriver: false,
     }).start();
-  }, [progress]);
+  }, [progress, reduceMotion]);
 
   const strokeDashoffset = animatedValue.interpolate({
     inputRange: [0, 100],

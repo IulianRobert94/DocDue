@@ -100,6 +100,50 @@ export function addDaysToDate(dateString: string, daysToAdd: number): string {
 }
 
 /**
+ * Validate calendar components and format as "YYYY-MM-DD".
+ * Rejects impossible dates (month 13, Feb 31) via round-trip check and
+ * limits years to 2000-2099 (sane range for imported documents).
+ */
+function formatValidatedDate(year: number, month: number, day: number): string {
+  if (year < 2000 || year > 2099) return "";
+  if (month < 1 || month > 12 || day < 1 || day > 31) return "";
+  const date = new Date(year, month - 1, day);
+  if (date.getMonth() !== month - 1 || date.getDate() !== day) return "";
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+/**
+ * Parse a date value coming from an Excel import (JS Date from cellDates,
+ * Excel serial number, or a string in ISO / EU / US format) and validate it
+ * as a real calendar date. Returns "YYYY-MM-DD" or "" when invalid.
+ */
+export function parseImportedDate(raw: unknown): string {
+  if (raw instanceof Date) {
+    if (isNaN(raw.getTime())) return "";
+    return formatValidatedDate(raw.getFullYear(), raw.getMonth() + 1, raw.getDate());
+  }
+  if (typeof raw === "number" && raw > 0) {
+    // Excel serial: days since 1899-12-30 (25569 = 1970-01-01)
+    const epoch = new Date((raw - 25569) * 86400 * 1000);
+    if (isNaN(epoch.getTime())) return "";
+    return formatValidatedDate(epoch.getUTCFullYear(), epoch.getUTCMonth() + 1, epoch.getUTCDate());
+  }
+  const str = String(raw ?? "").trim();
+  const iso = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (iso) return formatValidatedDate(+iso[1], +iso[2], +iso[3]);
+  const dmy = str.match(/^(\d{2})[./](\d{2})[./](\d{4})$/);
+  if (dmy) {
+    // EU reading (DD.MM.YYYY) first — Romania-first; if the month is
+    // impossible, fall back to US reading (MM/DD/YYYY, e.g. 03/15/2026)
+    return (
+      formatValidatedDate(+dmy[3], +dmy[2], +dmy[1]) ||
+      formatValidatedDate(+dmy[3], +dmy[1], +dmy[2])
+    );
+  }
+  return "";
+}
+
+/**
  * Adaugă un număr de luni calendaristice la o dată.
  *
  * Gestionează corect lunile cu lungimi diferite:

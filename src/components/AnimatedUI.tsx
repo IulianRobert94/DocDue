@@ -9,8 +9,35 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Pressable, Animated, ViewStyle, StyleProp, Easing, Text, TextStyle } from "react-native";
+import { Pressable, Animated, ViewStyle, StyleProp, Easing, Text, TextStyle, AccessibilityInfo } from "react-native";
+import { useReducedMotion as useReducedMotionAtLaunch } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
+
+// AnimatedPressable's press-scale is intentionally NOT reduced: it's essential
+// press feedback (like a highlight), not decorative motion.
+
+// ─── useReduceMotion (live) ──────────────────────────
+
+/**
+ * Reduce Motion system setting, updating live while the app runs.
+ * Reanimated's useReducedMotion is only a snapshot taken at app launch —
+ * we seed from it (sync, correct first render) and then track changes
+ * via AccessibilityInfo. Used by every RN-core Animated effect in the app.
+ */
+export function useReduceMotion(): boolean {
+  const atLaunch = useReducedMotionAtLaunch();
+  const [reduced, setReduced] = useState(atLaunch);
+
+  useEffect(() => {
+    AccessibilityInfo.isReduceMotionEnabled()
+      .then(setReduced)
+      .catch(() => {});
+    const sub = AccessibilityInfo.addEventListener("reduceMotionChanged", setReduced);
+    return () => sub.remove();
+  }, []);
+
+  return reduced;
+}
 
 // ─── AnimatedPressable (scale on press) ──────────────
 
@@ -115,10 +142,17 @@ export function FadeInView({
   children,
   style,
 }: FadeInViewProps) {
-  const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(slideY)).current;
+  const reduceMotion = useReduceMotion();
+  const opacity = useRef(new Animated.Value(reduceMotion ? 1 : 0)).current;
+  const translateY = useRef(new Animated.Value(reduceMotion ? 0 : slideY)).current;
 
   useEffect(() => {
+    if (reduceMotion) {
+      // Snap to final state — also handles the setting turning on mid-animation
+      opacity.setValue(1);
+      translateY.setValue(0);
+      return;
+    }
     const timer = setTimeout(() => {
       Animated.parallel([
         Animated.timing(opacity, {
@@ -136,7 +170,7 @@ export function FadeInView({
       ]).start();
     }, delay);
     return () => clearTimeout(timer);
-  }, []);
+  }, [reduceMotion]);
 
   return (
     <Animated.View style={[{ opacity, transform: [{ translateY }] }, style]}>
@@ -171,9 +205,14 @@ interface AnimatedCounterProps {
 }
 
 export function AnimatedCounter({ value, duration = 800, delay = 200, style }: AnimatedCounterProps) {
+  const reduceMotion = useReduceMotion();
   const [display, setDisplay] = useState(0);
 
   useEffect(() => {
+    if (reduceMotion) {
+      setDisplay(value);
+      return;
+    }
     setDisplay(0);
     let interval: ReturnType<typeof setInterval> | undefined;
     const timer = setTimeout(() => {
@@ -196,7 +235,7 @@ export function AnimatedCounter({ value, duration = 800, delay = 200, style }: A
       clearTimeout(timer);
       if (interval) clearInterval(interval);
     };
-  }, [value, duration, delay]);
+  }, [value, duration, delay, reduceMotion]);
 
   return <Text style={style} accessibilityLiveRegion="polite">{display}</Text>;
 }
@@ -211,9 +250,14 @@ interface AnimatedBarProps {
 }
 
 export function AnimatedBar({ percentage, color, delay = 300, style }: AnimatedBarProps) {
+  const reduceMotion = useReduceMotion();
   const width = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    if (reduceMotion) {
+      width.setValue(percentage);
+      return;
+    }
     width.setValue(0);
     const timer = setTimeout(() => {
       Animated.spring(width, {
@@ -224,7 +268,7 @@ export function AnimatedBar({ percentage, color, delay = 300, style }: AnimatedB
       }).start();
     }, delay);
     return () => clearTimeout(timer);
-  }, [percentage]);
+  }, [percentage, reduceMotion]);
 
   const animWidth = width.interpolate({
     inputRange: [0, 100],

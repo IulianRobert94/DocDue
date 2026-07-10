@@ -40,6 +40,7 @@ import {
 } from "../src/services/notifications";
 import { initializeIAP, checkPremiumStatus, isIAPConfigured, setPremiumGrantedCallback } from "../src/services/iap";
 import { enrichDocument, getActiveDocuments } from "../src/core/enrichment";
+import { isAppLocked, deferUntilUnlock } from "../src/core/lockState";
 import { getTodayString } from "../src/core/dateUtils";
 import { updateWidgetData } from "../src/services/widgetService";
 import { t } from "../src/core/i18n";
@@ -221,9 +222,20 @@ function RootLayout() {
     const content = response.notification.request.content;
 
     if (actionId === "MARK_PAID") {
-      const raw = useDocumentStore.getState().documents.find((d) => d.id === docId);
-      if (raw) {
-        useDocumentStore.getState().markAsPaid(enrichDocument(raw));
+      // Reads fresh state at execution time — the document may have been
+      // deleted between deferral and unlock.
+      const applyMarkAsPaid = () => {
+        const raw = useDocumentStore.getState().documents.find((d) => d.id === docId);
+        if (raw) {
+          useDocumentStore.getState().markAsPaid(enrichDocument(raw));
+        }
+      };
+      if (isAppLocked()) {
+        // Biometric gate is up (or not yet mounted) — don't mutate data
+        // behind the lock screen; run after a successful unlock instead.
+        deferUntilUnlock(applyMarkAsPaid);
+      } else {
+        applyMarkAsPaid();
       }
     } else if (actionId === "SNOOZE_1DAY") {
       const notifId = response.notification.request.identifier;

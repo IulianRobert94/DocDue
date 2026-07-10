@@ -23,8 +23,9 @@ async function getXLSX() {
 }
 
 import { t, translateSubtype } from '../../core/i18n';
-import { CATEGORIES, FREE_DOCUMENT_LIMIT, MAX_IMPORT_LIMIT, VALID_RECURRENCE_VALUES } from '../../core/constants';
-import type { CategoryId, RecurrenceValue, RawDocument, AppSettings } from '../../core/constants';
+import { parseImportedRows } from '../../core/importParser';
+import { CATEGORIES, FREE_DOCUMENT_LIMIT, MAX_IMPORT_LIMIT } from '../../core/constants';
+import type { RawDocument, AppSettings } from '../../core/constants';
 import type { AppTheme } from '../../theme/colors';
 import { AnimatedPressable } from '../AnimatedUI';
 import { RowDivider } from './SettingsUI';
@@ -133,76 +134,17 @@ export function DataSection({
         return;
       }
 
-      const isValidYear = (y: number) => y >= 2000 && y <= 2099;
+      // Rows with a missing/invalid due date are skipped and counted —
+      // never silently converted to "today"
+      const { docs: parsedDocs, invalidDates } = parseImportedRows(rows, language);
 
-      const parseDateValue = (raw: unknown): string => {
-        if (raw instanceof Date && !isNaN(raw.getTime())) {
-          const y = raw.getFullYear();
-          if (!isValidYear(y)) return '';
-          const m = String(raw.getMonth() + 1).padStart(2, '0');
-          const d = String(raw.getDate()).padStart(2, '0');
-          return `${y}-${m}-${d}`;
-        }
-        if (typeof raw === 'number' && raw > 0) {
-          const epoch = new Date((raw - 25569) * 86400 * 1000);
-          const y = epoch.getUTCFullYear();
-          if (!isValidYear(y)) return '';
-          const m = String(epoch.getUTCMonth() + 1).padStart(2, '0');
-          const d = String(epoch.getUTCDate()).padStart(2, '0');
-          return `${y}-${m}-${d}`;
-        }
-        const str = String(raw || '');
-        if (str.match(/^\d{4}-\d{2}-\d{2}$/)) {
-          const y = parseInt(str.slice(0, 4), 10);
-          return isValidYear(y) ? str : '';
-        }
-        const euMatch = str.match(/^(\d{2})[./](\d{2})[./](\d{4})$/);
-        if (euMatch) {
-          const y = parseInt(euMatch[3], 10);
-          return isValidYear(y) ? `${euMatch[3]}-${euMatch[2]}-${euMatch[1]}` : '';
-        }
-        const usMatch = str.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-        if (usMatch) {
-          const y = parseInt(usMatch[3], 10);
-          return isValidYear(y) ? `${usMatch[3]}-${usMatch[1]}-${usMatch[2]}` : '';
-        }
-        return '';
-      };
-
-      const validCats = Object.keys(CATEGORIES) as CategoryId[];
-      const parsedDocs: Omit<RawDocument, 'id'>[] = rows.map((row) => {
-        let cat: CategoryId = 'vehicule';
-        for (const catId of validCats) {
-          const catLabel = t('ro', CATEGORIES[catId].labelKey).toLowerCase();
-          const catLabelEn = t('en', CATEGORIES[catId].labelKey).toLowerCase();
-          const rowCat = String(row.Category || row.category || row.Categorie || row.cat || '').toLowerCase();
-          if (rowCat === catId || rowCat.includes(catLabel) || rowCat.includes(catLabelEn)) {
-            cat = catId;
-            break;
-          }
-        }
-        const title = String(row.Title || row.title || row.Titlu || row.name || row.Name || '');
-        const type = String(row.Type || row.type || row.Tip || '');
-        const asset = String(row['Associated with'] || row.asset || row.Asset || row.Asociat || row['Asociat cu'] || '');
-        const rawDue = row['Due date'] || row['Data scadentă'] || row['Data scadenta'] || row.due || row.Due || row.Scadenta || row['Scadență'] || '';
-        const due = parseDateValue(rawDue);
-        const rawAmt = row.Amount ?? row.amount ?? row.Suma ?? row['Sumă'] ?? row['Suma'];
-        const amt = rawAmt !== undefined && rawAmt !== null && rawAmt !== '' ? Number(rawAmt) : null;
-        const rec = String(row.Recurrence || row.recurrence || row.rec || row.Recurenta || row['Recurență'] || 'none') as RecurrenceValue;
-        const notes = String(row.Notes || row.notes || row.Note || row['Notițe'] || '');
-        return {
-          cat,
-          type: type || (language === 'en' ? 'Other' : 'Altele'),
-          title,
-          asset: asset || undefined,
-          due: due || new Date().toISOString().slice(0, 10),
-          amt: amt !== null && !isNaN(amt) ? amt : null,
-          rec: VALID_RECURRENCE_VALUES.has(rec) ? rec : 'none',
-          notes: notes || undefined,
-        };
-      }).filter((d) => d.title.trim().length > 0);
-
-      if (parsedDocs.length === 0) { Alert.alert(t(language, 'settings_import_no_data')); return; }
+      if (parsedDocs.length === 0) {
+        Alert.alert(
+          t(language, 'settings_import_no_data') +
+            (invalidDates > 0 ? `\n${t(language, 'import_invalid_dates', { n: invalidDates })}` : '')
+        );
+        return;
+      }
 
       const existingKeys = new Set(
         documents.map((d) => `${d.title}|${d.due}|${d.cat}`)
@@ -231,10 +173,9 @@ export function DataSection({
         }
       }
 
-      const msg = skipped > 0
-        ? t(language, 'settings_import_confirm_msg', { n: uniqueDocs.length }) +
-          `\n(${skipped} ${t(language, 'duplicates_skipped')})`
-        : t(language, 'settings_import_confirm_msg', { n: uniqueDocs.length });
+      let msg = t(language, 'settings_import_confirm_msg', { n: uniqueDocs.length });
+      if (skipped > 0) msg += `\n(${skipped} ${t(language, 'duplicates_skipped')})`;
+      if (invalidDates > 0) msg += `\n${t(language, 'import_invalid_dates', { n: invalidDates })}`;
 
       Alert.alert(
         t(language, 'settings_import_confirm_title'),
@@ -296,7 +237,7 @@ export function DataSection({
         <RowDivider theme={theme} />
         <AnimatedPressable style={styles.row} onPress={handleImportExcel} disabled={isLoading} hapticStyle="light" accessibilityLabel={t(language, 'settings_import_excel')}>
           <Ionicons name="download-outline" size={18} color={theme.primary} style={{ marginRight: 8 }} />
-          <Text style={[styles.rowLabel, { color: theme.primary }]}>
+          <Text style={[styles.rowLabel, { color: theme.primaryText }]}>
             {t(language, 'settings_import_excel')}
             {!isPremium && <Text style={{ fontSize: 11, fontWeight: '700', fontFamily: fonts.bold, color: '#FFD700' }}> PRO</Text>}
           </Text>
@@ -306,7 +247,7 @@ export function DataSection({
           <>
             <AnimatedPressable style={styles.row} onPress={handleResetDemo} hapticStyle="light" accessibilityLabel={t(language, 'settings_reset_demo')}>
               <Ionicons name="refresh-outline" size={18} color={theme.primary} style={{ marginRight: 8 }} />
-              <Text style={[styles.rowLabel, { color: theme.primary }]}>
+              <Text style={[styles.rowLabel, { color: theme.primaryText }]}>
                 {t(language, 'settings_reset_demo')}
               </Text>
             </AnimatedPressable>

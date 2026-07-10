@@ -2087,3 +2087,244 @@ describe("isAtFreeLimit (free-tier gate)", () => {
     expect(isAtFreeLimit(FREE_DOCUMENT_LIMIT + 100, true)).toBe(false);
   });
 });
+
+// ─── parseImportedDate (Excel import) ────────────────────
+
+import { parseImportedDate } from "../core/dateUtils";
+
+describe("parseImportedDate", () => {
+  it("parses a JS Date object to YYYY-MM-DD", () => {
+    expect(parseImportedDate(new Date(2026, 2, 15))).toBe("2026-03-15");
+  });
+
+  it("rejects an invalid JS Date object", () => {
+    expect(parseImportedDate(new Date(NaN))).toBe("");
+  });
+
+  it("parses an Excel serial number", () => {
+    // 45000 = 2023-03-15 in Excel's 1900 date system
+    expect(parseImportedDate(45000)).toBe("2023-03-15");
+  });
+
+  it("accepts a valid ISO string", () => {
+    expect(parseImportedDate("2026-03-15")).toBe("2026-03-15");
+  });
+
+  it("rejects an ISO string with impossible month/day", () => {
+    expect(parseImportedDate("2026-13-45")).toBe("");
+    expect(parseImportedDate("2026-00-10")).toBe("");
+  });
+
+  it("rejects an ISO string with a non-existent calendar day", () => {
+    expect(parseImportedDate("2026-02-31")).toBe("");
+    expect(parseImportedDate("2025-02-29")).toBe(""); // 2025 is not a leap year
+  });
+
+  it("accepts Feb 29 on a leap year", () => {
+    expect(parseImportedDate("2028-02-29")).toBe("2028-02-29");
+  });
+
+  it("parses EU format DD.MM.YYYY and DD/MM/YYYY", () => {
+    expect(parseImportedDate("15.03.2026")).toBe("2026-03-15");
+    expect(parseImportedDate("15/03/2026")).toBe("2026-03-15");
+  });
+
+  it("rejects EU format with a non-existent calendar day", () => {
+    expect(parseImportedDate("31.02.2026")).toBe("");
+  });
+
+  it("parses US format MM/DD/YYYY when day > 12 disambiguates", () => {
+    // 03/15/2026 → EU reading would be day=3, month=15 (invalid) → US fallback
+    expect(parseImportedDate("03/15/2026")).toBe("2026-03-15");
+  });
+
+  it("rejects years outside 2000-2099", () => {
+    expect(parseImportedDate("1999-12-31")).toBe("");
+    expect(parseImportedDate("2100-01-01")).toBe("");
+  });
+
+  it("returns empty string for junk input", () => {
+    expect(parseImportedDate("not a date")).toBe("");
+    expect(parseImportedDate(null)).toBe("");
+    expect(parseImportedDate(undefined)).toBe("");
+    expect(parseImportedDate("")).toBe("");
+  });
+});
+
+// ─── Theme contrast (WCAG AA) ────────────────────────────
+
+import { createTheme } from "../theme/colors";
+
+describe("theme text contrast (WCAG AA)", () => {
+  const luminance = (hex: string): number => {
+    const c = hex.replace("#", "");
+    const [r, g, b] = [0, 2, 4]
+      .map((i) => parseInt(c.slice(i, i + 2), 16) / 255)
+      .map((v) => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const contrast = (fg: string, bg: string): number => {
+    const [hi, lo] = [luminance(fg), luminance(bg)].sort((a, b) => b - a);
+    return (hi + 0.05) / (lo + 0.05);
+  };
+
+  const theme = createTheme();
+
+  it("text meets 7:1 on card (AAA)", () => {
+    expect(contrast(theme.text, theme.card)).toBeGreaterThanOrEqual(7);
+  });
+
+  it("textSecondary meets 4.5:1 on card (AA normal text)", () => {
+    expect(contrast(theme.textSecondary, theme.card)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("textMuted meets 4.5:1 on card (AA normal text)", () => {
+    expect(contrast(theme.textMuted, theme.card)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("primaryText meets 4.5:1 on card (AA normal text)", () => {
+    expect(contrast(theme.primaryText, theme.card)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("textDim meets 3:1 on card (icons / UI components)", () => {
+    expect(contrast(theme.textDim, theme.card)).toBeGreaterThanOrEqual(3);
+  });
+
+  it("keeps visual hierarchy: text > textSecondary > textMuted > textDim", () => {
+    expect(contrast(theme.text, theme.card)).toBeGreaterThan(contrast(theme.textSecondary, theme.card));
+    expect(contrast(theme.textSecondary, theme.card)).toBeGreaterThan(contrast(theme.textMuted, theme.card));
+    expect(contrast(theme.textMuted, theme.card)).toBeGreaterThan(contrast(theme.textDim, theme.card));
+  });
+});
+
+// ─── lockState (biometric gate deferral) ─────────────────
+
+import { setAppLocked, isAppLocked, deferUntilUnlock } from "../core/lockState";
+
+describe("lockState (biometric gate deferral)", () => {
+  beforeEach(() => {
+    setAppLocked(false); // reset shared module state (also flushes leftovers)
+  });
+
+  it("treats unreported gate state as locked (cold-start safety)", () => {
+    jest.isolateModules(() => {
+      const fresh = require("../core/lockState");
+      expect(fresh.isAppLocked()).toBe(true);
+    });
+  });
+
+  it("reflects the reported lock state", () => {
+    setAppLocked(true);
+    expect(isAppLocked()).toBe(true);
+    setAppLocked(false);
+    expect(isAppLocked()).toBe(false);
+  });
+
+  it("runs deferred actions when the gate unlocks, exactly once", () => {
+    setAppLocked(true);
+    const action = jest.fn();
+    deferUntilUnlock(action);
+    expect(action).not.toHaveBeenCalled();
+    setAppLocked(false);
+    expect(action).toHaveBeenCalledTimes(1);
+    setAppLocked(false); // unlocking again must not re-run it
+    expect(action).toHaveBeenCalledTimes(1);
+  });
+
+  it("runs multiple deferred actions in order", () => {
+    setAppLocked(true);
+    const order: number[] = [];
+    deferUntilUnlock(() => order.push(1));
+    deferUntilUnlock(() => order.push(2));
+    setAppLocked(false);
+    expect(order).toEqual([1, 2]);
+  });
+
+  it("a throwing action does not block the remaining ones", () => {
+    setAppLocked(true);
+    const second = jest.fn();
+    deferUntilUnlock(() => { throw new Error("boom"); });
+    deferUntilUnlock(second);
+    setAppLocked(false);
+    expect(second).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ─── parseImportedRows (Excel import flow) ───────────────
+
+import { parseImportedRows } from "../core/importParser";
+
+describe("parseImportedRows", () => {
+  it("keeps a valid row with its exact date", () => {
+    const { docs, invalidDates } = parseImportedRows(
+      [{ Title: "RCA Logan", "Due date": "2026-03-15", Category: "vehicule", Amount: 450, Recurrence: "annual" }],
+      "ro",
+    );
+    expect(docs).toHaveLength(1);
+    expect(docs[0].due).toBe("2026-03-15");
+    expect(docs[0].cat).toBe("vehicule");
+    expect(docs[0].amt).toBe(450);
+    expect(docs[0].rec).toBe("annual");
+    expect(invalidDates).toBe(0);
+  });
+
+  it("skips and counts a row with an impossible date instead of inventing today", () => {
+    const { docs, invalidDates } = parseImportedRows(
+      [{ Title: "Doc rău", "Due date": "31.02.2026" }],
+      "ro",
+    );
+    expect(docs).toHaveLength(0);
+    expect(invalidDates).toBe(1);
+  });
+
+  it("skips and counts a row with a missing date", () => {
+    const { docs, invalidDates } = parseImportedRows(
+      [{ Title: "Fără dată" }],
+      "ro",
+    );
+    expect(docs).toHaveLength(0);
+    expect(invalidDates).toBe(1);
+  });
+
+  it("drops title-less rows silently without counting them as invalid dates", () => {
+    const { docs, invalidDates } = parseImportedRows(
+      [{ "Due date": "31.02.2026" }, { Title: "   ", "Due date": "2026-03-15" }],
+      "ro",
+    );
+    expect(docs).toHaveLength(0);
+    expect(invalidDates).toBe(0);
+  });
+
+  it("processes mixed rows: valid kept, invalid counted, untitled dropped", () => {
+    const { docs, invalidDates } = parseImportedRows(
+      [
+        { Title: "Bun", "Due date": "2026-05-01" },
+        { Title: "Dată invalidă", "Due date": "2026-13-45" },
+        { "Due date": "2026-05-01" },
+      ],
+      "ro",
+    );
+    expect(docs).toHaveLength(1);
+    expect(docs[0].title).toBe("Bun");
+    expect(invalidDates).toBe(1);
+  });
+
+  it("maps Romanian headers and category labels", () => {
+    const { docs } = parseImportedRows(
+      [{ Titlu: "Pașaport", "Data scadentă": "15.03.2026", Categorie: "Personal" }],
+      "ro",
+    );
+    expect(docs).toHaveLength(1);
+    expect(docs[0].cat).toBe("personal");
+    expect(docs[0].due).toBe("2026-03-15");
+  });
+
+  it("falls back to 'none' for unknown recurrence and null for bad amounts", () => {
+    const { docs } = parseImportedRows(
+      [{ Title: "X", "Due date": "2026-03-15", Recurrence: "sometimes", Amount: "abc" }],
+      "en",
+    );
+    expect(docs[0].rec).toBe("none");
+    expect(docs[0].amt).toBeNull();
+  });
+});

@@ -24,7 +24,7 @@ import { formatDate, formatMoney } from '../src/core/formatters';
 import { CATEGORIES, RECURRENCE_QUICK, RECURRENCE_OPTIONS } from '../src/core/constants';
 import type { CategoryId, RecurrenceValue, RawDocument, Attachment } from '../src/core/constants';
 import { LinearGradient } from 'expo-linear-gradient';
-import { AnimatedPressable, FadeInView } from '../src/components/AnimatedUI';
+import { AnimatedPressable, FadeInView, useReduceMotion } from '../src/components/AnimatedUI';
 import { SegmentedControl, RowDivider } from '../src/components/settings/SettingsUI';
 import { AttachmentPicker, deleteAttachmentFiles } from '../src/components/AttachmentPicker';
 import { getSmartDefaults, autoCategorize } from '../src/core/smartDefaults';
@@ -112,6 +112,7 @@ export default function FormScreen() {
   const [saving, setSaving] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const reduceMotion = useReduceMotion();
   const successScale = useRef(new Animated.Value(0)).current;
   const successOpacity = useRef(new Animated.Value(0)).current;
   const [recAutoSet, setRecAutoSet] = useState(false);
@@ -364,11 +365,14 @@ export default function FormScreen() {
         addDocument(docData);
       }
       // Show success animation then navigate back
+      // With reduce motion: appear statically, keep only the gentle fade-out
       setShowSuccess(true);
-      successScale.setValue(0);
+      successScale.setValue(reduceMotion ? 1 : 0);
       successOpacity.setValue(1);
       Animated.sequence([
-        Animated.spring(successScale, { toValue: 1, speed: 12, bounciness: 8, useNativeDriver: true }),
+        ...(reduceMotion
+          ? []
+          : [Animated.spring(successScale, { toValue: 1, speed: 12, bounciness: 8, useNativeDriver: true })]),
         Animated.delay(400),
         Animated.timing(successOpacity, { toValue: 0, duration: 200, useNativeDriver: true }),
       ]).start(() => router.back());
@@ -397,7 +401,7 @@ export default function FormScreen() {
             {/* Modal header — Cancel | title | scan */}
             <FadeInView delay={0} style={s.modalHeader}>
               <AnimatedPressable onPress={handleCancel} haptic={false} accessibilityLabel={t(language, 'a11y_cancel')}>
-                <Text style={[s.cancelText, { color: theme.primary }]}>{t(language, 'confirm_cancel')}</Text>
+                <Text style={[s.cancelText, { color: theme.primaryText }]}>{t(language, 'confirm_cancel')}</Text>
               </AnimatedPressable>
               <Text style={[s.headerTitle, { color: theme.text }]}>
                 {effectiveEdit ? t(language, 'form_edit_title') : t(language, 'form_add_title')}
@@ -518,7 +522,7 @@ export default function FormScreen() {
                     <View style={s.datePickerHeader}>
                       <AnimatedPressable onPress={() => { Haptics.selectionAsync().catch(() => {}); setShowDatePicker(false); }} haptic={false}
                         accessibilityLabel={t(language, 'form_done')} accessibilityRole="button">
-                        <Text style={[s.doneText, { color: theme.primary }]}>{t(language, 'form_done')}</Text>
+                        <Text style={[s.doneText, { color: theme.primaryText }]}>{t(language, 'form_done')}</Text>
                       </AnimatedPressable>
                     </View>
                     <DateTimePicker
@@ -704,7 +708,7 @@ export default function FormScreen() {
                       haptic={false}
                       style={{ marginTop: 6 }}
                     >
-                      <Text style={{ fontSize: 12, fontFamily: fonts.medium, color: theme.primary }}>
+                      <Text style={{ fontSize: 12, fontFamily: fonts.medium, color: theme.primaryText }}>
                         {t(language, 'form_reminder_reset')}
                       </Text>
                     </AnimatedPressable>
@@ -727,7 +731,7 @@ export default function FormScreen() {
                 <View style={[s.pickerHeader, { paddingTop: insets.top + 8 }]}>
                   <AnimatedPressable onPress={() => setShowTypePicker(false)} haptic={false}
                     accessibilityLabel={t(language, 'confirm_cancel')} accessibilityRole="button">
-                    <Text style={[s.cancelText, { color: theme.primary }]}>{t(language, 'confirm_cancel')}</Text>
+                    <Text style={[s.cancelText, { color: theme.primaryText }]}>{t(language, 'confirm_cancel')}</Text>
                   </AnimatedPressable>
                   <Text style={[s.pickerTitle, { color: theme.text }]} accessibilityRole="header">{t(language, 'form_type')}</Text>
                   <View style={{ width: 60 }} />
@@ -914,7 +918,7 @@ export default function FormScreen() {
               <View style={{ flex: 1 }} />
               <AnimatedPressable onPress={Keyboard.dismiss} haptic={false}
                 accessibilityLabel={t(language, 'form_done')} accessibilityRole="button">
-                <Text style={[s.doneText, { color: theme.primary }]}>{t(language, 'form_done')}</Text>
+                <Text style={[s.doneText, { color: theme.primaryText }]}>{t(language, 'form_done')}</Text>
               </AnimatedPressable>
             </View>
           </InputAccessoryView>
@@ -925,7 +929,7 @@ export default function FormScreen() {
               <View style={{ flex: 1 }} />
               <AnimatedPressable onPress={Keyboard.dismiss} haptic={false}
                 accessibilityLabel={t(language, 'form_done')} accessibilityRole="button">
-                <Text style={[s.doneText, { color: theme.primary }]}>{t(language, 'form_done')}</Text>
+                <Text style={[s.doneText, { color: theme.primaryText }]}>{t(language, 'form_done')}</Text>
               </AnimatedPressable>
             </View>
           </InputAccessoryView>

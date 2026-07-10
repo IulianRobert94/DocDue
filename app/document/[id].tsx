@@ -18,7 +18,7 @@ import { useEnrichedDocument, useDocumentStore } from '../../src/stores/useDocum
 import { t, translateSubtype } from '../../src/core/i18n';
 import { formatDate, formatMoney, formatDaysRemaining, getRecurrenceLabel } from '../../src/core/formatters';
 import { CATEGORIES, STATUS_DISPLAY } from '../../src/core/constants';
-import { AnimatedPressable, FadeInView } from '../../src/components/AnimatedUI';
+import { AnimatedPressable, FadeInView, useReduceMotion } from '../../src/components/AnimatedUI';
 import { deleteWithUndo } from '../../src/core/confirmActions';
 import { fonts } from '../../src/theme/typography';
 import { ImageViewer } from '../../src/components/ImageViewer';
@@ -38,6 +38,7 @@ export default function DocumentDetailScreen() {
   const [viewImage, setViewImage] = useState<string | null>(null);
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [showCongrats, setShowCongrats] = useState(false);
+  const reduceMotion = useReduceMotion();
   const congratsScale = useRef(new Animated.Value(0)).current;
   const congratsOpacity = useRef(new Animated.Value(0)).current;
 
@@ -54,10 +55,13 @@ export default function DocumentDetailScreen() {
 
   const playCongrats = () => {
     setShowCongrats(true);
-    congratsScale.setValue(0);
+    // With reduce motion: appear statically, keep only the gentle fade-out
+    congratsScale.setValue(reduceMotion ? 1 : 0);
     congratsOpacity.setValue(1);
     const anim = Animated.sequence([
-      Animated.spring(congratsScale, { toValue: 1, friction: 4, tension: 60, useNativeDriver: true }),
+      ...(reduceMotion
+        ? []
+        : [Animated.spring(congratsScale, { toValue: 1, friction: 4, tension: 60, useNativeDriver: true })]),
       Animated.delay(1200),
       Animated.timing(congratsOpacity, { toValue: 0, duration: 400, useNativeDriver: true }),
     ]);
@@ -75,7 +79,7 @@ export default function DocumentDetailScreen() {
           <Ionicons name="document-outline" size={40} color={theme.textDim} style={{ marginBottom: 12 }} />
           <Text style={[s.emptyText, { color: theme.textMuted }]}>{t(language, 'doc_not_found')}</Text>
           <AnimatedPressable onPress={() => router.back()} style={{ marginTop: 20 }} accessibilityLabel={t(language, 'btn_close')}>
-            <Text style={{ color: theme.primary, fontSize: 17, fontFamily: fonts.regular }}>{t(language, 'btn_close')}</Text>
+            <Text style={{ color: theme.primaryText, fontSize: 17, fontFamily: fonts.regular }}>{t(language, 'btn_close')}</Text>
           </AnimatedPressable>
         </View>
       </View>
@@ -227,7 +231,7 @@ export default function DocumentDetailScreen() {
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   haptic={false}
                 >
-                  <Text style={{ color: theme.primary, fontSize: 15, fontFamily: fonts.regular }}>{t(language, 'share_all_attachments')}</Text>
+                  <Text style={{ color: theme.primaryText, fontSize: 15, fontFamily: fonts.regular }}>{t(language, 'share_all_attachments')}</Text>
                 </AnimatedPressable>
               )}
             </View>
@@ -375,14 +379,14 @@ export default function DocumentDetailScreen() {
               ) : (
                 <Ionicons name="calendar-outline" size={18} color={theme.primary} style={{ marginRight: 6 }} />
               )}
-              <Text style={[s.actionText, { color: theme.primary }]}>{t(language, 'cal_add')}</Text>
+              <Text style={[s.actionText, { color: theme.primaryText }]}>{t(language, 'cal_add')}</Text>
             </AnimatedPressable>
           </View>
 
           <View style={[s.group, { backgroundColor: theme.card }]}>
             <AnimatedPressable style={s.actionRow} onPress={() => router.push(`/form?editId=${doc.id}`)} accessibilityLabel={t(language, 'a11y_edit_document')}>
               <Ionicons name="create-outline" size={18} color={theme.primary} style={{ marginRight: 6 }} />
-              <Text style={[s.actionText, { color: theme.primary }]}>{t(language, 'detail_edit')}</Text>
+              <Text style={[s.actionText, { color: theme.primaryText }]}>{t(language, 'detail_edit')}</Text>
             </AnimatedPressable>
             <View style={{ paddingLeft: 16 }}>
               <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: theme.divider }} />
@@ -393,7 +397,7 @@ export default function DocumentDetailScreen() {
               accessibilityLabel={t(language, 'detail_duplicate')}
             >
               <Ionicons name="copy-outline" size={18} color={theme.primary} style={{ marginRight: 6 }} />
-              <Text style={[s.actionText, { color: theme.primary }]}>{t(language, 'detail_duplicate')}</Text>
+              <Text style={[s.actionText, { color: theme.primaryText }]}>{t(language, 'detail_duplicate')}</Text>
             </AnimatedPressable>
             <View style={{ paddingLeft: 16 }}>
               <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: theme.divider }} />
@@ -415,7 +419,7 @@ export default function DocumentDetailScreen() {
               accessibilityLabel={t(language, 'share_document')}
             >
               <Ionicons name="share-outline" size={18} color={theme.primary} style={{ marginRight: 6 }} />
-              <Text style={[s.actionText, { color: theme.primary }]}>{t(language, 'share_document')}</Text>
+              <Text style={[s.actionText, { color: theme.primaryText }]}>{t(language, 'share_document')}</Text>
             </AnimatedPressable>
             <View style={{ paddingLeft: 16 }}>
               <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: theme.divider }} />
