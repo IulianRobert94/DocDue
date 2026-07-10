@@ -205,7 +205,7 @@ export default function PremiumScreen() {
                           <Text style={s.bestValueText}>{t(language, 'plan_best_value')}</Text>
                         </View>
                       )}
-                      <Text style={[s.tierType, { color: isSelected ? theme.primary : theme.textSecondary }]}>
+                      <Text style={[s.tierType, { color: isSelected ? theme.primaryText : theme.textSecondary }]}>
                         {t(language, `plan_${pkg.type}`)}
                       </Text>
                       <Text style={[s.tierPrice, { color: isSelected ? theme.text : theme.textSecondary }]}>

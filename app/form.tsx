@@ -623,7 +623,7 @@ export default function FormScreen() {
                             onPress={() => { setRec(opt.value); setShowRecPicker(false); }}
                             hapticStyle="selection"
                           >
-                            <Text style={{ flex: 1, fontSize: 17, fontFamily: fonts.regular, color: rec === opt.value ? theme.primary : theme.text }}>
+                            <Text style={{ flex: 1, fontSize: 17, fontFamily: fonts.regular, color: rec === opt.value ? theme.primaryText : theme.text }}>
                               {t(language, opt.labelKey)}
                             </Text>
                             {rec === opt.value && <Ionicons name="checkmark" size={20} color={theme.primary} />}

@@ -2328,3 +2328,38 @@ describe("parseImportedRows", () => {
     expect(docs[0].amt).toBeNull();
   });
 });
+
+// ─── Source scan: no raw theme.primary as TEXT color ─────
+
+describe("source scan: text colors use primaryText, not primary", () => {
+  it("no style `color:` property resolves to theme.primary (4.07:1 — fails AA for text)", () => {
+    const fs = require("fs");
+    const path = require("path");
+    const roots = [
+      path.join(__dirname, "..", "..", "app"),
+      path.join(__dirname, ".."),
+    ];
+    // Matches `color:` style properties (incl. ternary branches) that resolve
+    // to theme.primary. JSX icon props use `color={...}` so they are exempt —
+    // icons only need 3:1. camelCase keeps backgroundColor: out (capital C).
+    const re = /color:[^,}\n]*theme\.primary(?![A-Za-z])/g;
+    const offending: string[] = [];
+    const scan = (dir: string) => {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          if (entry.name !== "__tests__" && entry.name !== "node_modules") scan(full);
+        } else if (entry.name.endsWith(".tsx")) {
+          const src = fs.readFileSync(full, "utf8");
+          let match;
+          while ((match = re.exec(src)) !== null) {
+            const line = src.slice(0, match.index).split("\n").length;
+            offending.push(`${path.relative(process.cwd(), full)}:${line} → ${match[0].trim()}`);
+          }
+        }
+      }
+    };
+    roots.forEach(scan);
+    expect(offending).toEqual([]);
+  });
+});

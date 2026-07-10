@@ -145,7 +145,7 @@ export default function SettingsScreen() {
                 style={{ marginRight: 8 }}
               />
               <View style={{ flex: 1 }}>
-                <Text style={[s.rowLabel, { color: settings.isPremium ? '#FFD700' : theme.primary }]}>
+                <Text style={[s.rowLabel, { color: settings.isPremium ? '#FFD700' : theme.primaryText }]}>
                   {t(language, settings.isPremium ? 'premium_active' : 'premium_upgrade')}
                 </Text>
                 {!settings.isPremium && (
