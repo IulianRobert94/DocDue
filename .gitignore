@@ -30,3 +30,12 @@ expo-env.d.ts
 releases/
 *.ipa
 *.apks
+
+# Local-only working files — keep out of git AND out of EAS cloud build uploads
+# (EAS archives everything not gitignored when no .easignore exists)
+.playwright-mcp/
+WebsiteDocDueClaude/
+WebsiteDocDueCodex/
+ROADMAP.md
+/*.png
+*.bak
