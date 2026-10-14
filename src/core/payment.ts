@@ -105,6 +105,23 @@ export function planPayment(doc: RawDocument, today: string): PaymentPlan {
   return { renewal, recurring, overdue, nextOne, nextAll, periodsAll, renewSuggestion: null };
 }
 
+/**
+ * Due dates between `from` and `to` (inclusive): the stored due date and, for
+ * a repeating document, the periods after it. Missed periods before `from`
+ * aren't included — they're overdue, not upcoming.
+ */
+export function projectOccurrences(doc: RawDocument, from: string, to: string): string[] {
+  if (getRecurrenceDays(doc.rec) <= 0) return doc.due >= from && doc.due <= to ? [doc.due] : [];
+  const day = anchorDayOf(doc);
+  const dates: string[] = [];
+  let due = doc.due;
+  for (let guard = 0; due <= to && guard < 2000; guard++) {
+    if (due >= from) dates.push(due);
+    due = advance(doc.rec, due, day);
+  }
+  return dates;
+}
+
 export type PayAction =
   /** Recurring: move to `nextDue`, recording one payment per period covered */
   | { kind: "pay"; nextDue: string; amount: number | null; periods: number }

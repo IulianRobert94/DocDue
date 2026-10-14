@@ -36,7 +36,7 @@ export default function AnalyticsScreen() {
     [enriched, allDocs, language]
   );
 
-  const hasData = analytics.totalPaid > 0 || analytics.total30 > 0 || analytics.catBars.some((c) => c.amount > 0);
+  const hasData = analytics.totalPaid > 0 || analytics.total30 > 0 || analytics.overdueTotal > 0 || analytics.forecastTotal > 0;
 
   return (
     <View style={[s.container, { backgroundColor: theme.background }]}>
@@ -85,6 +85,11 @@ export default function AnalyticsScreen() {
                 <Text style={[s.heroLabel, { color: theme.textSecondary }]}>
                   {t(language, 'analytics_30days')}
                 </Text>
+                {analytics.overdueTotal > 0 && (
+                  <Text style={[s.heroOverdue, { color: '#FF3B30' }]}>
+                    {t(language, 'analytics_overdue', { amount: formatMoney(analytics.overdueTotal, currency, language) })}
+                  </Text>
+                )}
               </View>
               <View style={s.heroSecondary}>
                 <View style={s.heroStat}>
@@ -114,7 +119,7 @@ export default function AnalyticsScreen() {
             {/* Category Breakdown — flat rows */}
             <FadeInView delay={400}>
               <Text style={[s.sectionHeader, { color: theme.textSecondary }]}>
-                {t(language, 'analytics_by_category').toUpperCase()}
+                {t(language, 'analytics_by_category').toUpperCase()} · {t(language, 'analytics_next_12').toUpperCase()}
               </Text>
               <View style={s.catList}>
                 {analytics.catBars.map((item) => (
@@ -151,9 +156,9 @@ export default function AnalyticsScreen() {
             {analytics.monthBars.length > 0 && (
               <FadeInView delay={500}>
                 <Text style={[s.sectionHeader, { color: theme.textSecondary }]}>
-                  {t(language, 'analytics_by_month').toUpperCase()}
+                  {t(language, 'analytics_next_12').toUpperCase()} · {formatMoney(analytics.forecastTotal, currency, language)}
                 </Text>
-                <View style={s.monthGrid}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.monthGrid}>
                   {analytics.monthBars.map((month, i) => (
                     <View key={i} style={s.monthCol}>
                       <Text style={[s.monthAmount, { color: theme.text }]}>
@@ -167,7 +172,7 @@ export default function AnalyticsScreen() {
                       <Text style={[s.monthLabel, { color: theme.textMuted }]}>{month.label}</Text>
                     </View>
                   ))}
-                </View>
+                </ScrollView>
               </FadeInView>
             )}
           </>
@@ -210,8 +215,9 @@ const s = StyleSheet.create({
   barFill: { height: 3, borderRadius: 1.5 },
 
   // Monthly forecast — flat
-  monthGrid: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'flex-end', paddingHorizontal: 20, gap: 12 },
-  monthCol: { flex: 1, alignItems: 'center' },
+  monthGrid: { flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: 20, gap: 12 },
+  monthCol: { width: 64, alignItems: 'center' },
+  heroOverdue: { fontSize: 15, fontFamily: fonts.semiBold, marginTop: 6 },
   monthAmount: { fontSize: 12, fontWeight: '600', fontFamily: fonts.semiBold, marginBottom: 8, textAlign: 'center' },
   monthBarTrack: { width: '100%', height: 80, borderRadius: 4, overflow: 'hidden', justifyContent: 'flex-end' },
   monthBarFill: { width: '100%', borderRadius: 4 },

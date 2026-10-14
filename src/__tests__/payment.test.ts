@@ -3,7 +3,7 @@
  * renewals that restart when lapsed, one-time documents, undo-friendly updates.
  */
 
-import { applyPayAction, defaultPayAction, isRenewal, payKind, planPayment } from "../core/payment";
+import { applyPayAction, defaultPayAction, isRenewal, payKind, planPayment, projectOccurrences } from "../core/payment";
 import { createDemoDocuments } from "../core/demo";
 import type { RawDocument } from "../core/constants";
 
@@ -190,5 +190,24 @@ describe("defaultPayAction (one tap, no questions)", () => {
 
   it("one-time document: closes with its planned amount", () => {
     expect(defaultPayAction(doc({ rec: "none", amt: 500 }), TODAY)).toEqual({ kind: "close", amount: 500 });
+  });
+});
+
+describe("projectOccurrences (when the next payments fall)", () => {
+  it("a monthly bill: every month in the window", () => {
+    expect(projectOccurrences(doc({ due: "2026-10-20" }), TODAY, "2026-12-31")).toEqual(["2026-10-20", "2026-11-20", "2026-12-20"]);
+  });
+
+  it("an overdue bill: the periods still ahead (the missed ones are overdue, not forecast)", () => {
+    expect(projectOccurrences(doc({ due: "2026-08-10" }), TODAY, "2026-12-31")).toEqual(["2026-11-10", "2026-12-10"]);
+  });
+
+  it("a one-time document: once, if it falls in the window", () => {
+    expect(projectOccurrences(doc({ rec: "none", due: "2026-11-01" }), TODAY, "2026-12-31")).toEqual(["2026-11-01"]);
+    expect(projectOccurrences(doc({ rec: "none", due: "2027-03-01" }), TODAY, "2026-12-31")).toEqual([]);
+  });
+
+  it("weekly: every 7 days", () => {
+    expect(projectOccurrences(doc({ rec: "weekly", due: "2026-10-16" }), TODAY, "2026-10-31")).toEqual(["2026-10-16", "2026-10-23", "2026-10-30"]);
   });
 });

@@ -1330,7 +1330,7 @@ describe("i18n RO/EN parity", () => {
     "cal_add", "cal_added", "cal_error", "cal_permission_denied",
     // Analytics
     "analytics_title", "analytics_30days", "analytics_total",
-    "analytics_by_category", "analytics_by_month", "analytics_no_data",
+    "analytics_by_category", "analytics_next_12", "analytics_overdue", "analytics_no_data",
     "analytics_total_paid", "analytics_avg_monthly", "analytics_based_on",
     // Sharing
     "share_document", "share_summary",
@@ -2558,6 +2558,59 @@ describe("computeAnalytics", () => {
     const result = computeAnalytics([enrichDocument(active)], [active, paidOneTime], "ro", now);
     expect(result.total30).toBe(100);
     expect(result.count30).toBe(1);
+  });
+});
+
+describe("computeAnalytics — honest totals", () => {
+  const now = new Date(2026, 9, 14); // 14 Oct 2026
+  let n = 0;
+  const doc = (over: Partial<RawDocument>): RawDocument => ({
+    id: `an-${n++}`, cat: "casa", type: "Gaz", title: "x", due: "2026-10-20", amt: 100, rec: "monthly", ...over,
+  });
+  const run = (docs: RawDocument[]) => computeAnalytics(docs.map((d) => enrichDocument(d)), docs, "ro", now);
+
+  it("a bill due today is part of the next 30 days", () => {
+    expect(run([doc({ due: "2026-10-14", amt: 300, rec: "none" }), doc({ due: "2026-10-30", amt: 55, rec: "none" })]).total30).toBe(355);
+  });
+
+  it("overdue money is counted separately, every missed period included", () => {
+    const r = run([
+      doc({ cat: "financiar", type: "Impozit ANAF", due: "2026-09-25", amt: 4200, rec: "none" }),
+      doc({ type: "Contract chirie", due: "2026-08-10", amt: 2000, rec: "monthly" }),
+    ]);
+    expect(r.overdueTotal).toBe(4200 + 3 * 2000);
+    expect(r.overdueCount).toBe(2);
+  });
+
+  it("a period falling today is due now, not overdue — the missed ones before it are", () => {
+    const r = run([doc({ type: "Contract chirie", due: "2026-08-14", amt: 2000, rec: "monthly" })]);
+    expect(r.overdueTotal).toBe(2 * 2000); // August and September
+    expect(r.total30).toBe(2000); // today's (14 Oct); 14 Nov is 31 days away
+  });
+
+  it("the 12-month forecast repeats a monthly bill in every month", () => {
+    const r = run([doc({ type: "Contract chirie", due: "2026-10-20", amt: 2000 })]);
+    expect(r.monthBars).toHaveLength(12);
+    expect(r.monthBars.every((m) => m.amount === 2000)).toBe(true);
+    expect(r.forecastTotal).toBe(24000);
+  });
+
+  it("an annual document shows once, in its month", () => {
+    const r = run([doc({ cat: "vehicule", type: "RCA", due: "2027-02-01", amt: 1450, rec: "annual" })]);
+    expect(r.monthBars.filter((m) => m.amount > 0).map((m) => m.amount)).toEqual([1450]);
+  });
+
+  it("the monthly average spreads payments over every month since the first one", () => {
+    const r = run([doc({ due: "2026-11-01", paymentHistory: [
+      { date: "2026-01-10", dueDate: "2026-01-10", amt: 1000 },
+      { date: "2026-10-10", dueDate: "2026-10-10", amt: 1030 },
+    ] })]);
+    expect(Math.round(r.avgMonthly)).toBe(203); // 2,030 lei over January–October
+  });
+
+  it("example documents never count", () => {
+    const r = run(createDemoDocuments("ro"));
+    expect(r.total30 + r.overdueTotal + r.forecastTotal + r.totalPaid).toBe(0);
   });
 });
 
