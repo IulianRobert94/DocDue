@@ -291,6 +291,7 @@ export const TRANSLATIONS: Record<string, Record<string, string>> = {
     notif_overdue_title_few: "A expirat acum {days} zile",
     notif_overdue_title_other: "A expirat acum {days} de zile",
     notif_overdue_body: "\"{title}\" a expirat pe {date}. Reînnoiește cât mai repede.",
+    notif_overdue_body_bill: "\"{title}\" trebuia plătit pe {date}.",
     notif_reminder_body: "\"{title}\" expiră pe {date}",
     notif_due_today_title: "Expiră astăzi!",
     notif_due_today_body: "\"{title}\" expiră azi ({date})",
@@ -370,6 +371,8 @@ export const TRANSLATIONS: Record<string, Record<string, string>> = {
 
     // Notification actions
     notif_action_renewed: "Reînnoit ✓",
+    notif_action_paid: "Plătit ✓",
+    notif_action_ended: "Încheiat",
     notif_action_tomorrow: "Mâine",
 
     // Demo banner
@@ -490,7 +493,6 @@ export const TRANSLATIONS: Record<string, Record<string, string>> = {
 
     // Morning Digest
     notif_digest_title: "Rezumat dimineața",
-    notif_digest_body_zero: "Scor sănătate: {score}/100. Totul e în regulă!",
     notif_digest_body_one: "{n} document necesită atenție. Scor: {score}/100",
     notif_digest_body_few: "{n} documente necesită atenție. Scor: {score}/100",
     notif_digest_body_other: "{n} de documente necesită atenție. Scor: {score}/100",
@@ -855,6 +857,7 @@ export const TRANSLATIONS: Record<string, Record<string, string>> = {
     notif_overdue_title_few: "Expired {days} days ago",
     notif_overdue_title_other: "Expired {days} days ago",
     notif_overdue_body: "\"{title}\" expired on {date}. Renew it as soon as you can.",
+    notif_overdue_body_bill: "\"{title}\" was due on {date}.",
     notif_reminder_body: "\"{title}\" is due on {date}",
     notif_due_today_title: "Due today!",
     notif_due_today_body: "\"{title}\" is due today ({date})",
@@ -934,6 +937,8 @@ export const TRANSLATIONS: Record<string, Record<string, string>> = {
 
     // Notification actions
     notif_action_renewed: "Renewed ✓",
+    notif_action_paid: "Paid ✓",
+    notif_action_ended: "Ended",
     notif_action_tomorrow: "Tomorrow",
 
     // Demo banner
@@ -1054,7 +1059,6 @@ export const TRANSLATIONS: Record<string, Record<string, string>> = {
 
     // Morning Digest
     notif_digest_title: "Morning Summary",
-    notif_digest_body_zero: "Health score: {score}/100. Everything's good!",
     notif_digest_body_one: "{n} document needs attention. Score: {score}/100",
     notif_digest_body_few: "{n} documents need attention. Score: {score}/100",
     notif_digest_body_other: "{n} documents need attention. Score: {score}/100",

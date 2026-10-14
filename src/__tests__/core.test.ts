@@ -18,7 +18,7 @@ import {
 } from "../core/dateUtils";
 
 import { validateDocument, parseOptionalNumber } from "../core/validators";
-import { enrichDocument, stripEnrichedFields, sortDocumentsByField, getWarningDaysForRecurrence, getAutoReminderDays, getEffectiveReminderDays } from "../core/enrichment";
+import { enrichDocument, stripEnrichedFields, sortDocumentsByField, getWarningDaysForRecurrence, getAutoReminderDays, getEffectiveReminderDays, getScheduledReminderOffsets } from "../core/enrichment";
 import { migrateData } from "../core/migration";
 import { formatDate, formatMoney, formatDaysRemaining, getRecurrenceDays } from "../core/formatters";
 import type { RawDocument, EnrichedDocument } from "../core/constants";
@@ -585,9 +585,19 @@ describe("getSmartDefaults", () => {
   });
 
   it("returns none for one-time documents", () => {
-    expect(getSmartDefaults("Carte de identitate")!.recurrence).toBe("none");
-    expect(getSmartDefaults("Pașaport")!.recurrence).toBe("none");
     expect(getSmartDefaults("Amendă")!.recurrence).toBe("none");
+  });
+
+  it("ID documents repeat every 10 years, so the warning starts 6 months ahead", () => {
+    expect(getSmartDefaults("Carte de identitate")!.recurrence).toBe("10years");
+    expect(getSmartDefaults("Pașaport")!.recurrence).toBe("10years");
+    expect(getSmartDefaults("Permis conducere")!.recurrence).toBe("10years");
+    expect(getWarningDaysForRecurrence("10years")).toBe(180);
+  });
+
+  it("tachograph cards and ADR certificates last 5 years", () => {
+    expect(getSmartDefaults("Card tahograf")!.recurrence).toBe("5years");
+    expect(getSmartDefaults("Certificat ADR")!.recurrence).toBe("5years");
   });
 
   it("returns null for unknown subtypes", () => {
@@ -760,7 +770,7 @@ describe("i18n new keys (health, notifications, digest)", () => {
     "health_score", "health_critical", "health_attention", "health_good",
     "health_hint_expired", "health_hint_warning",
     // Notification digest keys
-    "notif_digest_title", "notif_digest_body_zero",
+    "notif_digest_title",
     "notif_digest_body_one", "notif_digest_body_few", "notif_digest_body_other",
     // Smart notification keys
     "notif_smart_rca", "notif_smart_itp", "notif_smart_tax",
@@ -1329,7 +1339,7 @@ describe("i18n RO/EN parity", () => {
     "health_score", "health_critical", "health_attention", "health_good",
     "health_hint_expired", "health_hint_warning",
     // Digest
-    "notif_digest_title", "notif_digest_body_zero",
+    "notif_digest_title",
     "notif_digest_body_one", "notif_digest_body_few", "notif_digest_body_other",
     // Smart notifications
     "notif_smart_rca", "notif_smart_itp", "notif_smart_tax",
@@ -1548,7 +1558,8 @@ describe("smart defaults coverage", () => {
   });
 
   it("all smart defaults return valid recurrence values", () => {
-    const validRecs = ["none", "weekly", "monthly", "annual"];
+    // Every value the form can show: quick chips + the custom picker
+    const validRecs = [...RECURRENCE_QUICK, ...RECURRENCE_OPTIONS].map((r) => r.value);
     for (const cat of Object.values(CATEGORIES)) {
       for (const subtype of cat.subtypes) {
         const defaults = getSmartDefaults(subtype);
@@ -1641,6 +1652,23 @@ describe("getAutoReminderDays", () => {
 
   it("returns reasonable reminders for 'none' (one-time)", () => {
     expect(getAutoReminderDays("none")).toEqual([1, 7, 30]);
+  });
+});
+
+describe("getScheduledReminderOffsets (what actually gets scheduled)", () => {
+  const FOLLOW_UPS = [0, -1, -3, -7, -14, -21, -28];
+  const base = { id: "x", cat: "casa", type: "Gaz", title: "Gaz", due: "2026-11-01", amt: null } as const;
+
+  it("adds the due day and follow-ups after expiry to the automatic set", () => {
+    expect(getScheduledReminderOffsets({ ...base, rec: "annual" })).toEqual([30, 7, 1, ...FOLLOW_UPS]);
+  });
+
+  it("adds them to a custom set too", () => {
+    expect(getScheduledReminderOffsets({ ...base, rec: "monthly", reminderDays: [2] })).toEqual([2, ...FOLLOW_UPS]);
+  });
+
+  it("never schedules the same day twice", () => {
+    expect(getScheduledReminderOffsets({ ...base, rec: "monthly", reminderDays: [3, -1] })).toEqual([3, ...FOLLOW_UPS]);
   });
 });
 
@@ -2438,8 +2466,8 @@ describe("resolveRecurrenceForType", () => {
     expect(resolveRecurrenceForType("RCA", "monthly", true)).toBe("monthly");
   });
 
-  it("applies a 'none' default too (passport doesn't repeat)", () => {
-    expect(resolveRecurrenceForType("Pașaport", "annual", false)).toBe("none");
+  it("applies a 'none' default too (a fine doesn't repeat)", () => {
+    expect(resolveRecurrenceForType("Amendă", "annual", false)).toBe("none");
   });
 
   it("keeps the current value for types without a default", () => {

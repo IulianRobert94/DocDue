@@ -10,11 +10,13 @@ import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import type { RawDocument, LanguageCode } from "../core/constants";
 import { t, tp } from "../core/i18n";
-import { parseLocalDate } from "../core/dateUtils";
+import { addDaysToDate, getTodayString, parseLocalDate, toDateString } from "../core/dateUtils";
 import { formatDate } from "../core/formatters";
-import { enrichDocument, getEffectiveReminderDays } from "../core/enrichment";
+import { enrichDocument, getScheduledReminderOffsets } from "../core/enrichment";
 import { calculateHealthScore } from "../core/healthScore";
 import { isDemoDocument } from "../core/helpers";
+import { payKind } from "../core/payment";
+import type { PayKind } from "../core/payment";
 
 /** Documents that may produce notifications: active and not an example document. */
 function notifiableDocuments(documents: RawDocument[]): RawDocument[] {
@@ -30,6 +32,15 @@ const FIRE_HOUR = 9; // 9:00 AM local
 // ─── Configure notification behavior ────────────────────
 
 export const NOTIFICATION_CATEGORY = "document_reminder";
+export const RENEWAL_CATEGORY = "document_renewal";
+export const ENDING_CATEGORY = "document_ending";
+
+/** The action button says what fits the document: Plătit / Reînnoit / Încheiat */
+const CATEGORY_BY_KIND: Record<PayKind, { id: string; actionKey: string }> = {
+  bill: { id: NOTIFICATION_CATEGORY, actionKey: "notif_action_paid" },
+  renewal: { id: RENEWAL_CATEGORY, actionKey: "notif_action_renewed" },
+  ending: { id: ENDING_CATEGORY, actionKey: "notif_action_ended" },
+};
 
 export function configureNotifications(): void {
   Notifications.setNotificationHandler({
@@ -56,25 +67,28 @@ export function configureNotifications(): void {
 }
 
 /**
- * Register notification action buttons (Renewed / Tomorrow).
+ * Register notification action buttons (Plătit / Reînnoit / Încheiat + Mâine).
+ * "Plătit" opens the app on the pay sheet, so the user sees the new date.
  * Call on launch and when language changes.
  */
 export async function setupNotificationCategories(language: LanguageCode): Promise<void> {
-  try {
-    await Notifications.setNotificationCategoryAsync(NOTIFICATION_CATEGORY, [
-      {
-        identifier: "MARK_PAID",
-        buttonTitle: t(language, "notif_action_renewed"),
-        options: { opensAppToForeground: true },
-      },
-      {
-        identifier: "SNOOZE_1DAY",
-        buttonTitle: t(language, "notif_action_tomorrow"),
-        options: { opensAppToForeground: false },
-      },
-    ]);
-  } catch {
-    // Notification categories may not be supported (e.g., some Android versions)
+  for (const { id, actionKey } of Object.values(CATEGORY_BY_KIND)) {
+    try {
+      await Notifications.setNotificationCategoryAsync(id, [
+        {
+          identifier: "MARK_PAID",
+          buttonTitle: t(language, actionKey),
+          options: { opensAppToForeground: true },
+        },
+        {
+          identifier: "SNOOZE_1DAY",
+          buttonTitle: t(language, "notif_action_tomorrow"),
+          options: { opensAppToForeground: false },
+        },
+      ]);
+    } catch {
+      // Notification categories may not be supported (e.g., some Android versions)
+    }
   }
 }
 
@@ -119,6 +133,9 @@ interface ScheduleEntry {
   dueDate: string;
   reminderDay: number;
   fireDate: Date;
+  kind: PayKind;
+  /** App icon badge when it arrives: the user's documents expired by that day */
+  badge: number;
 }
 
 /**
@@ -158,14 +175,15 @@ export async function rescheduleAllNotifications(
   // 3. Build entries — use per-document smart reminders
   const now = Date.now();
   const entries: ScheduleEntry[] = [];
+  const docs = notifiableDocuments(documents);
+  const expiredOn = (day: string) => docs.filter((d) => d.due < day).length;
 
-  for (const doc of notifiableDocuments(documents)) {
+  for (const doc of docs) {
     const dueDate = parseLocalDate(doc.due);
     if (isNaN(dueDate.getTime())) continue;
 
-    // Use per-document override or auto-computed from recurrence
-    const docReminders = getEffectiveReminderDays(doc);
-    for (const daysBefore of docReminders) {
+    // Advance reminders (per-document or automatic) + due day + follow-ups
+    for (const daysBefore of getScheduledReminderOffsets(doc)) {
       const fireDate = new Date(dueDate);
       fireDate.setDate(fireDate.getDate() - daysBefore);
       fireDate.setHours(FIRE_HOUR, 0, 0, 0);
@@ -181,6 +199,8 @@ export async function rescheduleAllNotifications(
         dueDate: doc.due,
         reminderDay: daysBefore,
         fireDate,
+        kind: payKind(doc),
+        badge: expiredOn(toDateString(fireDate)),
       });
     }
   }
@@ -199,7 +219,8 @@ export async function rescheduleAllNotifications(
           title,
           body,
           sound: "default",
-          categoryIdentifier: NOTIFICATION_CATEGORY,
+          badge: entry.badge,
+          categoryIdentifier: CATEGORY_BY_KIND[entry.kind].id,
           data: {
             documentId: entry.docId,
             type: "document_reminder",
@@ -217,6 +238,13 @@ export async function rescheduleAllNotifications(
       // Exact alarm scheduling may fail on Android — skip this one, try the rest
       continue;
     }
+  }
+
+  // The icon shows how many of the user's documents have expired right now
+  try {
+    await Notifications.setBadgeCountAsync(expiredOn(getTodayString()));
+  } catch {
+    // Badges aren't supported everywhere (some Android launchers, Expo Go)
   }
 }
 
@@ -271,7 +299,7 @@ function buildContent(
     const daysAgo = -entry.reminderDay;
     return {
       title: tp(language, "notif_overdue_title", daysAgo, { days: daysAgo }),
-      body: t(language, "notif_overdue_body", {
+      body: t(language, entry.kind === "bill" ? "notif_overdue_body_bill" : "notif_overdue_body", {
         title: entry.docTitle,
         date: dateFormatted,
       }),
@@ -307,6 +335,7 @@ export async function snoozeNotification(
   title: string,
   body: string,
   due?: string,
+  categoryIdentifier: string = NOTIFICATION_CATEGORY,
 ): Promise<void> {
   // Cancel the original notification to prevent duplicate
   await Notifications.dismissNotificationAsync(notificationId).catch(() => {});
@@ -321,7 +350,7 @@ export async function snoozeNotification(
         title,
         body,
         sound: "default",
-        categoryIdentifier: NOTIFICATION_CATEGORY,
+        categoryIdentifier,
         // `snoozed` + `due` let later reschedules keep this reminder
         data: { documentId: docId, type: "document_reminder", snoozed: true, ...(due ? { due } : {}) },
         ...(Platform.OS === "android" && { channelId: CHANNEL_ID }),
@@ -430,25 +459,24 @@ export async function scheduleMorningDigest(
     }
   }
 
-  // Nothing real to report (no documents, or only examples) — no daily ping
+  // Only when something needs doing — no daily "all good" ping
   const docs = notifiableDocuments(documents);
-  if (docs.length === 0) return;
-
-  // Calculate current stats for the digest (active docs only)
   const enriched = docs.map((d) => enrichDocument(d));
-  const score = calculateHealthScore(enriched);
   const needsAttention = enriched.filter(
     (d) => d._status === "expired" || d._status === "warning"
   ).length;
+  if (needsAttention === 0) return;
 
-  const body = needsAttention === 0
-    ? t(language, "notif_digest_body_zero", { score })
-    : tp(language, "notif_digest_body", needsAttention, { score });
+  // A reminder already arrives tomorrow morning — one notification is enough
+  const tomorrow = addDaysToDate(getTodayString(), 1);
+  if (docs.some((d) => getScheduledReminderOffsets(d).some((off) => addDaysToDate(d.due, -off) === tomorrow))) return;
+
+  const score = calculateHealthScore(enriched);
+  const body = tp(language, "notif_digest_body", needsAttention, { score });
 
   // Schedule for tomorrow at 9 AM (one-time, re-scheduled on next mutation/launch)
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  tomorrow.setHours(FIRE_HOUR, 0, 0, 0);
+  const fireAt = parseLocalDate(tomorrow);
+  fireAt.setHours(FIRE_HOUR, 0, 0, 0);
 
   try {
     await Notifications.scheduleNotificationAsync({
@@ -461,7 +489,7 @@ export async function scheduleMorningDigest(
       },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.DATE,
-        date: tomorrow,
+        date: fireAt,
       },
     });
   } catch {
@@ -490,9 +518,7 @@ export async function scheduleWeeklySummary(
     }
   }
 
-  // Nothing real to report — no Monday "0 documents" summary
   const docs = notifiableDocuments(documents);
-  if (docs.length === 0) return;
 
   // Calculate stats for the week (active docs only)
   const enriched = docs.map((d) => enrichDocument(d));
@@ -503,6 +529,8 @@ export async function scheduleWeeklySummary(
   const urgent = enriched.filter(
     (d) => d._status === "expired" || d._status === "warning"
   ).length;
+  // A quiet week — no Monday summary
+  if (thisWeek === 0 && urgent === 0) return;
 
   const body = t(language, "notif_weekly_body", {
     week: tp(language, "notif_weekly_due", thisWeek),

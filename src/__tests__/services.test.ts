@@ -33,6 +33,7 @@ jest.mock("expo-notifications", () => ({
   setNotificationChannelAsync: jest.fn(() => Promise.resolve()),
   setNotificationCategoryAsync: jest.fn(() => Promise.resolve()),
   dismissNotificationAsync: jest.fn(() => Promise.resolve()),
+  setBadgeCountAsync: jest.fn(() => Promise.resolve(true)),
   AndroidImportance: { HIGH: 4 },
   SchedulableTriggerInputTypes: { DATE: "date" },
 }));
@@ -148,11 +149,77 @@ describe("notification scheduling logic", () => {
       { id: "u1", cat: "vehicule", type: "ITP", title: "ITP Logan", due, amt: null, rec: "annual", reminderDays: [-1] },
     ], [], "ro");
 
-    expect(schedule).toHaveBeenCalledTimes(1);
-    const { content, trigger } = schedule.mock.calls[0][0];
     const [y, m, d] = addDaysToDate(due, 1).split("-").map(Number);
-    expect(trigger.date.getTime()).toBe(new Date(y, m - 1, d, 9, 0, 0, 0).getTime());
-    expect(content.title).toBe("A expirat ieri");
+    const dayAfter = schedule.mock.calls.find(([req]) => req.trigger.date.getTime() === new Date(y, m - 1, d, 9, 0, 0, 0).getTime());
+    expect(dayAfter).toBeDefined();
+    expect(dayAfter![0].content.title).toBe("A expirat ieri");
+  });
+
+  it("reminds on the due day and keeps reminding after expiry until it's paid", async () => {
+    const { rescheduleAllNotifications } = require("../services/notifications");
+    const due = addDaysToDate(getTodayString(), 2);
+    const schedule = Notifications.scheduleNotificationAsync as jest.Mock;
+    schedule.mockClear();
+
+    await rescheduleAllNotifications([
+      { id: "u1", cat: "casa", type: "Gaz", title: "Gaz", due, amt: null, rec: "monthly" },
+    ], [], "ro");
+
+    const days = schedule.mock.calls.map(([req]) => calculateDaysUntil(
+      `${req.trigger.date.getFullYear()}-${String(req.trigger.date.getMonth() + 1).padStart(2, "0")}-${String(req.trigger.date.getDate()).padStart(2, "0")}`,
+    ));
+    // tomorrow (1 day before), the due day, then 1, 3, 7, 14, 21, 28 days after
+    expect(days).toEqual([1, 2, 3, 5, 9, 16, 23, 30]);
+    expect(schedule.mock.calls[1][0].content.title).toBe("Expiră astăzi!");
+  });
+
+  it("a document that already expired still gets its future follow-ups", async () => {
+    const { rescheduleAllNotifications } = require("../services/notifications");
+    const schedule = Notifications.scheduleNotificationAsync as jest.Mock;
+    schedule.mockClear();
+
+    await rescheduleAllNotifications([
+      { id: "u1", cat: "vehicule", type: "RCA", title: "RCA", due: addDaysToDate(getTodayString(), -5), amt: null, rec: "annual" },
+    ], [], "ro");
+
+    // 7, 14, 21 and 28 days after expiry are still ahead
+    expect(schedule).toHaveBeenCalledTimes(4);
+  });
+
+  it("each reminder sets the app badge to the documents expired by then", async () => {
+    const { rescheduleAllNotifications } = require("../services/notifications");
+    const schedule = Notifications.scheduleNotificationAsync as jest.Mock;
+    schedule.mockClear();
+    const dueB = addDaysToDate(getTodayString(), 10);
+
+    await rescheduleAllNotifications([
+      { id: "a", cat: "vehicule", type: "RCA", title: "A", due: addDaysToDate(getTodayString(), -3), amt: null, rec: "annual", reminderDays: [1] },
+      { id: "b", cat: "casa", type: "Gaz", title: "B", due: dueB, amt: null, rec: "monthly", reminderDays: [1] },
+    ], [], "ro");
+
+    const badgeOn = (date: string) => {
+      const [y, m, d] = date.split("-").map(Number);
+      const call = schedule.mock.calls.find(([req]) => req.content.data.documentId === "b" && req.trigger.date.getTime() === new Date(y, m - 1, d, 9).getTime());
+      return call?.[0].content.badge;
+    };
+    expect(badgeOn(dueB)).toBe(1); // only A has expired on B's due day
+    expect(badgeOn(addDaysToDate(dueB, 1))).toBe(2); // the day after, B has too
+  });
+
+  it("uses the action that fits the document: Plătit for bills, Reînnoit for renewals", async () => {
+    const { rescheduleAllNotifications, NOTIFICATION_CATEGORY, RENEWAL_CATEGORY } = require("../services/notifications");
+    const schedule = Notifications.scheduleNotificationAsync as jest.Mock;
+    schedule.mockClear();
+    const due = addDaysToDate(getTodayString(), 10);
+
+    await rescheduleAllNotifications([
+      { id: "bill", cat: "casa", type: "Gaz", title: "Gaz", due, amt: null, rec: "monthly", reminderDays: [1] },
+      { id: "renew", cat: "vehicule", type: "RCA", title: "RCA", due, amt: null, rec: "annual", reminderDays: [1] },
+    ], [], "ro");
+
+    const categoryOf = (id: string) => schedule.mock.calls.find(([req]) => req.content.data.documentId === id)![0].content.categoryIdentifier;
+    expect(categoryOf("bill")).toBe(NOTIFICATION_CATEGORY);
+    expect(categoryOf("renew")).toBe(RENEWAL_CATEGORY);
   });
 
   it.each([
@@ -446,12 +513,44 @@ describe("digest and weekly summary", () => {
 });
 
 describe("morning digest logic", () => {
+  it("stays quiet when nothing needs attention", async () => {
+    const { scheduleMorningDigest } = require("../services/notifications");
+    const schedule = Notifications.scheduleNotificationAsync as jest.Mock;
+    schedule.mockClear();
+    await scheduleMorningDigest([
+      { id: "u1", cat: "casa", type: "Gaz", title: "Gaz", due: addDaysToDate(getTodayString(), 40), amt: null, rec: "monthly" },
+    ], "ro");
+    expect(schedule).not.toHaveBeenCalled();
+  });
+
+  it("stays quiet when a reminder already fires tomorrow morning", async () => {
+    const { scheduleMorningDigest } = require("../services/notifications");
+    const schedule = Notifications.scheduleNotificationAsync as jest.Mock;
+    schedule.mockClear();
+    // Monthly bill due in 2 days: its "1 day before" reminder is tomorrow
+    await scheduleMorningDigest([
+      { id: "u1", cat: "casa", type: "Gaz", title: "Gaz", due: addDaysToDate(getTodayString(), 2), amt: null, rec: "monthly" },
+    ], "ro");
+    expect(schedule).not.toHaveBeenCalled();
+  });
+
+  it("the weekly summary skips a quiet week", async () => {
+    const { scheduleWeeklySummary } = require("../services/notifications");
+    const schedule = Notifications.scheduleNotificationAsync as jest.Mock;
+    schedule.mockClear();
+    await scheduleWeeklySummary([
+      { id: "u1", cat: "casa", type: "Gaz", title: "Gaz", due: addDaysToDate(getTodayString(), 60), amt: null, rec: "monthly" },
+    ], "ro");
+    expect(schedule).not.toHaveBeenCalled();
+  });
+
   it("scheduleMorningDigest schedules for tomorrow", async () => {
     const { scheduleMorningDigest } = require("../services/notifications");
 
     (Notifications.scheduleNotificationAsync as jest.Mock).mockClear();
+    // Due in 20 days: needs attention, and no reminder of its own fires tomorrow
     await scheduleMorningDigest([
-      { id: "u1", cat: "casa", type: "Gaz", title: "Gaz", due: addDaysToDate(getTodayString(), 40), amt: null, rec: "monthly" },
+      { id: "u1", cat: "vehicule", type: "RCA", title: "RCA", due: addDaysToDate(getTodayString(), 20), amt: null, rec: "annual" },
     ], "ro");
 
     expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith(

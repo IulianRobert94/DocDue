@@ -30,14 +30,15 @@ const SUBTYPE_DEFAULTS: Record<string, SmartDefault> = {
   "Asigurare CMR": { recurrence: "annual" },
   "Carte verde": { recurrence: "annual" },
 
-  // Personal — mostly multi-year (no recurrence or annual)
-  "Permis conducere": { recurrence: "none" },
-  "Carte de identitate": { recurrence: "none" },
-  "Pașaport": { recurrence: "none" },
+  // Personal — IDs are renewed for 10 years; "10years" also starts the warning
+  // 6 months ahead, enough time to book an appointment
+  "Permis conducere": { recurrence: "10years" },
+  "Carte de identitate": { recurrence: "10years" },
+  "Pașaport": { recurrence: "10years" },
   "Atestat profesional": { recurrence: "annual" },
-  "Card tahograf": { recurrence: "none" },
+  "Card tahograf": { recurrence: "5years" },
   "Fișă medicală": { recurrence: "annual" },
-  "Certificat ADR": { recurrence: "none" },
+  "Certificat ADR": { recurrence: "5years" },
   "Aviz psihologic": { recurrence: "annual" },
   "Contract de muncă": { recurrence: "annual" },
   "Asigurare viață": { recurrence: "annual" },

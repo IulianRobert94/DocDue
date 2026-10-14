@@ -66,6 +66,18 @@ export function getEffectiveReminderDays(doc: RawDocument): number[] {
   return getAutoReminderDays(doc.rec);
 }
 
+/** The due day, then 1, 3 and 7 days after, then weekly for a month — until it's paid */
+const FOLLOW_UP_OFFSETS = [0, -1, -3, -7, -14, -21, -28];
+
+/**
+ * Every reminder actually scheduled for a document: the chosen (or automatic)
+ * advance reminders plus the due day and follow-ups after expiry, so nothing
+ * lapses silently. Paying moves the document on and reschedules them.
+ */
+export function getScheduledReminderOffsets(doc: RawDocument): number[] {
+  return [...new Set([...getEffectiveReminderDays(doc), ...FOLLOW_UP_OFFSETS])].sort((a, b) => b - a);
+}
+
 /**
  * Filter out resolved documents — single source of truth for "active" docs.
  * Use this everywhere that needs only non-resolved documents.
