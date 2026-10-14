@@ -127,7 +127,7 @@ function RootLayout() {
         // exactly as they are — an empty list would cancel every reminder
         const documentsLoaded = !isDocumentLoadFailed();
         if (settings.notificationsEnabled && documentsLoaded) {
-          syncAllNotifications(documents, settings.language)
+          syncAllNotifications(documents, settings.language, { discreet: settings.biometricEnabled })
             .catch((e) => { if (__DEV__) console.warn("DocDue: notification schedule error", e); });
         }
 
@@ -306,12 +306,29 @@ function RootLayout() {
         const settings = useSettingsStore.getState().settings;
         const documents = useDocumentStore.getState().documents;
         if (settings.notificationsEnabled && documents.length > 0 && !isDocumentLoadFailed()) {
-          syncAllNotifications(documents, settings.language).catch(() => {});
+          syncAllNotifications(documents, settings.language, { discreet: settings.biometricEnabled }).catch(() => {});
         }
       }
     });
     return () => subscription.remove();
   }, []);
+
+  // Turning the biometric lock on/off switches reminders to/from discreet wording
+  const biometricEnabled = useSettingsStore((s) => s.settings.biometricEnabled);
+  const prevBiometricRef = useRef<boolean | null>(null);
+  useEffect(() => {
+    if (!ready || prevBiometricRef.current === null) {
+      prevBiometricRef.current = biometricEnabled;
+      return;
+    }
+    if (prevBiometricRef.current === biometricEnabled) return;
+    prevBiometricRef.current = biometricEnabled;
+    const documents = useDocumentStore.getState().documents;
+    const settings = useSettingsStore.getState().settings;
+    if (settings.notificationsEnabled && documents.length > 0 && !isDocumentLoadFailed()) {
+      syncAllNotifications(documents, settings.language, { discreet: biometricEnabled }).catch(() => {});
+    }
+  }, [biometricEnabled, ready]);
 
   // Refresh notification categories, scheduled notifications, and Quick Actions
   // when language changes (covers settings toggle, backup restore, any source)
@@ -327,7 +344,7 @@ function RootLayout() {
     const settings = useSettingsStore.getState().settings;
     setupNotificationCategories(language).catch(() => {});
     if (settings.notificationsEnabled && documents.length > 0 && !isDocumentLoadFailed()) {
-      syncAllNotifications(documents, language).catch(() => {});
+      syncAllNotifications(documents, language, { discreet: settings.biometricEnabled }).catch(() => {});
     }
     try {
       QuickActions.setItems([

@@ -177,7 +177,7 @@ export default function OnboardingScreen() {
     if (granted) {
       const docs = useDocumentStore.getState().documents;
       const language = useSettingsStore.getState().settings.language;
-      await syncAllNotifications(docs, language)
+      await syncAllNotifications(docs, language, { discreet: useSettingsStore.getState().settings.biometricEnabled })
         .catch((e) => { if (__DEV__) console.warn("DocDue: onboarding schedule error", e); });
     }
   };

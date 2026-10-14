@@ -128,10 +128,16 @@ interface ScheduleEntry {
  * document still exists with the same due date. Digest and weekly summary are
  * managed by their own functions.
  */
+export interface ReminderOptions {
+  /** Biometric lock on: reminders don't show document names on the lock screen */
+  discreet?: boolean;
+}
+
 export async function rescheduleAllNotifications(
   documents: RawDocument[],
   _reminderDays: number[], // kept for call-site compat; actual reminders are per-document
   language: LanguageCode,
+  options: ReminderOptions = {},
 ): Promise<void> {
   // 1. Cancel the document reminders we own (keep valid snoozes)
   const activeById = new Map(notifiableDocuments(documents).map((d) => [d.id, d]));
@@ -186,7 +192,7 @@ export async function rescheduleAllNotifications(
 
   // 6. Schedule each (wrap individually — exact alarms may fail on some Android versions)
   for (const entry of toSchedule) {
-    const { title, body } = buildContent(entry, language);
+    const { title, body } = options.discreet ? buildDiscreetContent(entry, language) : buildContent(entry, language);
 
     try {
       await Notifications.scheduleNotificationAsync({
@@ -282,6 +288,14 @@ function buildContent(
   };
 }
 
+/** Lock-screen-safe wording: no document name, type or date. */
+function buildDiscreetContent(entry: ScheduleEntry, language: LanguageCode): { title: string; body: string } {
+  return {
+    title: t(language, entry.reminderDay < 0 ? "notif_discreet_overdue_title" : "notif_discreet_title"),
+    body: t(language, "notif_discreet_body"),
+  };
+}
+
 // ─── Snooze helper ───────────────────────────────────
 
 /**
@@ -356,7 +370,7 @@ export async function dismissDeliveredForDocument(docId: string): Promise<void> 
 // ─── Serialized sync ─────────────────────────────────────
 
 let _syncRun: Promise<void> | null = null;
-let _syncNext: { documents: RawDocument[]; language: LanguageCode } | null = null;
+let _syncNext: { documents: RawDocument[]; language: LanguageCode; options: ReminderOptions } | null = null;
 
 /**
  * Bring every scheduled notification in line with `documents`: reminders,
@@ -364,17 +378,21 @@ let _syncNext: { documents: RawDocument[]; language: LanguageCode } | null = nul
  * Runs never overlap — calls made while one is running are coalesced into a
  * single follow-up run with the newest arguments. Rejects if the last run failed.
  */
-export function syncAllNotifications(documents: RawDocument[], language: LanguageCode): Promise<void> {
-  _syncNext = { documents, language };
+export function syncAllNotifications(
+  documents: RawDocument[],
+  language: LanguageCode,
+  options: ReminderOptions = {},
+): Promise<void> {
+  _syncNext = { documents, language, options };
   if (!_syncRun) {
     _syncRun = (async () => {
       let lastError: unknown = null;
       try {
         while (_syncNext) {
-          const { documents: docs, language: lang } = _syncNext;
+          const { documents: docs, language: lang, options: opts } = _syncNext;
           _syncNext = null;
           try {
-            await rescheduleAllNotifications(docs, [], lang);
+            await rescheduleAllNotifications(docs, [], lang, opts);
             await scheduleMorningDigest(docs, lang);
             await scheduleWeeklySummary(docs, lang);
             lastError = null;

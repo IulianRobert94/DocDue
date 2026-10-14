@@ -176,7 +176,7 @@ async function doReschedule(documents: RawDocument[], attempt = 1) {
     try {
       // syncAllNotifications serializes runs and coalesces overlapping calls,
       // so every mutation can call it — the newest document set always wins.
-      await syncAllNotifications(documents, settings.language);
+      await syncAllNotifications(documents, settings.language, { discreet: settings.biometricEnabled });
     } catch (e) {
       if (__DEV__) console.warn("DocDue: notification reschedule error", e);
       if (attempt < 3) {

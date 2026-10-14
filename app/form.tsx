@@ -355,7 +355,11 @@ export default function FormScreen() {
           onPress: () => {
             requestNotificationPermission().catch(() => false).then((granted) => {
               useSettingsStore.getState().updateSetting('notificationsEnabled', granted);
-              if (granted) syncAllNotifications(useDocumentStore.getState().documents, language).catch(() => {});
+              if (granted) {
+                syncAllNotifications(useDocumentStore.getState().documents, language, {
+                  discreet: useSettingsStore.getState().settings.biometricEnabled,
+                }).catch(() => {});
+              }
             });
           },
         },

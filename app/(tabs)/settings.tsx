@@ -33,6 +33,7 @@ import { useDocumentStore } from '../../src/stores/useDocumentStore';
 import { t } from '../../src/core/i18n';
 import { CURRENCY_OPTIONS, CATEGORIES, FREE_DOCUMENT_LIMIT } from '../../src/core/constants';
 import { countTowardFreeLimit } from '../../src/core/helpers';
+import { biometricSecurityLevel } from '../../src/services/biometric';
 import {
   requestNotificationPermission,
   getNotificationPermissionStatus,
@@ -108,7 +109,7 @@ export default function SettingsScreen() {
       showPermissionDeniedAlert();
       return false;
     }
-    syncAllNotifications(documents, language).catch(() => { /* best-effort */ });
+    syncAllNotifications(documents, language, { discreet: settings.biometricEnabled }).catch(() => { /* best-effort */ });
     return true;
   };
 
@@ -315,6 +316,7 @@ export default function SettingsScreen() {
                         const result = await LocalAuthentication.authenticateAsync({
                           promptMessage: t(language, 'biometric_lock'),
                           cancelLabel: t(language, 'confirm_cancel'),
+                          biometricsSecurityLevel: biometricSecurityLevel(),
                         });
                         if (result.success) {
                           updateSetting('biometricEnabled', true);
@@ -325,6 +327,7 @@ export default function SettingsScreen() {
                         const result = await LocalAuthentication.authenticateAsync({
                           promptMessage: t(language, 'biometric_lock'),
                           cancelLabel: t(language, 'confirm_cancel'),
+                          biometricsSecurityLevel: biometricSecurityLevel(),
                         });
                         if (result.success) {
                           updateSetting('biometricEnabled', false);

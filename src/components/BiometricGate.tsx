@@ -21,6 +21,7 @@ import { usePathname } from "expo-router";
 import { useSettingsStore, useTheme } from "../stores/useSettingsStore";
 import { t } from "../core/i18n";
 import { setAppLocked } from "../core/lockState";
+import { biometricSecurityLevel } from "../services/biometric";
 import { AnimatedPressable } from "./AnimatedUI";
 import { fonts } from "../theme/typography";
 
@@ -100,6 +101,7 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
         promptMessage: t(language, "biometric_unlock"),
         fallbackLabel: t(language, "biometric_use_passcode"),
         disableDeviceFallback: false,
+        biometricsSecurityLevel: biometricSecurityLevel(),
       });
       if (result.success) {
         justUnlocked.current = true;

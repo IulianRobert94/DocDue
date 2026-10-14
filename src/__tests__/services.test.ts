@@ -944,3 +944,58 @@ describe("addDocumentToCalendar", () => {
     expect(event.startDate.getTime()).toBe(new Date(2026, 5, 1, 0, 0, 0, 0).getTime());
   });
 });
+
+// ─── Biometric strength (Android) ────────────────────────
+
+describe("biometricSecurityLevel", () => {
+  // Earlier suites reset the module registry — load both from the same one
+  afterEach(() => {
+    const rn = require("react-native");
+    rn.Platform.OS = "ios";
+    delete rn.Platform.Version;
+  });
+
+  it.each([
+    ["ios", 18, "weak"],
+    ["android", 34, "strong"],
+    ["android", 30, "strong"],
+    ["android", 29, "weak"], // Android 10 can't combine Class 3 biometrics with the PIN fallback
+  ] as const)("%s API %i → %s", (os, version, expected) => {
+    const rn = require("react-native");
+    rn.Platform.OS = os;
+    rn.Platform.Version = version;
+    const { biometricSecurityLevel } = require("../services/biometric");
+    expect(biometricSecurityLevel()).toBe(expected);
+  });
+});
+
+// ─── Discreet reminders (biometric lock on) ──────────────
+
+describe("discreet reminders", () => {
+  it("with the app lock on, lock-screen reminders don't reveal the document", async () => {
+    const { rescheduleAllNotifications } = require("../services/notifications");
+    const schedule = require("expo-notifications").scheduleNotificationAsync as jest.Mock;
+    schedule.mockClear();
+
+    await rescheduleAllNotifications([
+      { id: "u1", cat: "personal", type: "Pașaport", title: "Pașaport Ana", due: addDaysToDate(getTodayString(), 40), amt: null, rec: "none", reminderDays: [7] },
+    ], [], "ro", { discreet: true });
+
+    const { title, body } = schedule.mock.calls[0][0].content;
+    expect(`${title} ${body}`).not.toContain("Pașaport");
+    expect(title).toBe("Un document expiră în curând");
+  });
+
+  it("syncAllNotifications passes the discreet option through", async () => {
+    const { syncAllNotifications } = require("../services/notifications");
+    const schedule = require("expo-notifications").scheduleNotificationAsync as jest.Mock;
+    schedule.mockClear();
+
+    await syncAllNotifications([
+      { id: "u1", cat: "personal", type: "Pașaport", title: "Pașaport Ana", due: addDaysToDate(getTodayString(), 40), amt: null, rec: "none", reminderDays: [7] },
+    ], "ro", { discreet: true });
+
+    const reminder = schedule.mock.calls.find((c) => c[0].content.data?.type === "document_reminder");
+    expect(reminder[0].content.title).toBe("Un document expiră în curând");
+  });
+});
