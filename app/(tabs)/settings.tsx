@@ -292,6 +292,21 @@ export default function SettingsScreen() {
           )}
         </View>
 
+        {/* ─── Backup & Restore — the only copy of the data lives on this phone, so it comes early ─── */}
+        <BackupRestoreSection
+          theme={theme}
+          language={language}
+          settings={settings}
+          documents={documents}
+          updateSetting={updateSetting}
+          addDocuments={addDocuments}
+          replaceAllDocuments={replaceAllDocuments}
+          isLoading={isLoading}
+          setIsLoading={setIsLoading}
+          isPremium={settings.isPremium}
+          onPremiumGate={onPremiumGate}
+        />
+
         {/* ─── Security ─────────────────────────── */}
         {biometricAvailable && (
           <>
@@ -353,7 +368,7 @@ export default function SettingsScreen() {
         <View style={[s.group, { backgroundColor: theme.card }]}>
           <InfoRow
             label={t(language, 'settings_total_docs')}
-            value={String(documents.length)}
+            value={String(countTowardFreeLimit(documents))}
             theme={theme}
           />
           <RowDivider theme={theme} />
@@ -415,21 +430,6 @@ export default function SettingsScreen() {
             <Ionicons name="share-outline" size={18} color={theme.textMuted} />
           </AnimatedPressable>
         </View>
-
-        {/* ─── Backup & Restore ────────────────── */}
-        <BackupRestoreSection
-          theme={theme}
-          language={language}
-          settings={settings}
-          documents={documents}
-          updateSetting={updateSetting}
-          addDocuments={addDocuments}
-          replaceAllDocuments={replaceAllDocuments}
-          isLoading={isLoading}
-          setIsLoading={setIsLoading}
-          isPremium={settings.isPremium}
-          onPremiumGate={onPremiumGate}
-        />
 
         {/* ─── Data ──────────────────────────────── */}
         <DataSection
