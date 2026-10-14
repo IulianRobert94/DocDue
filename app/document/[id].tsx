@@ -208,10 +208,9 @@ export default function DocumentDetailScreen() {
 
         {/* Info Card */}
         <FadeInView delay={200} style={[s.group, { backgroundColor: theme.card }]}>
-          {infoRows.map((row, i) => (
-            <View key={i}>
-              <AnimatedPressable style={s.infoRow} onPress={row.onPress} disabled={!row.onPress} haptic={false}
-                accessibilityRole={row.onPress ? 'button' : undefined} accessibilityLabel={`${row.label}: ${row.value}`}>
+          {infoRows.map((row, i) => {
+            const content = (
+              <>
                 <Text style={[s.infoLabel, { color: theme.textSecondary }]}>{row.label}</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 }}>
                   <Text style={[s.infoValue, { color: row.onPress ? theme.primaryText : theme.text }, row.bold && { fontWeight: '700', fontFamily: fonts.bold }]} numberOfLines={2}>
@@ -219,14 +218,26 @@ export default function DocumentDetailScreen() {
                   </Text>
                   {row.onPress && <Ionicons name="chevron-forward" size={14} color={theme.textDim} />}
                 </View>
-              </AnimatedPressable>
+              </>
+            );
+            return (
+            <View key={i}>
+              {row.onPress ? (
+                <AnimatedPressable style={s.infoRow} onPress={row.onPress} haptic={false}
+                  accessibilityRole="button" accessibilityLabel={`${row.label}: ${row.value}`}>
+                  {content}
+                </AnimatedPressable>
+              ) : (
+                <View style={s.infoRow}>{content}</View>
+              )}
               {i < infoRows.length - 1 && (
                 <View style={{ paddingLeft: 16 }}>
                   <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: theme.divider }} />
                 </View>
               )}
             </View>
-          ))}
+            );
+          })}
         </FadeInView>
 
         {/* Notes */}

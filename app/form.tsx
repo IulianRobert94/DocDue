@@ -29,7 +29,7 @@ import { RowDivider } from '../src/components/settings/SettingsUI';
 import { AttachmentPicker, deleteAttachmentFiles, saveImageAttachment } from '../src/components/AttachmentPicker';
 import { autoCategorize, resolveRecurrenceForType } from '../src/core/smartDefaults';
 import { getAutoReminderDays } from '../src/core/enrichment';
-import { findDuplicate, isAtFreeLimit, countTowardFreeLimit } from '../src/core/helpers';
+import { findDuplicate, isAtFreeLimit, countTowardFreeLimit, isDemoDocument } from '../src/core/helpers';
 import { autoTitle, companionTypes, dateShortcuts, knownAssets, legalDueDate, upcomingReminderDates } from '../src/core/formHelpers';
 import { matchesSearch } from '../src/core/search';
 import { validateDocument } from '../src/core/validators';
@@ -134,7 +134,7 @@ export default function FormScreen() {
   // refine the type but never moves the document to another category
   const catLockedRef = useRef(!!prefillTitle || !!catParam || !!prefillType);
   // Cars / homes already used, offered as one-tap choices
-  const assetSuggestions = useMemo(() => knownAssets(useDocumentStore.getState().documents), []);
+  const assetSuggestions = useMemo(() => knownAssets(useDocumentStore.getState().documents.filter((d) => !isDemoDocument(d))), []);
   const [assetKey, setAssetKey] = useState(0);
   // The text fields are uncontrolled (Fabric): a scan that fills them remounts them
   const [amtKey, setAmtKey] = useState(0);
@@ -262,6 +262,13 @@ export default function FormScreen() {
     setRecAutoSet(true);
     recAutoSetTimer.current = setTimeout(() => setRecAutoSet(false), 2000);
   };
+
+  // A type passed in ("Adaugă și ITP…") gets its smart defaults like a picked one:
+  // recurrence and, for local taxes, the legal deadline
+  useEffect(() => {
+    if (!isEdit && prefillType && !dupRec) applyTypeDefaults(prefillType);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when the form opens
+  }, []);
 
   // A type from another category doesn't fit: clear it so the user picks one
   // (silently taking the first type saved "Curent electric · Lunar" for anything in Casă)
