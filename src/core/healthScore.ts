@@ -11,12 +11,11 @@ import { getWarningDaysForRecurrence } from "./enrichment";
 /**
  * Calculate health score from enriched documents.
  *
- * Algorithm:
- * - Start at 100
- * - Each expired doc: -20 (capped so score doesn't go below 0)
- * - Each warning doc: -5 × urgency factor (closer to expiration = bigger penalty)
- * - All documents OK bonus: +5 (only if no expired/warning)
- * - Clamped to [0, 100]
+ * The share of the user's documents that are in order: an ok document counts
+ * 1, one in its warning window between 1 (far away) and 0.5 (due today), an
+ * expired one 0. Anything expired caps the score at 69, so it can't look
+ * green while a document has lapsed — and one forgotten item among 40 doesn't
+ * drop it to zero either.
  *
  * Returns 100 when there are no documents (clean slate).
  */
@@ -25,30 +24,26 @@ export function calculateHealthScore(
 ): number {
   if (docs.length === 0) return 100;
 
-  let score = 100;
-  let hasIssues = false;
+  let points = 0;
+  let anyExpired = false;
 
   for (const doc of docs) {
     if (doc._status === "expired") {
-      score -= 20;
-      hasIssues = true;
+      anyExpired = true;
     } else if (doc._status === "warning") {
       const warningDays = getWarningDaysForRecurrence(doc.rec);
-      // urgencyFactor: 1.0 when due today, 0.0 when at warningDays boundary
-      const urgencyFactor = warningDays > 0
-        ? Math.max(0, 1 - doc._daysUntil / warningDays)
+      // urgency: 0 at the start of the warning window, 1 on the due day
+      const urgency = warningDays > 0
+        ? Math.min(1, Math.max(0, 1 - doc._daysUntil / warningDays))
         : 1;
-      score -= 5 * urgencyFactor;
-      hasIssues = true;
+      points += 1 - 0.5 * urgency;
+    } else {
+      points += 1;
     }
   }
 
-  // Bonus for perfect health
-  if (!hasIssues) {
-    score = Math.min(100, score + 5);
-  }
-
-  return Math.max(0, Math.min(100, Math.round(score)));
+  const score = Math.round((100 * points) / docs.length);
+  return anyExpired ? Math.min(score, 69) : score;
 }
 
 /**

@@ -488,33 +488,35 @@ describe("calculateHealthScore", () => {
     expect(calculateHealthScore(docs)).toBe(100);
   });
 
-  it("subtracts 20 for each expired doc", () => {
-    const docs = [makeDoc(-5, "expired")];
-    expect(calculateHealthScore(docs)).toBe(80);
+  it("one expired out of two: half your documents are fine → 50", () => {
+    expect(calculateHealthScore([makeDoc(-5, "expired"), makeDoc(60, "ok")])).toBe(50);
   });
 
-  it("subtracts more for multiple expired docs", () => {
-    const docs = [makeDoc(-5, "expired"), makeDoc(-10, "expired")];
-    expect(calculateHealthScore(docs)).toBe(60);
+  it("anything expired keeps the score out of the green (3 of 43 → 69, not 93)", () => {
+    const docs = [
+      ...Array.from({ length: 3 }, (_, i) => makeDoc(-1 - i, "expired")),
+      ...Array.from({ length: 40 }, (_, i) => makeDoc(100 + i, "ok")),
+    ];
+    expect(calculateHealthScore(docs)).toBe(69);
+    expect(getHealthScoreColor(calculateHealthScore(docs))).toBe("#FF9500");
   });
 
-  it("penalizes warning docs based on urgency", () => {
-    // 1 day left out of 30 warning days (rec=none) → high urgency
-    const docs = [makeDoc(1, "warning")];
-    const score = calculateHealthScore(docs);
-    expect(score).toBeGreaterThan(90);
-    expect(score).toBeLessThan(100);
+  it("everything expired → 0", () => {
+    expect(calculateHealthScore([makeDoc(-5, "expired"), makeDoc(-10, "expired")])).toBe(0);
   });
 
-  it("penalizes warning docs less when far from expiration", () => {
-    // 13 days left out of 30 warning days (rec=none) → low urgency
-    const docs = [makeDoc(13, "warning")];
-    const score = calculateHealthScore(docs);
-    expect(score).toBeGreaterThan(95);
+  it("a warning far ahead barely counts (passport, 170 of 180 days)", () => {
+    const passport = { ...makeDoc(170, "warning"), rec: "10years" as const };
+    expect(calculateHealthScore([passport])).toBe(97);
+  });
+
+  it("a bill due tomorrow counts about half", () => {
+    const bill = { ...makeDoc(1, "warning"), rec: "monthly" as const };
+    expect(calculateHealthScore([bill])).toBe(57);
   });
 
   it("never goes below 0", () => {
-    const docs = Array.from({ length: 10 }, (_, i) => makeDoc(-i, "expired"));
+    const docs = Array.from({ length: 10 }, (_, i) => makeDoc(-i - 1, "expired"));
     expect(calculateHealthScore(docs)).toBe(0);
   });
 
@@ -526,7 +528,7 @@ describe("calculateHealthScore", () => {
     ];
     const score = calculateHealthScore(docs);
     expect(score).toBeGreaterThan(0);
-    expect(score).toBeLessThan(100);
+    expect(score).toBeLessThan(70);
   });
 });
 
