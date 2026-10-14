@@ -6,18 +6,22 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, TextInput, StyleSheet, FlatList, ScrollView,
-  Keyboard, Animated as RNAnimated, Platform, ActionSheetIOS, Alert,
+  Keyboard, Animated as RNAnimated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, useNavigation } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useTheme, useLanguage, useCurrency, useSettingsStore } from '../../src/stores/useSettingsStore';
-import { useEnrichedDocuments, useDocumentStore } from '../../src/stores/useDocumentStore';
+import { useEnrichedDocuments, useDocumentStore, useArchivedDocuments } from '../../src/stores/useDocumentStore';
 import { t, tp, translateSubtype } from '../../src/core/i18n';
 import { SwipeableRow } from '../../src/components/SwipeableRow';
-import { buildMarkAsPaidAction, deleteWithUndo } from '../../src/core/confirmActions';
-import { formatMoney, formatDaysRemaining } from '../../src/core/formatters';
+import { buildMarkAsPaidAction, deleteWithUndo, showDocumentMenu } from '../../src/core/confirmActions';
+import { formatMoney, formatDaysRemaining, formatDate } from '../../src/core/formatters';
+import { isDemoDocument, isAtFreeLimit, countTowardFreeLimit } from '../../src/core/helpers';
+import { usePaySheet } from '../../src/components/PaySheet';
+import { ExamplePill } from '../../src/components/ExamplePill';
+import { showToast } from '../../src/stores/useToastStore';
 import { sortDocumentsByField } from '../../src/core/enrichment';
 import { STATUS_DISPLAY, CATEGORIES } from '../../src/core/constants';
 import type { CategoryId, DocumentStatus, SortField } from '../../src/core/constants';
@@ -27,7 +31,7 @@ import { fonts } from '../../src/theme/typography';
 import * as Haptics from 'expo-haptics';
 
 type ScopeFilter = 'all' | CategoryId;
-type StatusFilter = 'all' | DocumentStatus;
+type StatusFilter = 'all' | DocumentStatus | 'archived';
 
 export default function SearchScreen() {
   const insets = useSafeAreaInsets();
@@ -35,6 +39,7 @@ export default function SearchScreen() {
   const language = useLanguage();
   const currency = useCurrency();
   const enrichedDocs = useEnrichedDocuments();
+  const archivedDocs = useArchivedDocuments();
   const router = useRouter();
   const navigation = useNavigation();
   const { status: statusParam } = useLocalSearchParams<{ status?: string }>();
@@ -46,7 +51,9 @@ export default function SearchScreen() {
   const [sortField, setSortField] = useState<SortField>('urgency');
   const deleteDocument = useDocumentStore((s) => s.deleteDocument);
   const undoDelete = useDocumentStore((s) => s.undoDelete);
-  const markAsPaid = useDocumentStore((s) => s.markAsPaid);
+  const restoreFromArchive = useDocumentStore((s) => s.restoreFromArchive);
+  const isPremium = useSettingsStore((s) => s.settings.isPremium);
+  const { openPaySheet, paySheet } = usePaySheet();
   const inputRef = useRef<TextInput>(null);
   const reduceMotion = useReduceMotion();
   const cancelOpacity = useRef(new RNAnimated.Value(0)).current;
@@ -63,7 +70,7 @@ export default function SearchScreen() {
 
   // Set status filter when navigated with a param from home screen pills
   useEffect(() => {
-    if (statusParam === 'ok' || statusParam === 'expired' || statusParam === 'warning') {
+    if (statusParam === 'ok' || statusParam === 'expired' || statusParam === 'warning' || statusParam === 'archived') {
       setStatusFilter(statusParam);
     }
   }, [statusParam]);
@@ -81,6 +88,11 @@ export default function SearchScreen() {
     });
     return unsubscribe;
   }, [navigation]);
+
+  // The archive chip disappears once the archive is empty — don't stay on it
+  useEffect(() => {
+    if (statusFilter === 'archived' && archivedDocs.length === 0) setStatusFilter('all');
+  }, [statusFilter, archivedDocs.length]);
 
   // Debounce: wait 300ms after user stops typing before filtering
   useEffect(() => {
@@ -121,8 +133,9 @@ export default function SearchScreen() {
 
   // Apply status + scope + search query filters (memoized)
   const filteredDocs = useMemo(() => {
-    const baseDocs = enrichedDocs.filter((doc) => {
-      if (statusFilter !== 'all' && doc._status !== statusFilter) return false;
+    const showArchive = statusFilter === 'archived';
+    const baseDocs = (showArchive ? archivedDocs : enrichedDocs).filter((doc) => {
+      if (!showArchive && statusFilter !== 'all' && doc._status !== statusFilter) return false;
       if (scopeFilter !== 'all' && doc.cat !== scopeFilter) return false;
       return true;
     });
@@ -138,12 +151,22 @@ export default function SearchScreen() {
         (doc.notes && normalize(doc.notes).includes(query))
       );
     });
-  }, [enrichedDocs, statusFilter, scopeFilter, debouncedQuery, language]);
+  }, [enrichedDocs, archivedDocs, statusFilter, scopeFilter, debouncedQuery, language]);
 
   const sortedDocs = useMemo(() =>
-    sortDocumentsByField(filteredDocs, sortField, 'asc', language),
-    [filteredDocs, sortField, language]
+    // The archive keeps its newest-archived-first order
+    statusFilter === 'archived' ? filteredDocs : sortDocumentsByField(filteredDocs, sortField, 'asc', language),
+    [filteredDocs, sortField, language, statusFilter]
   );
+
+  const restore = (id: string) => {
+    if (isAtFreeLimit(countTowardFreeLimit(useDocumentStore.getState().documents), isPremium)) {
+      router.push('/premium');
+      return;
+    }
+    restoreFromArchive(id);
+    showToast(t(language, 'toast_restored'));
+  };
 
   const SORT_CYCLE: SortField[] = ['urgency', 'date', 'amount', 'name'];
   const cycleSortField = () => {
@@ -234,6 +257,9 @@ export default function SearchScreen() {
             { key: 'expired' as StatusFilter, label: t(language, 'status_expired'), color: STATUS_DISPLAY.expired.color, icon: STATUS_DISPLAY.expired.icon },
             { key: 'warning' as StatusFilter, label: t(language, 'status_warning'), color: STATUS_DISPLAY.warning.color, icon: STATUS_DISPLAY.warning.icon },
             { key: 'ok' as StatusFilter, label: t(language, 'status_ok'), color: STATUS_DISPLAY.ok.color, icon: STATUS_DISPLAY.ok.icon },
+            ...(archivedDocs.length > 0 ? [
+              { key: 'archived' as StatusFilter, label: t(language, 'search_archive'), color: theme.textSecondary, icon: 'archive-outline' as const },
+            ] : []),
           ]).map((opt) => {
             const active = statusFilter === opt.key;
             return (
@@ -259,8 +285,8 @@ export default function SearchScreen() {
               </AnimatedPressable>
             );
           })}
-          {/* Sort toggle */}
-          <AnimatedPressable
+          {/* Sort toggle (the archive keeps its own order) */}
+          {statusFilter !== 'archived' && <AnimatedPressable
             style={[s.scopeChip, { backgroundColor: theme.inputFill, borderWidth: 1, borderColor: theme.border, marginLeft: 8 }]}
             onPress={cycleSortField}
             hapticStyle="selection"
@@ -270,7 +296,7 @@ export default function SearchScreen() {
             <Text style={[s.scopeText, { color: theme.textSecondary }]}>
               {t(language, `sort_${sortField}`)}
             </Text>
-          </AnimatedPressable>
+          </AnimatedPressable>}
         </ScrollView>
 
         {/* Category filter chips */}
@@ -324,7 +350,7 @@ export default function SearchScreen() {
 
         {searchQuery.length === 0 && (
           <Text style={[s.hintText, { color: theme.textMuted }]}>
-            {tp(language, 'search_count', enrichedDocs.length)}
+            {tp(language, 'search_count', statusFilter === 'archived' ? archivedDocs.length : enrichedDocs.length)}
           </Text>
         )}
       </FadeInView>
@@ -341,7 +367,7 @@ export default function SearchScreen() {
         renderItem={({ item, index }) => {
           const isFirst = index === 0;
           const isLast = index === sortedDocs.length - 1;
-          const statusColor = STATUS_DISPLAY[item._status]?.color || '#999';
+          const statusColor = item.resolved ? theme.textMuted : STATUS_DISPLAY[item._status]?.color || '#999';
           const category = CATEGORIES[item.cat] ?? CATEGORIES.vehicule;
 
           return (
@@ -353,50 +379,20 @@ export default function SearchScreen() {
               confirmCancel={t(language, 'confirm_cancel')}
               confirmDelete={t(language, 'confirm_delete_btn')}
               deleteLabel={t(language, 'detail_delete')}
-              secondaryAction={buildMarkAsPaidAction(item, language, markAsPaid)}
+              secondaryAction={item.resolved
+                ? { label: t(language, 'archive_restore'), icon: 'arrow-undo', color: '#0A79F1', onPress: () => restore(item.id) }
+                : buildMarkAsPaidAction(item, language, openPaySheet)}
             >
               <AnimatedPressable
                 onPress={() => {
                   if (debouncedQuery.length > 0) saveRecentSearch(debouncedQuery);
                   router.push(`/document/${item.id}`);
                 }}
-                onLongPress={() => {
-                  const isRecurring = item.rec !== 'none';
-                  const options = [
-                    t(language, 'confirm_cancel'),
-                    t(language, isRecurring ? 'confirm_paid_btn' : 'confirm_resolved_btn'),
-                    t(language, 'detail_edit'),
-                    t(language, 'detail_delete'),
-                  ];
-                  if (Platform.OS === 'ios') {
-                    ActionSheetIOS.showActionSheetWithOptions(
-                      { options, cancelButtonIndex: 0, destructiveButtonIndex: 3 },
-                      (idx) => {
-                        if (idx === 1) markAsPaid(item);
-                        else if (idx === 2) router.push(`/form?editId=${item.id}`);
-                        else if (idx === 3) {
-                          Alert.alert(t(language, 'confirm_delete_title'), t(language, 'confirm_delete_msg', { title: item.title }), [
-                            { text: t(language, 'confirm_cancel'), style: 'cancel' },
-                            { text: t(language, 'confirm_delete_btn'), style: 'destructive', onPress: () => { deleteWithUndo(item.id, language, deleteDocument, undoDelete); } },
-                          ]);
-                        }
-                      }
-                    );
-                  } else {
-                    Alert.alert(item.title, undefined, [
-                      { text: t(language, 'confirm_cancel'), style: 'cancel' },
-                      { text: t(language, isRecurring ? 'confirm_paid_btn' : 'confirm_resolved_btn'), onPress: () => markAsPaid(item) },
-                      { text: t(language, 'detail_edit'), onPress: () => router.push(`/form?editId=${item.id}`) },
-                      { text: t(language, 'detail_delete'), style: 'destructive', onPress: () => {
-                        Alert.alert(t(language, 'confirm_delete_title'), t(language, 'confirm_delete_msg', { title: item.title }), [
-                          { text: t(language, 'confirm_cancel'), style: 'cancel' },
-                          { text: t(language, 'confirm_delete_btn'), style: 'destructive', onPress: () => deleteWithUndo(item.id, language, deleteDocument, undoDelete) },
-                        ]);
-                      }},
-                    ]);
-                  }
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-                }}
+                onLongPress={item.resolved ? undefined : () => showDocumentMenu(item, language, {
+                  onPay: openPaySheet,
+                  onEdit: (d) => router.push(`/form?editId=${d.id}`),
+                  onDelete: (d) => deleteWithUndo(d.id, language, deleteDocument, undoDelete),
+                })}
                 style={[s.row, {
                   backgroundColor: theme.card,
                   borderTopLeftRadius: isFirst ? 12 : 0,
@@ -412,15 +408,20 @@ export default function SearchScreen() {
                     <Ionicons name={category?.icon || 'document-outline'} size={18} color={category?.color || '#999'} />
                   </View>
                   <View style={s.rowMain}>
-                    <Text style={[s.rowTitle, { color: theme.text }]} numberOfLines={1}>{item.title}</Text>
+                    <View style={s.titleLine}>
+                      <Text style={[s.rowTitle, { color: theme.text, flexShrink: 1 }]} numberOfLines={1}>{item.title}</Text>
+                      {isDemoDocument(item) && <ExamplePill language={language} />}
+                    </View>
                     <Text style={[s.rowSub, { color: theme.textMuted }]} numberOfLines={1}>
                       {translateSubtype(item.type, language)}{item.asset ? ` · ${item.asset}` : ''}
                     </Text>
                   </View>
                   <View style={s.rowRight}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                      <Ionicons name={STATUS_DISPLAY[item._status]?.icon || 'ellipse'} size={13} color={statusColor} />
-                      <Text style={[s.rowDays, { color: statusColor }]}>{formatDaysRemaining(item._daysUntil, language)}</Text>
+                      <Ionicons name={item.resolved ? 'archive-outline' : STATUS_DISPLAY[item._status]?.icon || 'ellipse'} size={13} color={statusColor} />
+                      <Text style={[s.rowDays, { color: statusColor }]}>
+                        {item.resolved ? formatDate(item.resolved, language) : formatDaysRemaining(item._daysUntil, language)}
+                      </Text>
                     </View>
                     {item.amt ? <Text style={[s.rowAmt, { color: theme.textMuted }]}>{formatMoney(item.amt, currency, language)}</Text> : null}
                   </View>
@@ -463,6 +464,7 @@ export default function SearchScreen() {
           )
         }
       />
+      {paySheet}
     </View>
   );
 }
@@ -489,6 +491,7 @@ const s = StyleSheet.create({
   rowIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   rowMain: { flex: 1, marginRight: 12 },
   rowTitle: { fontSize: 17, fontFamily: fonts.regular },
+  titleLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   rowSub: { fontSize: 13, marginTop: 2, fontFamily: fonts.regular },
   rowRight: { alignItems: 'flex-end' },
   rowDays: { fontSize: 13, fontFamily: fonts.semiBold },

@@ -11,6 +11,7 @@
 import { NativeModules } from "react-native";
 import type { RawDocument } from "../core/constants";
 import { enrichDocument } from "../core/enrichment";
+import { isDemoDocument } from "../core/helpers";
 
 // Check once at module load — avoids noisy require errors in Expo Go
 const hasWidgetModule = !!NativeModules.ExpoWidgets;
@@ -28,7 +29,9 @@ export function updateWidgetData(documents: RawDocument[]): void {
     const WidgetModule = require("expo-widgets");
     if (!WidgetModule?.reloadAllTimelines) return;
 
-    const enriched = documents.filter((d) => !d.resolved).map((d) => enrichDocument(d));
+    // The user's own active documents — examples never show on the home screen widget
+    const own = documents.filter((d) => !d.resolved && !isDemoDocument(d));
+    const enriched = own.map((d) => enrichDocument(d));
     const urgent = enriched.filter(
       (d) => d._status === "expired" || d._status === "warning"
     );
@@ -40,7 +43,7 @@ export function updateWidgetData(documents: RawDocument[]): void {
       urgentCount: urgent.length,
       expiredCount: enriched.filter((d) => d._status === "expired").length,
       warningCount: enriched.filter((d) => d._status === "warning").length,
-      totalDocs: documents.length,
+      totalDocs: own.length,
       docs: enriched
         .sort((a, b) => a._daysUntil - b._daysUntil)
         .slice(0, 5)

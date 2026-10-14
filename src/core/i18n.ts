@@ -76,7 +76,7 @@ export const TRANSLATIONS: Record<string, Record<string, string>> = {
     // Document detail
     detail_due: "Scadență", detail_amount: "Sumă", detail_recurrence: "Recurență",
     detail_type: "Tip", detail_notes: "Note",
-    detail_pay_next: "Plătit — Următoarea scadență", detail_resolved: "Rezolvat",
+
     detail_edit: "Editează", detail_duplicate: "Duplică", detail_delete: "Șterge",
 
     // Document form
@@ -107,12 +107,40 @@ export const TRANSLATIONS: Record<string, Record<string, string>> = {
     confirm_delete_type_msg: "Ștergi \"{name}\" din lista de tipuri?",
     confirm_cancel: "Anulează",
     confirm_delete_btn: "Șterge",
-    confirm_paid_title: "Marchează ca plătit?",
-    confirm_paid_msg: "Data scadenței va fi actualizată la următoarea perioadă.",
-    confirm_paid_btn: "Plătit",
-    confirm_resolved_title: "Marchează ca rezolvat?",
-    confirm_resolved_msg: "Documentul va fi șters definitiv.",
-    confirm_resolved_btn: "Rezolvat",
+    status_archived: "Arhivat",
+    payment_delete_title: "Ștergi plata?", payment_delete_msg: "Plata din {date} dispare din istoric.",
+    toast_payment_deleted: "Plată ștearsă",
+    // Archive
+    search_archive: "Arhivă", archive_restore: "Restaurează",
+    toast_restored: "Restaurat ✓",
+    // Alerts groups + example tag
+    alerts_group_overdue: "Întârziate", alerts_group_week: "Următoarele 7 zile",
+    alerts_group_month: "Următoarele 30 de zile", alerts_group_later: "Mai târziu",
+    demo_pill: "Exemplu",
+    // Pay / renew sheet
+    pay_btn_bill: "Plătit", pay_btn_renewal: "Reînnoit", pay_btn_ending: "Încheiat",
+    pay_sheet_due: "Scadența: {date}",
+    pay_next_due: "Următoarea scadență", pay_valid_until: "Valabil până la",
+    pay_amount: "Sumă plătită",
+    pay_overdue_hint_one: "O plată e restantă.", pay_overdue_hint_few: "{n} plăți sunt restante.", pay_overdue_hint_other: "{n} de plăți sunt restante.",
+    pay_cover_all_one: "O plată", pay_cover_all_few: "Toate cele {n}", pay_cover_all_other: "Toate cele {n}",
+    pay_cover_one: "Doar una",
+    pay_total: "Total: {total}",
+    pay_restart_hint: "A expirat, așa că noua perioadă începe de azi.",
+    pay_mode_renew_renewal: "Reînnoit", pay_mode_renew_bill: "Dată nouă", pay_mode_renew_ending: "Prelungit",
+    pay_mode_close_renewal: "Nu mai e nevoie", pay_mode_close_bill: "Plătit", pay_mode_close_ending: "Încheiat",
+    pay_archive_hint: "Se mută în Arhivă. Îl găsești oricând în Căutare.",
+    pay_confirm_bill: "Marchează plătit", pay_confirm_renewal: "Confirmă reînnoirea",
+    pay_confirm_new_date: "Salvează data nouă", pay_confirm_archive: "Mută în Arhivă",
+    toast_paid_until: "Plătit ✓ Următoarea scadență: {date}",
+    toast_renewed_until: "Reînnoit ✓ Valabil până la {date}",
+    toast_archived: "Mutat în Arhivă",
+
+
+
+
+
+
     confirm_reset_title: "Resetare date",
     confirm_reset_msg: "Datele curente vor fi înlocuite cu datele demonstrative. Continui?",
     confirm_reset_btn: "Resetează",
@@ -123,8 +151,8 @@ export const TRANSLATIONS: Record<string, Record<string, string>> = {
 
     // Toasts
     toast_added: "Document adăugat ✓", toast_updated: "Document actualizat ✓",
-    toast_deleted: "Document șters", toast_paid_next: "Plătit ✓ Următoarea scadență generată",
-    toast_resolved: "Marcat ca rezolvat ✓", toast_demo_restored: "Date demo restaurate",
+    toast_deleted: "Document șters",
+toast_demo_restored: "Date demo restaurate",
     toast_all_cleared: "Toate datele au fost șterse",
     toast_save_error: "⚠ Eroare la salvarea datelor ({key})",
     toast_saved: "Document salvat",
@@ -225,7 +253,7 @@ export const TRANSLATIONS: Record<string, Record<string, string>> = {
     a11y_cancel: "Anulează",
     a11y_delete_document: "Șterge documentul",
     a11y_edit_document: "Editează documentul",
-    a11y_mark_paid: "Marchează ca plătit",
+
     a11y_sort_by: "Sortare după {label}",
     a11y_select_category: "Selectează categoria {name}",
     a11y_select_type: "Selectează tipul {name}",
@@ -376,7 +404,8 @@ export const TRANSLATIONS: Record<string, Record<string, string>> = {
     notif_action_tomorrow: "Mâine",
 
     // Demo banner
-    demo_banner_text: "Acestea sunt documente demonstrative. Adaugă-le pe ale tale!",
+    demo_banner_text: "Acestea sunt exemple, ca să vezi cum funcționează aplicația. Adaugă-ți actele cu +.",
+    demo_banner_text_own: "Ai adăugat primul tău document. Ștergi exemplele?",
     demo_banner_dismiss: "Șterge exemplele",
     demo_remove_confirm: "Se șterg doar documentele exemplu. Documentele adăugate de tine rămân neatinse.",
     load_error_title: "Nu am putut citi datele",
@@ -652,7 +681,7 @@ export const TRANSLATIONS: Record<string, Record<string, string>> = {
 
     detail_due: "Due date", detail_amount: "Amount", detail_recurrence: "Recurrence",
     detail_type: "Type", detail_notes: "Notes",
-    detail_pay_next: "Paid — Generate next due", detail_resolved: "Resolved",
+
     detail_edit: "Edit", detail_duplicate: "Duplicate", detail_delete: "Delete",
 
     form_add_title: "New document", form_edit_title: "Edit",
@@ -680,12 +709,40 @@ export const TRANSLATIONS: Record<string, Record<string, string>> = {
     confirm_delete_type_msg: "Remove \"{name}\" from the type list?",
     confirm_cancel: "Cancel",
     confirm_delete_btn: "Delete",
-    confirm_paid_title: "Mark as paid?",
-    confirm_paid_msg: "The due date will be moved to the next period.",
-    confirm_paid_btn: "Paid",
-    confirm_resolved_title: "Mark as resolved?",
-    confirm_resolved_msg: "This document will be permanently removed.",
-    confirm_resolved_btn: "Resolved",
+    status_archived: "Archived",
+    payment_delete_title: "Delete this payment?", payment_delete_msg: "The payment from {date} will be removed from the history.",
+    toast_payment_deleted: "Payment deleted",
+    // Archive
+    search_archive: "Archive", archive_restore: "Restore",
+    toast_restored: "Restored ✓",
+    // Alerts groups + example tag
+    alerts_group_overdue: "Overdue", alerts_group_week: "Next 7 days",
+    alerts_group_month: "Next 30 days", alerts_group_later: "Later",
+    demo_pill: "Example",
+    // Pay / renew sheet
+    pay_btn_bill: "Paid", pay_btn_renewal: "Renewed", pay_btn_ending: "Ended",
+    pay_sheet_due: "Due: {date}",
+    pay_next_due: "Next due date", pay_valid_until: "Valid until",
+    pay_amount: "Amount paid",
+    pay_overdue_hint_one: "1 payment is overdue.", pay_overdue_hint_few: "{n} payments are overdue.", pay_overdue_hint_other: "{n} payments are overdue.",
+    pay_cover_all_one: "1 payment", pay_cover_all_few: "All {n}", pay_cover_all_other: "All {n}",
+    pay_cover_one: "Just one",
+    pay_total: "Total: {total}",
+    pay_restart_hint: "It lapsed, so the new period starts today.",
+    pay_mode_renew_renewal: "Renewed", pay_mode_renew_bill: "New date", pay_mode_renew_ending: "Extended",
+    pay_mode_close_renewal: "Not needed", pay_mode_close_bill: "Paid", pay_mode_close_ending: "Ended",
+    pay_archive_hint: "It moves to the Archive. You can always find it in Search.",
+    pay_confirm_bill: "Mark as paid", pay_confirm_renewal: "Confirm renewal",
+    pay_confirm_new_date: "Save new date", pay_confirm_archive: "Move to Archive",
+    toast_paid_until: "Paid ✓ Next due: {date}",
+    toast_renewed_until: "Renewed ✓ Valid until {date}",
+    toast_archived: "Moved to the Archive",
+
+
+
+
+
+
     confirm_reset_title: "Reset data",
     confirm_reset_msg: "Current data will be replaced with demo data. Continue?",
     confirm_reset_btn: "Reset",
@@ -695,8 +752,8 @@ export const TRANSLATIONS: Record<string, Record<string, string>> = {
     confirm_clear_btn: "Delete all",
 
     toast_added: "Document added ✓", toast_updated: "Document updated ✓",
-    toast_deleted: "Document deleted", toast_paid_next: "Paid ✓ Next due date generated",
-    toast_resolved: "Marked as resolved ✓", toast_demo_restored: "Demo data restored",
+    toast_deleted: "Document deleted",
+toast_demo_restored: "Demo data restored",
     toast_all_cleared: "All data has been deleted",
     toast_save_error: "⚠ Error saving data ({key})",
     toast_saved: "Document saved",
@@ -791,7 +848,7 @@ export const TRANSLATIONS: Record<string, Record<string, string>> = {
     a11y_cancel: "Cancel",
     a11y_delete_document: "Delete document",
     a11y_edit_document: "Edit document",
-    a11y_mark_paid: "Mark as paid",
+
     a11y_sort_by: "Sort by {label}",
     a11y_select_category: "Select category {name}",
     a11y_select_type: "Select type {name}",
@@ -942,7 +999,8 @@ export const TRANSLATIONS: Record<string, Record<string, string>> = {
     notif_action_tomorrow: "Tomorrow",
 
     // Demo banner
-    demo_banner_text: "These are demo documents. Add your own!",
+    demo_banner_text: "These are examples, so you can see how the app works. Add your own with +.",
+    demo_banner_text_own: "You've added your first document. Remove the examples?",
     demo_banner_dismiss: "Remove examples",
     demo_remove_confirm: "Only the example documents will be removed. Documents you added stay untouched.",
     load_error_title: "Couldn't read your data",

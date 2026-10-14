@@ -214,44 +214,42 @@ function RootLayout() {
     if (_processedNotifIds.has(responseId)) return;
     trackProcessedId(responseId);
 
-    const docId = getDocumentIdFromNotification(response);
-    if (!docId) return;
-
     const actionId = response.actionIdentifier;
     const content = response.notification.request.content;
 
-    if (actionId === "MARK_PAID") {
-      // Reads fresh state at execution time — the document may have been
-      // deleted between deferral and unlock.
-      const applyMarkAsPaid = () => {
-        const raw = useDocumentStore.getState().documents.find((d) => d.id === docId);
-        // Ignore a stale tap: the doc was already paid since this reminder fired
-        if (raw && shouldApplyMarkPaid(raw, content.data)) {
-          useDocumentStore.getState().markAsPaid(enrichDocument(raw));
-        }
-      };
-      if (isAppLocked()) {
-        // Biometric gate is up (or not yet mounted) — don't mutate data
-        // behind the lock screen; run after a successful unlock instead.
-        deferUntilUnlock(applyMarkAsPaid);
-      } else {
-        applyMarkAsPaid();
+    // Morning digest / weekly summary: open the Alerts tab
+    const docId = getDocumentIdFromNotification(response);
+    if (!docId) {
+      const type = content.data?.type;
+      if (type === "morning_digest" || type === "weekly_summary") {
+        const openAlerts = () => setTimeout(() => router.push("/(tabs)/alerts"), 100);
+        if (isAppLocked()) deferUntilUnlock(openAlerts);
+        else openAlerts();
       }
-    } else if (actionId === "SNOOZE_1DAY") {
+      return;
+    }
+
+    if (actionId === "SNOOZE_1DAY") {
       const notifId = response.notification.request.identifier;
       const due = typeof content.data?.due === "string" ? content.data.due : undefined;
-      snoozeNotification(docId, notifId, content.title || "", content.body || "", due)
+      snoozeNotification(docId, notifId, content.title || "", content.body || "", due, content.categoryIdentifier ?? undefined)
         .catch((e) => { if (__DEV__) console.warn("DocDue: snooze error", e); });
-    } else {
-      // Default tap — open document detail (verify doc still exists). Behind the
-      // biometric lock, wait for the unlock: a screen opened now would sit on top.
-      const openDetail = () => {
-        const exists = useDocumentStore.getState().documents.some((d) => d.id === docId);
-        if (exists) setTimeout(() => router.push(`/document/${docId}`), 100);
-      };
-      if (isAppLocked()) deferUntilUnlock(openDetail);
-      else openDetail();
+      return;
     }
+
+    // "Plătit / Reînnoit" opens the pay sheet on the document, so the user sees
+    // (and can change) the new date; a plain tap opens the document. Behind the
+    // biometric lock, wait for the unlock — a screen opened now would sit on top.
+    // Fresh state at execution time: the document may be gone by then.
+    const open = () => {
+      const raw = useDocumentStore.getState().documents.find((d) => d.id === docId);
+      if (!raw) return;
+      // A stale "Plătit" (already paid since this reminder fired) just opens it
+      const pay = actionId === "MARK_PAID" && shouldApplyMarkPaid(raw, content.data);
+      setTimeout(() => router.push(pay ? `/document/${docId}?pay=1` : `/document/${docId}`), 100);
+    };
+    if (isAppLocked()) deferUntilUnlock(open);
+    else open();
   };
 
   // Live listener for notification taps while app is running

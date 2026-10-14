@@ -27,7 +27,7 @@ import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { useTheme, useLanguage } from "../../src/stores/useSettingsStore";
+import { useTheme, useLanguage, useCurrency } from "../../src/stores/useSettingsStore";
 import {
   useEnrichedDocuments,
   useGlobalStats,
@@ -37,7 +37,7 @@ import {
 import { t, tp } from "../../src/core/i18n";
 import { CATEGORIES, QUICK_PREVIEW_LIMIT } from "../../src/core/constants";
 import type { CategoryId } from "../../src/core/constants";
-import { formatDaysRemaining, getCategoryLabel } from "../../src/core/formatters";
+import { formatDaysRemaining, formatMoney, getCategoryLabel } from "../../src/core/formatters";
 import { AnimatedPressable, AnimatedSection, AnimatedCounter, useReduceMotion } from "../../src/components/AnimatedUI";
 import { CircularProgress } from "../../src/components/CircularProgress";
 import { Celebration } from "../../src/components/Celebration";
@@ -45,6 +45,7 @@ import { calculateHealthScore, getHealthScoreColor } from "../../src/core/health
 import { isDemoDocument } from "../../src/core/helpers";
 import { useClockStore } from "../../src/stores/useClockStore";
 import { JournalHomeCard } from "../../src/components/journal/JournalHomeCard";
+import { ExamplePill } from "../../src/components/ExamplePill";
 import { fonts } from "../../src/theme/typography";
 
 const COLLAPSE_START = 30;
@@ -54,6 +55,7 @@ const COMPACT_H = 44;
 export default function HomeScreen() {
   const theme = useTheme();
   const lang = useLanguage();
+  const currency = useCurrency();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { width: screenWidth } = useWindowDimensions();
@@ -70,25 +72,25 @@ export default function HomeScreen() {
     [enriched]
   );
 
-  // Health Score
+  // Score and "next due" reflect only the user's own documents, never the examples
+  const ownDocs = useMemo(() => enriched.filter((d) => !isDemoDocument(d)), [enriched]);
   const healthScore = useMemo(
-    () => calculateHealthScore(enriched),
-    [enriched]
+    () => calculateHealthScore(ownDocs),
+    [ownDocs]
   );
 
-
   // Next expiring document (enriched is already sorted by _daysUntil ascending)
-  const nextExpiring = enriched.length > 0 ? enriched[0] : null;
+  const nextExpiring = ownDocs.length > 0 ? ownDocs[0] : null;
 
   // Celebration when health score hits 100
   const [showCelebration, setShowCelebration] = useState(false);
   useEffect(() => {
-    if (healthScore === 100 && enriched.length > 0) {
+    if (healthScore === 100 && ownDocs.length > 0) {
       setShowCelebration(true);
       const timer = setTimeout(() => setShowCelebration(false), 1000);
       return () => clearTimeout(timer);
     }
-  }, [healthScore, enriched.length]);
+  }, [healthScore, ownDocs.length]);
 
   // Floating animation for empty state icon
   const reduceMotion = useReduceMotion();
@@ -224,7 +226,7 @@ export default function HomeScreen() {
               DocDue
             </Text>
             <Text style={[styles.subtitle, { color: theme.textMuted }]}>
-              {tp(lang, "doc_count", enriched.length)}
+              {tp(lang, "doc_count", ownDocs.length)}
             </Text>
           </View>
         </RNAnimated.View>
@@ -235,13 +237,13 @@ export default function HomeScreen() {
             <View style={[styles.demoBanner, { backgroundColor: theme.primary + '14', borderColor: theme.primary + '33' }]}>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.demoBannerText, { color: theme.textSecondary }]}>
-                  {t(lang, "demo_banner_text")}
+                  {t(lang, ownDocs.length > 0 ? "demo_banner_text_own" : "demo_banner_text")}
                 </Text>
+                <AnimatedPressable onPress={handleDismissDemo} hapticStyle="selection" style={styles.demoBannerAction}
+                  accessibilityRole="button" accessibilityLabel={t(lang, "demo_banner_dismiss")}>
+                  <Text style={[styles.demoBannerActionText, { color: theme.primaryText }]}>{t(lang, "demo_banner_dismiss")}</Text>
+                </AnimatedPressable>
               </View>
-              <AnimatedPressable onPress={handleDismissDemo} hapticStyle="selection" style={styles.demoBannerBtn}
-                accessibilityLabel={t(lang, "demo_banner_dismiss")}>
-                <Ionicons name="close-circle" size={20} color={theme.textMuted} />
-              </AnimatedPressable>
             </View>
           </AnimatedSection>
         )}
@@ -400,12 +402,20 @@ export default function HomeScreen() {
                       scaleValue={0.99}
                     >
                       <View style={[styles.docDot, { backgroundColor: statusColor }]} />
-                      <Text style={[styles.docTitle, { color: theme.text }]} numberOfLines={1}>
-                        {doc.title}
-                      </Text>
-                      <Text style={[styles.docDays, { color: statusColor }]}>
-                        {formatDaysRemaining(doc._daysUntil, lang)}
-                      </Text>
+                      <View style={styles.docTitleLine}>
+                        <Text style={[styles.docTitle, { color: theme.text, flex: 0, flexShrink: 1 }]} numberOfLines={1}>
+                          {doc.title}
+                        </Text>
+                        {isDemoDocument(doc) && <ExamplePill language={lang} />}
+                      </View>
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={[styles.docDays, { color: statusColor }]}>
+                          {formatDaysRemaining(doc._daysUntil, lang)}
+                        </Text>
+                        {doc.amt ? (
+                          <Text style={[styles.docAmount, { color: theme.textMuted }]}>{formatMoney(doc.amt, currency, lang)}</Text>
+                        ) : null}
+                      </View>
                       <Ionicons name="chevron-forward" size={13} color={theme.textDim} style={{ marginLeft: 4 }} />
                     </AnimatedPressable>
                     {!isLast && (
@@ -562,7 +572,9 @@ const styles = StyleSheet.create({
   },
   docDot: { width: 8, height: 8, borderRadius: 4, marginRight: 10 },
   docTitle: { fontSize: 17, flex: 1, fontFamily: fonts.regular },
+  docTitleLine: { flex: 1, flexDirection: "row", alignItems: "center", gap: 6 },
   docDays: { fontSize: 13, marginLeft: 8, fontFamily: fonts.semiBold },
+  docAmount: { fontSize: 12, marginTop: 1, fontFamily: fonts.regular },
 
   // Health Score bar
   scoreCard: { flexDirection: "row", alignItems: "stretch", borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.04)' },
@@ -592,5 +604,6 @@ const styles = StyleSheet.create({
   // Demo banner
   demoBanner: { flexDirection: "row", alignItems: "center", padding: 12, borderRadius: 12, borderWidth: 1 },
   demoBannerText: { fontSize: 14, lineHeight: 20, fontFamily: fonts.regular },
-  demoBannerBtn: { padding: 8, marginLeft: 8 },
+  demoBannerAction: { alignSelf: "flex-start", paddingVertical: 6, marginTop: 2 },
+  demoBannerActionText: { fontSize: 14, fontFamily: fonts.semiBold },
 });

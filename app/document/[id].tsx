@@ -13,13 +13,17 @@ import * as Haptics from 'expo-haptics';
 import * as Sharing from 'expo-sharing';
 import { LinearGradient } from 'expo-linear-gradient';
 
-import { useTheme, useLanguage, useCurrency } from '../../src/stores/useSettingsStore';
+import { useTheme, useLanguage, useCurrency, useSettingsStore } from '../../src/stores/useSettingsStore';
 import { useEnrichedDocument, useDocumentStore } from '../../src/stores/useDocumentStore';
 import { t, translateSubtype } from '../../src/core/i18n';
 import { formatDate, formatMoney, formatDaysRemaining, getRecurrenceLabel } from '../../src/core/formatters';
 import { CATEGORIES, STATUS_DISPLAY } from '../../src/core/constants';
 import { AnimatedPressable, FadeInView, useReduceMotion } from '../../src/components/AnimatedUI';
 import { deleteWithUndo } from '../../src/core/confirmActions';
+import { isDemoDocument, isAtFreeLimit, countTowardFreeLimit } from '../../src/core/helpers';
+import { usePaySheet, payButtonKey } from '../../src/components/PaySheet';
+import { ExamplePill } from '../../src/components/ExamplePill';
+import { SwipeableRow } from '../../src/components/SwipeableRow';
 import { fonts } from '../../src/theme/typography';
 import { ImageViewer } from '../../src/components/ImageViewer';
 import { requestCalendarPermission, addDocumentToCalendar } from '../../src/services/calendar';
@@ -27,14 +31,17 @@ import { requestCalendarPermission, addDocumentToCalendar } from '../../src/serv
 export default function DocumentDetailScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, pay } = useLocalSearchParams<{ id: string; pay?: string }>();
   const theme = useTheme();
   const language = useLanguage();
   const currency = useCurrency();
   const doc = useEnrichedDocument(id);
   const deleteDocument = useDocumentStore((s) => s.deleteDocument);
   const undoDelete = useDocumentStore((s) => s.undoDelete);
-  const markAsPaid = useDocumentStore((s) => s.markAsPaid);
+  const restoreFromArchive = useDocumentStore((s) => s.restoreFromArchive);
+  const deletePaymentRecord = useDocumentStore((s) => s.deletePaymentRecord);
+  const isPremium = useSettingsStore((s) => s.settings.isPremium);
+  const { openPaySheet, paySheet } = usePaySheet();
   const [viewImage, setViewImage] = useState<string | null>(null);
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [showCongrats, setShowCongrats] = useState(false);
@@ -42,16 +49,24 @@ export default function DocumentDetailScreen() {
   const congratsScale = useRef(new Animated.Value(0)).current;
   const congratsOpacity = useRef(new Animated.Value(0)).current;
 
-  const markingRef = useRef(false);
   const congratsAnimRef = useRef<Animated.CompositeAnimation | null>(null);
 
-  // Cleanup on unmount: stop animations, reset marking guard
+  // Cleanup on unmount: stop animations
   useEffect(() => {
     return () => {
       if (congratsAnimRef.current) congratsAnimRef.current.stop();
-      markingRef.current = false;
     };
   }, []);
+
+  // Opened from a reminder's "Plătit" button: show the pay sheet straight away
+  const autoPayRef = useRef(false);
+  useEffect(() => {
+    if (pay !== '1' || autoPayRef.current || !doc || doc.resolved) return;
+    autoPayRef.current = true;
+    const timer = setTimeout(() => openPaySheet(doc, { onDone: (action) => { if (action.kind !== 'close') playCongrats(); } }), 450);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- once per opening, with the document as it was
+  }, [pay, doc?.id]);
 
   const playCongrats = () => {
     setShowCongrats(true);
@@ -102,33 +117,21 @@ export default function DocumentDetailScreen() {
   };
 
   const handleMarkPaid = () => {
-    if (markingRef.current) return;
-    markingRef.current = true;
-    const isRecurring = doc.rec !== 'none';
-    Alert.alert(
-      t(language, isRecurring ? 'confirm_paid_title' : 'confirm_resolved_title'),
-      t(language, isRecurring ? 'confirm_paid_msg' : 'confirm_resolved_msg'),
-      [
-        { text: t(language, 'confirm_cancel'), style: 'cancel', onPress: () => { markingRef.current = false; } },
-        {
-          text: t(language, isRecurring ? 'confirm_paid_btn' : 'confirm_resolved_btn'),
-          onPress: () => {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-            const result = markAsPaid(doc);
-            playCongrats();
-            if (result === 'resolved') {
-              // One-time doc is now resolved — go back after celebration
-              setTimeout(() => router.back(), 1200);
-            }
-            markingRef.current = false;
-          },
-        },
-      ],
-      { cancelable: true, onDismiss: () => { markingRef.current = false; } }
-    );
+    openPaySheet(doc, { onDone: (action) => { if (action.kind !== 'close') playCongrats(); } });
+  };
+
+  const handleRestore = () => {
+    if (isAtFreeLimit(countTowardFreeLimit(useDocumentStore.getState().documents), isPremium)) {
+      router.push('/premium');
+      return;
+    }
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    restoreFromArchive(doc.id);
+    showToast(t(language, 'toast_restored'));
   };
 
   const infoRows: { label: string; value: string; bold?: boolean }[] = [
+    ...(doc.resolved ? [{ label: t(language, 'status_archived'), value: formatDate(doc.resolved, language) }] : []),
     { label: t(language, 'detail_due'), value: formatDate(doc.due, language) },
     ...(doc.asset ? [{ label: t(language, 'form_asset'), value: doc.asset }] : []),
     ...(doc.amt ? [{ label: t(language, 'detail_amount'), value: formatMoney(doc.amt, currency, language), bold: true }] : []),
@@ -166,14 +169,25 @@ export default function DocumentDetailScreen() {
             <Ionicons name={category?.iconFilled || 'document'} size={22} color={category?.color || '#999'} />
           </View>
           <View style={s.headerContent}>
-            <Text style={[s.headerTitle, { color: theme.text }]} numberOfLines={1}>{doc.title}</Text>
-            <Text style={[s.headerSubtype, { color: theme.textMuted }]} numberOfLines={1}>{translateSubtype(doc.type, language)}</Text>
-            <View style={s.headerStatus}>
-              <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, backgroundColor: statusConfig.color + '1A' }}>
-                <Text style={[s.headerStatusText, { color: statusConfig.color }]}>{t(language, statusConfig.labelKey)}</Text>
-              </View>
-              <Text style={[s.headerStatusDays, { color: statusConfig.color }]}>{formatDaysRemaining(doc._daysUntil, language)}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={[s.headerTitle, { color: theme.text, flexShrink: 1 }]} numberOfLines={1}>{doc.title}</Text>
+              {isDemoDocument(doc) && <ExamplePill language={language} />}
             </View>
+            <Text style={[s.headerSubtype, { color: theme.textMuted }]} numberOfLines={1}>{translateSubtype(doc.type, language)}</Text>
+            {doc.resolved ? (
+              <View style={s.headerStatus}>
+                <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, backgroundColor: theme.inputFillStrong }}>
+                  <Text style={[s.headerStatusText, { color: theme.textSecondary }]}>{t(language, 'status_archived')}</Text>
+                </View>
+              </View>
+            ) : (
+              <View style={s.headerStatus}>
+                <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, backgroundColor: statusConfig.color + '1A' }}>
+                  <Text style={[s.headerStatusText, { color: statusConfig.color }]}>{t(language, statusConfig.labelKey)}</Text>
+                </View>
+                <Text style={[s.headerStatusDays, { color: statusConfig.color }]}>{formatDaysRemaining(doc._daysUntil, language)}</Text>
+              </View>
+            )}
           </View>
         </FadeInView>
 
@@ -299,15 +313,27 @@ export default function DocumentDetailScreen() {
             </Text>
             <View style={[s.group, { backgroundColor: theme.card }]}>
               {doc.paymentHistory.map((payment, i) => (
-                <View key={i}>
-                  <View style={s.infoRow}>
-                    <Text style={[s.infoLabel, { color: theme.textSecondary }]}>
-                      {formatDate(payment.date, language)}
-                    </Text>
-                    <Text style={[s.infoValue, { color: theme.text }]}>
-                      {payment.amt != null ? formatMoney(payment.amt, currency, language) : '—'}
-                    </Text>
-                  </View>
+                <View key={`${payment.date}-${payment.dueDate}-${i}`}>
+                  <SwipeableRow
+                    onDelete={() => {
+                      deletePaymentRecord(doc.id, i);
+                      showToast(t(language, 'toast_payment_deleted'), 'info');
+                    }}
+                    confirmTitle={t(language, 'payment_delete_title')}
+                    confirmMessage={t(language, 'payment_delete_msg', { date: formatDate(payment.date, language) })}
+                    confirmCancel={t(language, 'confirm_cancel')}
+                    confirmDelete={t(language, 'confirm_delete_btn')}
+                    deleteLabel={t(language, 'detail_delete')}
+                  >
+                    <View style={[s.infoRow, { backgroundColor: theme.card }]}>
+                      <Text style={[s.infoLabel, { color: theme.textSecondary }]}>
+                        {formatDate(payment.date, language)}
+                      </Text>
+                      <Text style={[s.infoValue, { color: theme.text }]}>
+                        {payment.amt != null ? formatMoney(payment.amt, currency, language) : '—'}
+                      </Text>
+                    </View>
+                  </SwipeableRow>
                   {i < (doc.paymentHistory?.length ?? 0) - 1 && (
                     <View style={{ paddingLeft: 16 }}>
                       <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: theme.divider }} />
@@ -341,12 +367,18 @@ export default function DocumentDetailScreen() {
         {/* Actions */}
         <FadeInView delay={400} style={s.actionsSection}>
           <View style={[s.group, { backgroundColor: theme.card }]}>
-            <AnimatedPressable style={s.actionRow} onPress={handleMarkPaid} accessibilityLabel={t(language, 'a11y_mark_paid')} hapticStyle="medium">
-              <Ionicons name="checkmark-circle" size={18} color="#34C759" style={{ marginRight: 6 }} />
-              <Text style={[s.actionText, { color: '#34C759' }]}>
-                {doc.rec !== 'none' ? t(language, 'detail_pay_next') : t(language, 'detail_resolved')}
-              </Text>
-            </AnimatedPressable>
+            {doc.resolved ? (
+              <AnimatedPressable style={s.actionRow} onPress={handleRestore} accessibilityLabel={t(language, 'archive_restore')} hapticStyle="medium">
+                <Ionicons name="arrow-undo" size={18} color={theme.primary} style={{ marginRight: 6 }} />
+                <Text style={[s.actionText, { color: theme.primaryText }]}>{t(language, 'archive_restore')}</Text>
+              </AnimatedPressable>
+            ) : (
+              <AnimatedPressable style={s.actionRow} onPress={handleMarkPaid} accessibilityLabel={t(language, payButtonKey(doc))} hapticStyle="medium">
+                <Ionicons name="checkmark-circle" size={18} color="#34C759" style={{ marginRight: 6 }} />
+                <Text style={[s.actionText, { color: '#34C759' }]}>{t(language, payButtonKey(doc))}</Text>
+              </AnimatedPressable>
+            )}
+            {!doc.resolved && (<>
             <View style={{ paddingLeft: 16 }}>
               <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: theme.divider }} />
             </View>
@@ -381,6 +413,7 @@ export default function DocumentDetailScreen() {
               )}
               <Text style={[s.actionText, { color: theme.primaryText }]}>{t(language, 'cal_add')}</Text>
             </AnimatedPressable>
+            </>)}
           </View>
 
           <View style={[s.group, { backgroundColor: theme.card }]}>
@@ -453,6 +486,7 @@ export default function DocumentDetailScreen() {
           onClose={() => setViewImage(null)}
         />
       )}
+      {paySheet}
     </View>
   );
 }

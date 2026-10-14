@@ -9,11 +9,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-import { useTheme, useLanguage, useCurrency } from '../../src/stores/useSettingsStore';
+import { useTheme, useLanguage, useCurrency, useSettingsStore } from '../../src/stores/useSettingsStore';
 import { useEnrichedDocuments, useDocumentStore } from '../../src/stores/useDocumentStore';
 import { t, tp, translateSubtype } from '../../src/core/i18n';
 import { SwipeableRow } from '../../src/components/SwipeableRow';
-import { buildMarkAsPaidAction, deleteWithUndo } from '../../src/core/confirmActions';
+import { buildMarkAsPaidAction, deleteWithUndo, showDocumentMenu } from '../../src/core/confirmActions';
+import { isDemoDocument, isAtFreeLimit, countTowardFreeLimit } from '../../src/core/helpers';
+import { usePaySheet } from '../../src/components/PaySheet';
+import { ExamplePill } from '../../src/components/ExamplePill';
 import { formatDate, formatMoney, formatDaysRemaining } from '../../src/core/formatters';
 import { sortDocumentsByField } from '../../src/core/enrichment';
 import { CATEGORIES, STATUS_DISPLAY, SORT_OPTIONS } from '../../src/core/constants';
@@ -32,7 +35,9 @@ export default function CategoryDetailScreen() {
   const enrichedDocs = useEnrichedDocuments();
   const deleteDocument = useDocumentStore((s) => s.deleteDocument);
   const undoDelete = useDocumentStore((s) => s.undoDelete);
-  const markAsPaid = useDocumentStore((s) => s.markAsPaid);
+  const docCount = useDocumentStore((s) => countTowardFreeLimit(s.documents));
+  const isPremium = useSettingsStore((s) => s.settings.isPremium);
+  const { openPaySheet, paySheet } = usePaySheet();
   const [sortField, setSortField] = useState<SortField>('urgency');
   const [sortDir, setSortDir] = useState<SortDirection>('asc');
 
@@ -109,7 +114,15 @@ export default function CategoryDetailScreen() {
           <Ionicons name={category?.icon || 'document-outline'} size={18} color={category?.color || '#999'} />
           <Text style={[s.navTitle, { color: theme.text }]} numberOfLines={1}>{categoryLabel}</Text>
         </View>
-        <View style={{ width: 60 }} />
+        <AnimatedPressable
+          onPress={() => router.push(isAtFreeLimit(docCount, isPremium) ? '/premium' : `/form?cat=${categoryId}`)}
+          style={s.navAddBtn}
+          accessibilityLabel={t(language, 'a11y_add_document')}
+          accessibilityRole="button"
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons name="add" size={28} color={theme.primary} />
+        </AnimatedPressable>
       </FadeInView>
 
       {/* Sort chips — toggleable */}
@@ -173,10 +186,15 @@ export default function CategoryDetailScreen() {
                 confirmCancel={t(language, 'confirm_cancel')}
                 confirmDelete={t(language, 'confirm_delete_btn')}
                 deleteLabel={t(language, 'detail_delete')}
-                secondaryAction={buildMarkAsPaidAction(item, language, markAsPaid)}
+                secondaryAction={buildMarkAsPaidAction(item, language, openPaySheet)}
               >
                 <AnimatedPressable
                   onPress={() => router.push(`/document/${item.id}`)}
+                  onLongPress={() => showDocumentMenu(item, language, {
+                    onPay: openPaySheet,
+                    onEdit: (d) => router.push(`/form?editId=${d.id}`),
+                    onDelete: (d) => deleteWithUndo(d.id, language, deleteDocument, undoDelete),
+                  })}
                   accessibilityLabel={t(language, "a11y_open_document", { title: item.title })}
                   scaleValue={0.98}
                   style={[s.row, {
@@ -190,9 +208,12 @@ export default function CategoryDetailScreen() {
                   <View style={s.rowBody}>
                     <View style={[s.statusStrip, { backgroundColor: statusColor }]} />
                     <View style={s.rowMain}>
-                      <Text style={[s.rowTitle, { color: theme.text }]} numberOfLines={1}>
-                        {item.title}
-                      </Text>
+                      <View style={s.titleLine}>
+                        <Text style={[s.rowTitle, { color: theme.text, flexShrink: 1 }]} numberOfLines={1}>
+                          {item.title}
+                        </Text>
+                        {isDemoDocument(item) && <ExamplePill language={language} />}
+                      </View>
                       <Text style={[s.rowSub, { color: theme.textMuted }]} numberOfLines={1}>
                         {translateSubtype(item.type, language)}{item.asset ? ` · ${item.asset}` : ''} · {formatDate(item.due, language)}
                       </Text>
@@ -230,11 +251,14 @@ export default function CategoryDetailScreen() {
           </FadeInView>
         }
       />
+      {paySheet}
     </View>
   );
 }
 
 const s = StyleSheet.create({
+  navAddBtn: { width: 60, alignItems: 'flex-end', justifyContent: 'center', minHeight: 44, paddingRight: 12 },
+  titleLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   container: { flex: 1 },
   navBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 10, paddingHorizontal: 4, borderBottomWidth: StyleSheet.hairlineWidth },
   backBtn: { flexDirection: 'row', alignItems: 'center', minWidth: 60, paddingLeft: 4 },

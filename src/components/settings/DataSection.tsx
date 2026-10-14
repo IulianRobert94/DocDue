@@ -13,6 +13,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { t, tp, translateSubtype } from '../../core/i18n';
 import { useItemStore } from '../../stores/useItemStore';
 import { parseImportedRows } from '../../core/importParser';
+import { isDemoDocument, countTowardFreeLimit } from '../../core/helpers';
 import { CATEGORIES, FREE_DOCUMENT_LIMIT, MAX_IMPORT_LIMIT } from '../../core/constants';
 import type { RawDocument, AppSettings } from '../../core/constants';
 import type { AppTheme } from '../../theme/colors';
@@ -68,7 +69,9 @@ export function DataSection({
     try {
       const XLSX = await getXLSX();
       if (!XLSX) { Alert.alert(t(language, 'alert_error'), t(language, 'generic_error')); return; }
-      const rows = documents.map((doc) => ({
+      // The user's own active documents: archived ones would come back as
+      // expired on re-import, and the examples aren't theirs
+      const rows = documents.filter((doc) => !doc.resolved && !isDemoDocument(doc)).map((doc) => ({
         [t(language, 'form_category')]: t(language, CATEGORIES[doc.cat]?.labelKey || '') || doc.cat,
         [t(language, 'form_type')]: translateSubtype(doc.type, language),
         [t(language, 'form_title')]: doc.title,
@@ -160,7 +163,7 @@ export function DataSection({
       }
 
       if (!isPremium) {
-        const remaining = FREE_DOCUMENT_LIMIT - documents.length;
+        const remaining = FREE_DOCUMENT_LIMIT - countTowardFreeLimit(documents);
         if (remaining <= 0) {
           Alert.alert(
             t(language, 'premium_limit_title'),

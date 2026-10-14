@@ -58,6 +58,8 @@ export interface GlobalStats {
   ok: number;
   totalDue: number;
   urgentCount: number;
+  /** Late or due within 7 days — what the Alerts badge counts */
+  soonCount: number;
 }
 
 interface DocumentsState {
@@ -506,6 +508,20 @@ export function useEnrichedDocuments(): EnrichedDocument[] {
   );
 }
 
+/** Archived (closed) documents, most recently archived first */
+export function useArchivedDocuments(): EnrichedDocument[] {
+  const documents = useDocumentStore((s) => s.documents);
+  const today = useToday();
+  return useMemo(() =>
+    documents
+      .filter((d) => d.resolved)
+      .map((d) => enrichDocument(d))
+      .sort((a, b) => (b.resolved ?? "").localeCompare(a.resolved ?? "")),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- today: recompute days when the date changes
+    [documents, today]
+  );
+}
+
 export function useEnrichedDocument(id: string | undefined): EnrichedDocument | undefined {
   const doc = useDocumentStore((s) => s.documents.find((d) => d.id === id));
   const today = useToday();
@@ -520,9 +536,10 @@ export function useEnrichedDocument(id: string | undefined): EnrichedDocument | 
  * every number reflects only the user's own documents (same set as reminders).
  */
 export function computeGlobalStats(enriched: EnrichedDocument[]): GlobalStats {
-  let expired = 0, warning = 0, ok = 0, totalDue = 0;
+  let expired = 0, warning = 0, ok = 0, totalDue = 0, soonCount = 0;
   for (const d of enriched) {
     if (isDemoDocument(d)) continue;
+    if (d._daysUntil <= 7) soonCount++;
     if (d._status === "expired") expired++;
     else if (d._status === "warning") warning++;
     else ok++;
@@ -530,7 +547,7 @@ export function computeGlobalStats(enriched: EnrichedDocument[]): GlobalStats {
       totalDue += d.amt || 0;
     }
   }
-  return { expired, warning, ok, totalDue, urgentCount: expired + warning };
+  return { expired, warning, ok, totalDue, urgentCount: expired + warning, soonCount };
 }
 
 export function computeCategoryStats(enriched: EnrichedDocument[]): Record<CategoryId, CategoryStats> {

@@ -1,12 +1,15 @@
 /**
- * Shared confirmation dialogs for document actions (mark-as-paid, delete with undo).
- * Used by alerts, search, category, and document detail screens to avoid duplication.
+ * Shared document actions for the lists (alerts, search, category): delete
+ * with undo, the swipe "Plătit / Reînnoit" action and the long-press menu.
+ * Paying always goes through the pay sheet, so the user sees the new date.
  */
 
-import { Alert } from 'react-native';
+import { Alert, ActionSheetIOS, Platform } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { t } from './i18n';
+import { payKind } from './payment';
 import { showToast } from '../stores/useToastStore';
-import type { EnrichedDocument, LanguageCode } from './constants';
+import type { RawDocument, LanguageCode } from './constants';
 import type { IconName } from '../types';
 
 /**
@@ -26,31 +29,52 @@ export function deleteWithUndo(
   });
 }
 
-/**
- * Build the secondaryAction config for SwipeableRow's mark-as-paid action.
- * Returns undefined for "ok" status documents (no action needed).
- */
-export function buildMarkAsPaidAction(
-  item: EnrichedDocument,
+/** SwipeableRow's secondary action: opens the pay sheet for the document. */
+export function buildMarkAsPaidAction<T extends RawDocument>(
+  item: T,
   language: LanguageCode,
-  markAsPaid: (doc: EnrichedDocument) => void,
+  openPay: (doc: T) => void,
 ) {
-  if (item._status !== 'expired' && item._status !== 'warning') return undefined;
-
-  const isRecurring = item.rec !== 'none';
-  const icon: IconName = isRecurring ? 'checkmark-circle' : 'checkmark-done';
+  const kind = payKind(item);
+  const icon: IconName = kind === 'bill' ? 'checkmark-circle' : 'checkmark-done';
   return {
-    label: t(language, isRecurring ? 'confirm_paid_btn' : 'confirm_resolved_btn'),
+    label: t(language, `pay_btn_${kind}`),
     icon,
     color: '#34C759',
-    onPress: () => {
-      const title = t(language, isRecurring ? 'confirm_paid_title' : 'confirm_resolved_title');
-      const msg = t(language, isRecurring ? 'confirm_paid_msg' : 'confirm_resolved_msg');
-      const btn = t(language, isRecurring ? 'confirm_paid_btn' : 'confirm_resolved_btn');
-      Alert.alert(title, msg, [
-        { text: t(language, 'confirm_cancel'), style: 'cancel' },
-        { text: btn, onPress: () => markAsPaid(item) },
-      ]);
-    },
+    onPress: () => openPay(item),
   };
+}
+
+/** Long-press menu shared by every list: pay / edit / delete (with confirmation). */
+export function showDocumentMenu<T extends RawDocument>(
+  item: T,
+  language: LanguageCode,
+  handlers: { onPay: (doc: T) => void; onEdit: (doc: T) => void; onDelete: (doc: T) => void },
+) {
+  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+  const payLabel = t(language, `pay_btn_${payKind(item)}`);
+  const confirmDelete = () => {
+    Alert.alert(t(language, 'confirm_delete_title'), t(language, 'confirm_delete_msg', { title: item.title }), [
+      { text: t(language, 'confirm_cancel'), style: 'cancel' },
+      { text: t(language, 'confirm_delete_btn'), style: 'destructive', onPress: () => handlers.onDelete(item) },
+    ]);
+  };
+  if (Platform.OS === 'ios') {
+    const options = [t(language, 'confirm_cancel'), payLabel, t(language, 'detail_edit'), t(language, 'detail_delete')];
+    ActionSheetIOS.showActionSheetWithOptions(
+      { options, cancelButtonIndex: 0, destructiveButtonIndex: 3, title: item.title },
+      (idx) => {
+        if (idx === 1) handlers.onPay(item);
+        else if (idx === 2) handlers.onEdit(item);
+        else if (idx === 3) confirmDelete();
+      },
+    );
+  } else {
+    Alert.alert(item.title, undefined, [
+      { text: t(language, 'confirm_cancel'), style: 'cancel' },
+      { text: payLabel, onPress: () => handlers.onPay(item) },
+      { text: t(language, 'detail_edit'), onPress: () => handlers.onEdit(item) },
+      { text: t(language, 'detail_delete'), style: 'destructive', onPress: confirmDelete },
+    ]);
+  }
 }

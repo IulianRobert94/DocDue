@@ -247,7 +247,7 @@ export const ui = StyleSheet.create({
   sectionHeader: { fontSize: 13, fontWeight: "500", fontFamily: fonts.medium, textTransform: "uppercase", letterSpacing: 0.5, paddingHorizontal: 20, paddingTop: 24, paddingBottom: 8 },
   group: { marginHorizontal: 16, borderRadius: 12, overflow: "hidden", borderWidth: 1, borderColor: "rgba(255,255,255,0.04)" },
   inputRow: { flexDirection: "row", alignItems: "center", minHeight: 48, paddingHorizontal: 16 },
-  inputLabel: { fontSize: 17, fontFamily: fonts.regular, minWidth: 110 },
+  inputLabel: { fontSize: 17, fontFamily: fonts.regular, minWidth: 110, marginRight: 12 },
   inputField: { flex: 1, fontSize: 17, fontFamily: fonts.regular, paddingVertical: 11 },
   suffix: { fontSize: 15, fontFamily: fonts.regular, marginLeft: 6 },
   datePickerContainer: { paddingHorizontal: 16, paddingBottom: 12 },

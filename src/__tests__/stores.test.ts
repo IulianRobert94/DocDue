@@ -851,11 +851,22 @@ describe("computed stats logic", () => {
     expect(stats.urgentCount).toBe(2);
   });
 
+  it("soonCount (tab badge) = late or due within 7 days, not a passport 5 months away", () => {
+    const docs: RawDocument[] = [
+      { id: "1", cat: "vehicule", type: "RCA", title: "Late", due: addDaysToDate(getTodayString(), -1), amt: null, rec: "annual" },
+      { id: "2", cat: "casa", type: "Gaz", title: "Soon", due: addDaysToDate(getTodayString(), 7), amt: null, rec: "monthly" },
+      { id: "3", cat: "personal", type: "Pașaport", title: "Passport", due: addDaysToDate(getTodayString(), 150), amt: null, rec: "10years" },
+    ];
+    const stats = computeGlobalStats(docs.map((d) => enrichDocument(d)));
+    expect(stats.urgentCount).toBe(3);
+    expect(stats.soonCount).toBe(2);
+  });
+
   it("leaves example documents out of every number", () => {
     const examples = createDemoDocuments("ro").map((d) => enrichDocument(d));
     const own = enrichDocument({ id: "own", cat: "casa", type: "Gaz", title: "Gaz", due: addDaysToDate(getTodayString(), 3), amt: 100, rec: "monthly" });
 
-    expect(computeGlobalStats([...examples, own])).toEqual({ expired: 0, warning: 1, ok: 0, totalDue: 100, urgentCount: 1 });
+    expect(computeGlobalStats([...examples, own])).toEqual({ expired: 0, warning: 1, ok: 0, totalDue: 100, urgentCount: 1, soonCount: 1 });
     const cats = computeCategoryStats([...examples, own]);
     expect(cats.vehicule.total).toBe(0);
     expect(cats.casa).toEqual({ total: 1, expired: 0, warning: 1, ok: 0, totalDue: 100 });

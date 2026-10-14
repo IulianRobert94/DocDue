@@ -345,6 +345,10 @@ import { t, translateSubtype, TRANSLATIONS, pluralCategory, tp } from "../core/i
 jest.mock("react-native", () => ({
   Alert: { alert: jest.fn() },
 }));
+jest.mock("expo-haptics", () => ({
+  impactAsync: jest.fn(() => Promise.resolve()),
+  ImpactFeedbackStyle: { Medium: "medium" },
+}));
 import { buildMarkAsPaidAction, deleteWithUndo } from "../core/confirmActions";
 
 describe("i18n completeness", () => {
@@ -913,33 +917,31 @@ describe("buildMarkAsPaidAction", () => {
     _status: status,
   });
 
-  it("returns undefined for ok status", () => {
-    const result = buildMarkAsPaidAction(makeEnriched("ok", "annual"), "ro", () => {});
-    expect(result).toBeUndefined();
+  it("is offered for every active document — paying early is fine", () => {
+    expect(buildMarkAsPaidAction(makeEnriched("ok", "annual"), "ro", () => {})).toBeDefined();
+    expect(buildMarkAsPaidAction(makeEnriched("warning", "monthly"), "ro", () => {})).toBeDefined();
   });
 
-  it("returns action for expired status", () => {
-    const result = buildMarkAsPaidAction(makeEnriched("expired", "annual"), "ro", () => {});
-    expect(result).toBeDefined();
-    expect(result!.color).toBe("#34C759");
-    expect(typeof result!.onPress).toBe("function");
+  it("opens the pay sheet for that document instead of paying right away", () => {
+    const openPay = jest.fn();
+    const doc = makeEnriched("expired", "annual");
+    const result = buildMarkAsPaidAction(doc, "ro", openPay);
+    expect(result.color).toBe("#34C759");
+    result.onPress();
+    expect(openPay).toHaveBeenCalledWith(doc);
   });
 
-  it("returns action for warning status", () => {
-    const result = buildMarkAsPaidAction(makeEnriched("warning", "monthly"), "en", () => {});
-    expect(result).toBeDefined();
-  });
-
-  it("uses 'paid' label for recurring documents", () => {
+  it("says Reînnoit for renewals (RCA)", () => {
     const result = buildMarkAsPaidAction(makeEnriched("expired", "annual"), "en", () => {});
-    expect(result!.label).toBe(t("en", "confirm_paid_btn"));
-    expect(result!.icon).toBe("checkmark-circle");
+    expect(result.label).toBe(t("en", "pay_btn_renewal"));
+    expect(result.icon).toBe("checkmark-done");
   });
 
-  it("uses 'resolved' label for non-recurring documents", () => {
-    const result = buildMarkAsPaidAction(makeEnriched("expired", "none"), "en", () => {});
-    expect(result!.label).toBe(t("en", "confirm_resolved_btn"));
-    expect(result!.icon).toBe("checkmark-done");
+  it("says Plătit for bills", () => {
+    const bill = { ...makeEnriched("expired", "monthly"), cat: "casa" as const, type: "Gaz" };
+    const result = buildMarkAsPaidAction(bill, "en", () => {});
+    expect(result.label).toBe(t("en", "pay_btn_bill"));
+    expect(result.icon).toBe("checkmark-circle");
   });
 });
 
@@ -1232,7 +1234,7 @@ describe("i18n RO/EN parity", () => {
     "search_no_filter_results", "search_all",
     // Document detail
     "detail_due", "detail_amount", "detail_recurrence", "detail_type", "detail_notes",
-    "detail_pay_next", "detail_resolved", "detail_edit", "detail_delete",
+    "detail_edit", "detail_delete",
     // Form
     "form_add_title", "form_edit_title", "form_category", "form_type", "form_title",
     "form_asset", "form_due", "form_amount", "form_recurrence", "form_notes",
@@ -1245,13 +1247,14 @@ describe("i18n RO/EN parity", () => {
     // Confirm dialogs
     "confirm_discard_title", "confirm_discard_msg", "confirm_discard_btn",
     "confirm_delete_title", "confirm_delete_msg", "confirm_cancel", "confirm_delete_btn",
-    "confirm_paid_title", "confirm_paid_msg", "confirm_paid_btn",
-    "confirm_resolved_title", "confirm_resolved_msg", "confirm_resolved_btn",
     "confirm_reset_title", "confirm_reset_msg", "confirm_reset_btn",
     "confirm_clear_title", "confirm_clear_msg", "confirm_clear_btn",
     // Toasts
-    "toast_added", "toast_updated", "toast_deleted", "toast_paid_next",
-    "toast_resolved", "toast_demo_restored", "toast_all_cleared", "toast_save_error",
+    "toast_added", "toast_updated", "toast_deleted", "toast_paid_until", "toast_renewed_until",
+    "toast_archived", "toast_demo_restored", "toast_all_cleared", "toast_save_error",
+    // Pay sheet
+    "pay_btn_bill", "pay_btn_renewal", "pay_btn_ending", "pay_next_due", "pay_valid_until",
+    "pay_amount", "pay_confirm_bill", "pay_confirm_renewal", "pay_archive_hint",
     "save_error_title", "save_error_msg",
     // Settings
     "settings_title", "settings_general", "settings_appearance", "settings_alerts",
@@ -1287,7 +1290,7 @@ describe("i18n RO/EN parity", () => {
     // Accessibility
     "a11y_search_btn", "a11y_see_all_alerts", "a11y_close_modal", "a11y_go_back",
     "a11y_add_document", "a11y_save_document", "a11y_cancel",
-    "a11y_delete_document", "a11y_edit_document", "a11y_mark_paid",
+    "a11y_delete_document", "a11y_edit_document",
     "a11y_sort_by", "a11y_select_category", "a11y_select_type",
     "a11y_select_recurrence", "a11y_open_document", "a11y_open_category",
     "a11y_theme_toggle", "a11y_close_image", "a11y_image_preview",

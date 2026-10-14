@@ -66,7 +66,7 @@ export default function TabLayout() {
         listeners={{ tabPress: () => Haptics.selectionAsync().catch(() => {}) }}
         options={{
           title: t(lang, "nav_alerts"),
-          tabBarBadge: stats.urgentCount > 0 ? stats.urgentCount : undefined,
+          tabBarBadge: stats.soonCount > 0 ? stats.soonCount : undefined,
           tabBarBadgeStyle: { backgroundColor: '#FF3B30', fontSize: 11, fontFamily: fonts.bold },
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? "notifications" : "notifications-outline"} size={24} color={color} />

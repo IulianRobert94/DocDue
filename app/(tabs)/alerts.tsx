@@ -4,23 +4,27 @@
  */
 
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, SectionList, Platform, ActionSheetIOS, Alert } from 'react-native';
+import { View, Text, StyleSheet, SectionList } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useTheme, useLanguage, useCurrency } from '../../src/stores/useSettingsStore';
-import { useEnrichedDocuments, useDocumentStore } from '../../src/stores/useDocumentStore';
+import { useEnrichedDocuments, useDocumentStore, useGlobalStats } from '../../src/stores/useDocumentStore';
 import { t, translateSubtype } from '../../src/core/i18n';
 import { SwipeableRow } from '../../src/components/SwipeableRow';
-import { buildMarkAsPaidAction, deleteWithUndo } from '../../src/core/confirmActions';
+import { buildMarkAsPaidAction, deleteWithUndo, showDocumentMenu } from '../../src/core/confirmActions';
+import { groupAlerts } from '../../src/core/alerts';
+import type { AlertGroupKey } from '../../src/core/alerts';
+import { isDemoDocument } from '../../src/core/helpers';
+import { usePaySheet } from '../../src/components/PaySheet';
+import { ExamplePill } from '../../src/components/ExamplePill';
 import { formatDaysRemaining, formatMoney } from '../../src/core/formatters';
 import { STATUS_DISPLAY, CATEGORIES } from '../../src/core/constants';
-import type { DocumentStatus } from '../../src/core/constants';
+import type { IconName } from '../../src/types';
 import Reanimated, { FadeInDown, FadeOut } from 'react-native-reanimated';
 import { AnimatedPressable, FadeInView } from '../../src/components/AnimatedUI';
 import { fonts } from '../../src/theme/typography';
-import * as Haptics from 'expo-haptics';
 
 export default function AlertsScreen() {
   const insets = useSafeAreaInsets();
@@ -31,22 +35,14 @@ export default function AlertsScreen() {
   const enrichedDocs = useEnrichedDocuments();
   const deleteDocument = useDocumentStore((s) => s.deleteDocument);
   const undoDelete = useDocumentStore((s) => s.undoDelete);
-  const markAsPaid = useDocumentStore((s) => s.markAsPaid);
+  const stats = useGlobalStats(enrichedDocs);
+  const { openPaySheet, paySheet } = usePaySheet();
 
-  const { alertDocs, sections } = useMemo(() => {
-    const expired: typeof enrichedDocs = [];
-    const warning: typeof enrichedDocs = [];
-    for (const doc of enrichedDocs) {
-      if (doc._status === 'expired') expired.push(doc);
-      else if (doc._status === 'warning') warning.push(doc);
-    }
-    const allAlerts = [...expired, ...warning];
-    const sects = [
-      { title: t(language, 'status_expired'), data: expired, status: 'expired' as DocumentStatus },
-      { title: t(language, 'status_warning'), data: warning, status: 'warning' as DocumentStatus },
-    ].filter((s) => s.data.length > 0);
-    return { alertDocs: allAlerts, sections: sects };
-  }, [enrichedDocs, language]);
+  // Late / next 7 days / next 30 days / later — each with the money it needs
+  const sections = useMemo(() => groupAlerts(enrichedDocs).map((group) => ({
+    ...group,
+    title: t(language, `alerts_group_${group.key}`),
+  })), [enrichedDocs, language]);
 
   return (
     <View style={[s.container, { backgroundColor: theme.background }]}>
@@ -63,23 +59,22 @@ export default function AlertsScreen() {
             <Text style={[s.largeTitle, { color: theme.text }]} accessibilityRole="header">
               {t(language, 'nav_alerts')}
             </Text>
-            {alertDocs.length > 0 && (
+            {stats.soonCount > 0 && (
               <View style={s.countBadge}>
-                <Text style={s.countText}>{alertDocs.length}</Text>
+                <Text style={s.countText}>{stats.soonCount}</Text>
               </View>
             )}
           </FadeInView>
         }
-        renderSectionHeader={({ section: { title, status, data } }) => (
+        renderSectionHeader={({ section: { title, key, data, total } }) => (
           <View style={s.sectionHeader} accessibilityRole="header">
-            <Ionicons
-              name={STATUS_DISPLAY[status]?.icon || 'ellipse'}
-              size={14}
-              color={STATUS_DISPLAY[status]?.color || '#999'}
-            />
+            <Ionicons name={GROUP_ICON[key].icon} size={14} color={GROUP_ICON[key].color ?? theme.textMuted} />
             <Text style={[s.sectionTitle, { color: theme.textSecondary }]}>
               {title} ({data.length})
             </Text>
+            {total > 0 && (
+              <Text style={[s.sectionTotal, { color: theme.textSecondary }]}>{formatMoney(total, currency, language)}</Text>
+            )}
           </View>
         )}
         renderItem={({ item, index, section }) => {
@@ -97,47 +92,15 @@ export default function AlertsScreen() {
                 confirmCancel={t(language, 'confirm_cancel')}
                 confirmDelete={t(language, 'confirm_delete_btn')}
                 deleteLabel={t(language, 'detail_delete')}
-                secondaryAction={buildMarkAsPaidAction(item, language, markAsPaid)}
+                secondaryAction={buildMarkAsPaidAction(item, language, openPaySheet)}
               >
                 <AnimatedPressable
                   onPress={() => router.push(`/document/${item.id}`)}
-                  onLongPress={() => {
-                    const isRecurring = item.rec !== 'none';
-                    const options = [
-                      t(language, 'confirm_cancel'),
-                      t(language, isRecurring ? 'confirm_paid_btn' : 'confirm_resolved_btn'),
-                      t(language, 'detail_edit'),
-                      t(language, 'detail_delete'),
-                    ];
-                    if (Platform.OS === 'ios') {
-                      ActionSheetIOS.showActionSheetWithOptions(
-                        { options, cancelButtonIndex: 0, destructiveButtonIndex: 3 },
-                        (idx) => {
-                          if (idx === 1) markAsPaid(item);
-                          else if (idx === 2) router.push(`/form?editId=${item.id}`);
-                          else if (idx === 3) {
-                            Alert.alert(t(language, 'confirm_delete_title'), t(language, 'confirm_delete_msg', { title: item.title }), [
-                              { text: t(language, 'confirm_cancel'), style: 'cancel' },
-                              { text: t(language, 'confirm_delete_btn'), style: 'destructive', onPress: () => { deleteWithUndo(item.id, language, deleteDocument, undoDelete); } },
-                            ]);
-                          }
-                        }
-                      );
-                    } else {
-                      Alert.alert(item.title, undefined, [
-                        { text: t(language, 'confirm_cancel'), style: 'cancel' },
-                        { text: t(language, isRecurring ? 'confirm_paid_btn' : 'confirm_resolved_btn'), onPress: () => markAsPaid(item) },
-                        { text: t(language, 'detail_edit'), onPress: () => router.push(`/form?editId=${item.id}`) },
-                        { text: t(language, 'detail_delete'), style: 'destructive', onPress: () => {
-                          Alert.alert(t(language, 'confirm_delete_title'), t(language, 'confirm_delete_msg', { title: item.title }), [
-                            { text: t(language, 'confirm_cancel'), style: 'cancel' },
-                            { text: t(language, 'confirm_delete_btn'), style: 'destructive', onPress: () => deleteWithUndo(item.id, language, deleteDocument, undoDelete) },
-                          ]);
-                        }},
-                      ]);
-                    }
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-                  }}
+                  onLongPress={() => showDocumentMenu(item, language, {
+                    onPay: openPaySheet,
+                    onEdit: (d) => router.push(`/form?editId=${d.id}`),
+                    onDelete: (d) => deleteWithUndo(d.id, language, deleteDocument, undoDelete),
+                  })}
                   style={[
                     s.row,
                     {
@@ -156,9 +119,12 @@ export default function AlertsScreen() {
                       <Ionicons name={category?.icon || 'document-outline'} size={18} color={category?.color || '#999'} />
                     </View>
                     <View style={s.rowMain}>
-                      <Text style={[s.rowTitle, { color: theme.text }]} numberOfLines={1}>
-                        {item.title}
-                      </Text>
+                      <View style={s.titleLine}>
+                        <Text style={[s.rowTitle, { color: theme.text, flexShrink: 1 }]} numberOfLines={1}>
+                          {item.title}
+                        </Text>
+                        {isDemoDocument(item) && <ExamplePill language={language} />}
+                      </View>
                       <Text style={[s.rowSubtitle, { color: theme.textMuted }]} numberOfLines={1}>
                         {translateSubtype(item.type, language)}
                         {item.asset ? ` · ${item.asset}` : ''}
@@ -217,9 +183,17 @@ export default function AlertsScreen() {
           </FadeInView>
         }
       />
+      {paySheet}
     </View>
   );
 }
+
+const GROUP_ICON: Record<AlertGroupKey, { icon: IconName; color?: string }> = {
+  overdue: { icon: 'alert-circle', color: '#FF3B30' },
+  week: { icon: 'time', color: '#FF9500' },
+  month: { icon: 'calendar', color: '#0A79F1' },
+  later: { icon: 'calendar-outline' },
+};
 
 const s = StyleSheet.create({
   container: { flex: 1 },
@@ -228,7 +202,9 @@ const s = StyleSheet.create({
   countBadge: { minWidth: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8, backgroundColor: '#FF3B30' },
   countText: { color: '#FFF', fontSize: 14, fontFamily: fonts.bold },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 24, paddingBottom: 8, gap: 8 },
-  sectionTitle: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, fontFamily: fonts.semiBold },
+  sectionTitle: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, fontFamily: fonts.semiBold, flex: 1 },
+  sectionTotal: { fontSize: 13, fontFamily: fonts.semiBold },
+  titleLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   row: { overflow: 'hidden' },
   rowContent: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingLeft: 12, paddingRight: 12, minHeight: 64 },
   rowIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginRight: 12 },

@@ -121,6 +121,7 @@ export default function SettingsScreen() {
     } else {
       updateSetting('notificationsEnabled', false);
       ExpoNotifications.cancelAllScheduledNotificationsAsync().catch(() => {});
+      ExpoNotifications.setBadgeCountAsync(0).catch(() => {});
     }
   };
 
