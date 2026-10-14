@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { View, Text, ScrollView, StyleSheet, Alert, Image, Share, ActivityIndicator, Animated, Platform, ActionSheetIOS } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Alert, Image, Share, ActivityIndicator, Animated, Platform, ActionSheetIOS, InteractionManager } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { showToast } from '../../src/stores/useToastStore';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -77,8 +77,12 @@ export default function DocumentDetailScreen() {
   useEffect(() => {
     if (pay !== '1' || autoPayRef.current || !doc || doc.resolved) return;
     autoPayRef.current = true;
-    const timer = setTimeout(() => openPaySheet(doc, { onDone: (action) => { if (action.kind !== 'close') playCongrats(); } }), 450);
-    return () => clearTimeout(timer);
+    // After the screen's own opening animation: presenting a sheet mid-transition can fail on iOS
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const task = InteractionManager.runAfterInteractions(() => {
+      timer = setTimeout(() => openPaySheet(doc, { onDone: (action) => { if (action.kind !== 'close') playCongrats(); } }), 250);
+    });
+    return () => { task.cancel(); if (timer) clearTimeout(timer); };
   // eslint-disable-next-line react-hooks/exhaustive-deps -- once per opening, with the document as it was
   }, [pay, doc?.id]);
 
@@ -150,7 +154,7 @@ export default function DocumentDetailScreen() {
     ...(doc.resolved ? [{ label: t(language, 'status_archived'), value: formatDate(doc.resolved, language) }] : []),
     { label: t(language, 'detail_due'), value: formatDate(doc.due, language) },
     // Tapping what it's for lists every document for that car / home
-    ...(doc.asset ? [{ label: t(language, 'form_asset'), value: doc.asset, onPress: () => router.push(`/search?q=${encodeURIComponent(doc.asset ?? '')}`) }] : []),
+    ...(doc.asset ? [{ label: t(language, 'form_asset'), value: doc.asset, onPress: () => router.navigate(`/search?q=${encodeURIComponent(doc.asset ?? '')}`) }] : []),
     ...(doc.amt ? [{ label: t(language, 'detail_amount'), value: formatMoney(doc.amt, docCur, language), bold: true }] : []),
     { label: t(language, 'detail_recurrence'), value: getRecurrenceLabel(doc.rec, language) },
     ...(nextReminder ? [{ label: t(language, 'detail_next_reminder'), value: formatDate(nextReminder, language) }] : []),

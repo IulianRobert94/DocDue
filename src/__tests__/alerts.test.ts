@@ -48,6 +48,11 @@ describe("groupAlerts", () => {
     expect(groups[0]).toMatchObject({ key: "week", totals: { RON: 900 } });
   });
 
+  it("a bill three months late counts all three missed periods (like the pay sheet)", () => {
+    const groups = groupAlerts([doc("late", -70, { amt: 200 })], "RON");
+    expect(groups[0]).toMatchObject({ key: "overdue", totals: { RON: 600 } });
+  });
+
   it("keeps currencies apart: rent in EUR, bills in lei", () => {
     const groups = groupAlerts([doc("rent", 3, { amt: 400, currency: "EUR" }), doc("power", 4, { amt: 310 })], "RON");
     expect(groups[0].totals).toEqual({ EUR: 400, RON: 310 });

@@ -586,13 +586,13 @@ describe("useDocumentStore", () => {
   });
 
   describe("editing an example", () => {
-    it("drops its sample payment history — the payments weren't the user's", () => {
+    it("makes it the user's and keeps its payment history (older versions had no other way to use examples)", () => {
       const example = createDemoDocuments("ro").find((d) => (d.paymentHistory?.length ?? 0) > 0)!;
       useDocumentStore.setState({ documents: [example], _hydrated: true });
       useDocumentStore.getState().updateDocument({ id: example.id, amt: 310 });
       const doc = useDocumentStore.getState().documents[0];
       expect(doc.userEdited).toBe(true);
-      expect(doc.paymentHistory ?? []).toEqual([]);
+      expect(doc.paymentHistory).toEqual(example.paymentHistory);
     });
 
     it("keeps the history of a document that is already the user's", () => {
@@ -676,6 +676,17 @@ describe("useDocumentStore", () => {
 
     it("returns false for a document that no longer exists", () => {
       expect(useDocumentStore.getState().applyPayment("missing", { kind: "close", amount: null })).toBe(false);
+    });
+  });
+
+  describe("assignMissingCurrency (documents from older versions)", () => {
+    it("gives amounts without a currency today's app currency, once", () => {
+      useDocumentStore.getState().addDocument(makeDoc({ title: "Old bill", amt: 120 }));
+      useDocumentStore.getState().addDocument(makeDoc({ title: "Rent", amt: 400, currency: "EUR" }));
+      useDocumentStore.getState().addDocument(makeDoc({ title: "ID card", amt: null }));
+      useDocumentStore.getState().assignMissingCurrency("RON");
+      const byTitle = Object.fromEntries(useDocumentStore.getState().documents.map((d) => [d.title, d.currency]));
+      expect(byTitle).toEqual({ "Old bill": "RON", Rent: "EUR", "ID card": undefined });
     });
   });
 

@@ -122,6 +122,17 @@ export function projectOccurrences(doc: RawDocument, from: string, to: string): 
   return dates;
 }
 
+/**
+ * Periods owed by a late document: every missed period of a bill (all before
+ * today — one falling today is due, not late); a lapsed policy or a one-time
+ * document, once. 0 when it isn't late.
+ */
+export function missedPeriods(doc: RawDocument, today: string): number {
+  if (doc.due >= today) return 0;
+  const plan = planPayment(doc, today);
+  return plan.recurring && !plan.renewal ? plan.periodsAll : 1;
+}
+
 export type PayAction =
   /** Recurring: move to `nextDue`, recording one payment per period covered */
   | { kind: "pay"; nextDue: string; amount: number | null; periods: number }
@@ -131,10 +142,10 @@ export type PayAction =
   | { kind: "close"; amount: number | null };
 
 export function applyPayAction(doc: RawDocument, action: PayAction, today: string): RawDocument {
-  // Paying an example makes it the user's; its sample payments aren't theirs
-  const example = isDemoDocument(doc);
-  const history: PaymentRecord[] = example ? [] : [...(doc.paymentHistory ?? [])];
-  const base: RawDocument = example ? { ...doc, userEdited: true } : { ...doc };
+  // Paying an example makes it the user's (its history stays — older versions
+  // may have recorded real payments on it)
+  const history: PaymentRecord[] = [...(doc.paymentHistory ?? [])];
+  const base: RawDocument = isDemoDocument(doc) ? { ...doc, userEdited: true } : { ...doc };
   const record = (dueDate: string): PaymentRecord => ({ date: today, dueDate, amt: action.amount });
   // The amount actually paid becomes the expected one for next time
   const amount = action.amount != null ? { amt: action.amount } : {};
@@ -146,7 +157,7 @@ export function applyPayAction(doc: RawDocument, action: PayAction, today: strin
 
   if (action.kind === "renew") {
     history.push(record(doc.due));
-    return { ...base, ...amount, due: action.nextDue, paymentHistory: history, resolved: undefined };
+    return { ...base, ...amount, due: action.nextDue, dueDay: dayOf(action.nextDue), paymentHistory: history, resolved: undefined };
   }
 
   const day = anchorDayOf(doc);
@@ -155,7 +166,7 @@ export function applyPayAction(doc: RawDocument, action: PayAction, today: strin
     history.push(record(periodDue));
     periodDue = advance(doc.rec, periodDue, day);
   }
-  if (!MONTHS[doc.rec]) return { ...base, ...amount, due: action.nextDue, paymentHistory: history };
+  if (!MONTHS[doc.rec]) return { ...base, ...amount, due: action.nextDue, dueDay: dayOf(action.nextDue), paymentHistory: history };
 
   // The suggested date keeps the chosen day of month (the 31st survives
   // February); a date the user picked becomes the new one; a lapsed renewal

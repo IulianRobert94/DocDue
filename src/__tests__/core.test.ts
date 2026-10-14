@@ -441,7 +441,7 @@ describe("PaymentRecord in RawDocument", () => {
 
 // ─── Demo Data ──────────────────────────────────────────
 
-import { createDemoDocuments } from "../core/demo";
+import { createDemoDocuments, adoptUsedExamples } from "../core/demo";
 import { calculateHealthScore, getHealthScoreColor, getHealthScoreLabel } from "../core/healthScore";
 import { getSmartDefaults, autoCategorize, resolveRecurrenceForType } from "../core/smartDefaults";
 
@@ -1679,6 +1679,10 @@ describe("getScheduledReminderOffsets (what actually gets scheduled)", () => {
     expect(getScheduledReminderOffsets({ ...base, rec: "monthly", reminderDays: [2] })).toEqual([2, ...FOLLOW_UPS]);
   });
 
+  it("a warranty that ends gets its due day, but no 'renew it' follow-ups", () => {
+    expect(getScheduledReminderOffsets({ ...base, type: "Garanție produs", rec: "none" })).toEqual([30, 7, 1, 0]);
+  });
+
   it("never schedules the same day twice", () => {
     expect(getScheduledReminderOffsets({ ...base, rec: "monthly", reminderDays: [3, -1] })).toEqual([3, ...FOLLOW_UPS]);
   });
@@ -2697,6 +2701,41 @@ describe("parseOptionalNumber", () => {
 describe("toDateString", () => {
   it("formats the local calendar date", () => {
     expect(toDateString(new Date(2026, 0, 5, 23, 30))).toBe("2026-01-05");
+  });
+});
+
+describe("adoptUsedExamples (examples used for real in older versions)", () => {
+  const sample = () => createDemoDocuments("ro");
+
+  it("untouched examples stay examples", () => {
+    const docs = sample();
+    expect(adoptUsedExamples(docs).every((d) => isDemoDocument(d))).toBe(true);
+  });
+
+  it.each([
+    ["an extra payment", (d: RawDocument) => ({ ...d, paymentHistory: [...(d.paymentHistory ?? []), { date: "2026-05-01", dueDate: "2026-05-01", amt: 99 }] })],
+    ["a changed amount", (d: RawDocument) => ({ ...d, amt: (d.amt ?? 0) + 1 })],
+    ["changed notes", (d: RawDocument) => ({ ...d, notes: "Polița mea reală" })],
+    ["a changed car / home", (d: RawDocument) => ({ ...d, asset: "B-01-XYZ" })],
+    ["an attachment", (d: RawDocument) => ({ ...d, attachments: [{ id: "a", uri: "file://x.jpg", name: "x.jpg", type: "image" as const }] })],
+    ["custom reminders", (d: RawDocument) => ({ ...d, reminderDays: [3] })],
+    ["being archived", (d: RawDocument) => ({ ...d, resolved: "2026-05-01" })],
+  ])("an example with %s becomes the user's", (_label, change) => {
+    const [first, ...rest] = sample();
+    const result = adoptUsedExamples([change(first), ...rest]);
+    expect(result[0].userEdited).toBe(true);
+    expect(isDemoDocument(result[0])).toBe(false);
+    expect(result.slice(1).every((d) => isDemoDocument(d))).toBe(true);
+  });
+
+  it("works for examples created in English too", () => {
+    const [first] = createDemoDocuments("en");
+    expect(adoptUsedExamples([{ ...first, amt: 1 }])[0].userEdited).toBe(true);
+  });
+
+  it("leaves the user's own documents alone (same array when nothing changes)", () => {
+    const own: RawDocument[] = [{ id: "u1", cat: "casa", type: "Gaz", title: "Gaz", due: "2026-11-01", amt: 100, rec: "monthly" }];
+    expect(adoptUsedExamples(own)).toBe(own);
   });
 });
 

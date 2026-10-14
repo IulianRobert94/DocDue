@@ -23,13 +23,14 @@ import type {
   RawDocument,
   EnrichedDocument,
   CategoryId,
+  CurrencyCode,
 } from "../core/constants";
 import { enrichDocument, stripEnrichedFields } from "../core/enrichment";
 import { generateId, isDemoDocument, countTowardFreeLimit } from "../core/helpers";
 import { getTodayString } from "../core/dateUtils";
 import { applyPayAction, defaultPayAction } from "../core/payment";
 import type { PayAction } from "../core/payment";
-import { createDemoDocuments } from "../core/demo";
+import { createDemoDocuments, adoptUsedExamples } from "../core/demo";
 import { migrateData } from "../core/migration";
 import { useSettingsStore } from "./useSettingsStore";
 import { syncAllNotifications, dismissDeliveredForDocument } from "../services/notifications";
@@ -89,6 +90,11 @@ interface DocumentsState {
   restoreFromArchive: (id: string) => void;
   /** Remove a payment recorded by mistake */
   deletePaymentRecord: (id: string, index: number) => void;
+  /**
+   * Documents from older versions have amounts but no currency of their own:
+   * fix them to the app currency once, so changing it later doesn't relabel them.
+   */
+  assignMissingCurrency: (currency: CurrencyCode) => void;
   resetToDemo: () => void;
   /** Remove only the example documents — the user's own documents stay. */
   removeDemoDocuments: () => void;
@@ -152,11 +158,10 @@ function persistDocs(documents: RawDocument[]) {
 
 /**
  * Editing or paying an example document means the user is using it for real:
- * from then on it notifies, counts and survives "Șterge exemplele". Its sample
- * payments were never theirs, so they go.
+ * from then on it notifies, counts and survives "Șterge exemplele". Its
+ * history stays — on older versions it may hold the user's real payments.
  */
 function adoptIfExample(doc: RawDocument): Partial<RawDocument> {
-  if (isDemoDocument(doc)) return { userEdited: true, paymentHistory: [] };
   return doc.id.startsWith(DEMO_ID_PREFIX) && !doc.userEdited ? { userEdited: true } : {};
 }
 
@@ -296,11 +301,14 @@ export const useDocumentStore = create<DocumentsState>()((set, get) => ({
         }
         const migrated = migrateData(parsed as Parameters<typeof migrateData>[0]);
         if (migrated) {
-          // migrated can be [] (user deleted all docs) — that's valid
+          // migrated can be [] (user deleted all docs) — that's valid.
+          // Examples edited into real documents on older versions become the user's.
+          const documents = adoptUsedExamples(migrated);
           _lastPersistedDocs = migrated;
           // Startup notification sync is owned by the root layout's init
           // (after settings are hydrated) — scheduling here too ran it twice.
-          set({ documents: migrated, _hydrated: true });
+          set({ documents, _hydrated: true });
+          if (documents !== migrated) persistDocs(documents);
           return;
         }
         // Saved data exists but can't be understood: keep a copy for recovery
@@ -415,6 +423,14 @@ export const useDocumentStore = create<DocumentsState>()((set, get) => ({
       documents: state.documents.map((d) => (d.id === id ? { ...d, resolved: undefined } : d)),
     }));
     afterMutation(get().documents, true);
+  },
+
+  assignMissingCurrency: (currency) => {
+    const docs = get().documents;
+    if (!docs.some((d) => d.amt != null && !d.currency)) return;
+    const next = docs.map((d) => (d.amt != null && !d.currency ? { ...d, currency } : d));
+    set({ documents: next });
+    persistDocs(next);
   },
 
   deletePaymentRecord: (id, index) => {

@@ -8,7 +8,7 @@
 
 import { CATEGORIES, CURRENCY_OPTIONS, VALID_RECURRENCE_VALUES } from "./constants";
 import type { CategoryId, CurrencyCode, LanguageCode, RawDocument, RecurrenceValue } from "./constants";
-import { t } from "./i18n";
+import { t, untranslateSubtype } from "./i18n";
 import { parseImportedDate } from "./dateUtils";
 
 export interface ParsedImportResult {
@@ -58,7 +58,8 @@ export function parseImportedRows(
 
     docs.push({
       cat,
-      type: type || (language === "en" ? "Other" : "Altele"),
+      // Exports write the translated name ("Rovinietă", "Passport"); store the real type
+      type: type ? untranslateSubtype(type) : "Altele",
       title,
       asset: asset || undefined,
       due,

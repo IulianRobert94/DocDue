@@ -195,6 +195,7 @@ export default function FormScreen() {
         due !== defaultDue ||
         rec !== (existingDoc?.rec || 'none') ||
         JSON.stringify(customReminders) !== JSON.stringify(existingDoc?.reminderDays || null) ||
+        docCur !== docCurrency(existingDoc ?? {}, currency) ||
         attachments.length !== (existingDoc?.attachments?.length || 0));
     }
     // New document: only what the user entered or chose counts — values the
@@ -205,7 +206,7 @@ export default function FormScreen() {
       amtRef.current.trim().length > 0 ||
       notesRef.current.trim().length > 0 ||
       attachments.length > 0 ||
-      customReminders !== null ||
+      customReminders !== null || docCur !== currency ||
       manualCatRef.current || typeTouchedRef.current || dueTouchedRef.current || recTouchedRef.current);
   };
 
@@ -370,9 +371,11 @@ export default function FormScreen() {
       const asset = result.assets[0];
       const ocrResult = await scanDocument(asset.uri);
 
-      // Keep the photo with the document — no need to take it twice
+      // Keep the photo with the document — no need to take it twice. Awaited, so
+      // Save (disabled while scanning) can't run before the copy exists.
       if (attachments.length < MAX_ATTACHMENTS) {
-        saveImageAttachment(asset, editId).then((att) => setAttachments((prev) => [...prev, att])).catch(() => {});
+        const att = await saveImageAttachment(asset, editId).catch(() => null);
+        if (att) setAttachments((prev) => [...prev, att]);
       }
 
       // Editing (renewal): only the new date and amount; a new document gets everything
@@ -1133,7 +1136,7 @@ export default function FormScreen() {
             hapticStyle="medium"
             accessibilityLabel={t(language, 'a11y_save_document')}
             scaleValue={0.97}
-            disabled={saving}
+            disabled={saving || scanning}
           >
             <LinearGradient
               colors={['#0E8BFF', '#0A79F1']}

@@ -100,3 +100,41 @@ export function createDemoDocuments(lang: LanguageCode = "ro"): RawDocument[] {
     ] },
   ];
 }
+
+/**
+ * Version 1.0.1 had no way to mark an example as "mine", and its "Șterge
+ * exemplele" deleted everything — so some people simply edited the examples
+ * into their own documents. An example that differs from the sample (a
+ * payment, amount, notes, car / home, attachment, reminders, archived) is the
+ * user's: it gets reminders and counts like any other document. Returns the
+ * same array when nothing changes.
+ */
+export function adoptUsedExamples(docs: RawDocument[]): RawDocument[] {
+  // Some titles are the same in both languages, so a title can have two samples
+  const samples = new Map<string, RawDocument[]>();
+  for (const lang of ["ro", "en"] as const) {
+    for (const sample of createDemoDocuments(lang)) samples.set(sample.title, [...(samples.get(sample.title) ?? []), sample]);
+  }
+  const differs = (doc: RawDocument, sample: RawDocument) =>
+    (doc.paymentHistory?.length ?? 0) > (sample.paymentHistory?.length ?? 0) ||
+    doc.amt !== sample.amt ||
+    (doc.notes ?? "") !== (sample.notes ?? "") ||
+    (doc.asset ?? "") !== (sample.asset ?? "") ||
+    doc.rec !== sample.rec ||
+    doc.type !== sample.type ||
+    (doc.attachments?.length ?? 0) > 0 ||
+    (doc.reminderDays?.length ?? 0) > 0 ||
+    !!doc.resolved;
+  let changed = false;
+  const result = docs.map((doc) => {
+    if (!doc.id.startsWith(DEMO_ID_PREFIX) || doc.userEdited) return doc;
+    const candidates = samples.get(doc.title);
+    if (!candidates) return doc;
+    // Unchanged = matches one of the samples with that title
+    const used = candidates.every((sample) => differs(doc, sample));
+    if (!used) return doc;
+    changed = true;
+    return { ...doc, userEdited: true };
+  });
+  return changed ? result : docs;
+}

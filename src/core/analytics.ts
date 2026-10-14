@@ -10,7 +10,7 @@ import type { CategoryId, Category, CurrencyCode, EnrichedDocument, LanguageCode
 import { addDaysToDate, toDateString } from "./dateUtils";
 import { t } from "./i18n";
 import { isDemoDocument } from "./helpers";
-import { planPayment, projectOccurrences } from "./payment";
+import { missedPeriods, projectOccurrences } from "./payment";
 import { docCurrency } from "./money";
 import type { CurrencyTotals } from "./money";
 
@@ -119,11 +119,8 @@ export function computeAnalytics(
     }
 
     if (doc.due < today) {
-      // A late bill owes every missed period (all before today — the one
-      // falling today is due now); a lapsed policy or a one-time document, once
-      const plan = planPayment(doc, today);
-      const missed = plan.recurring && !plan.renewal ? plan.periodsAll : 1;
-      overdueTotal += amt * missed;
+      // A late bill owes every missed period; a lapsed policy or a one-time document, once
+      overdueTotal += amt * missedPeriods(doc, today);
       overdueCount++;
     }
 

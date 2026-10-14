@@ -1389,6 +1389,17 @@ export function tp(lang: LanguageCode, key: string, n: number, params?: Record<s
  * În română returnează textul exact (RCA, ITP, Rovignetă).
  * În engleză caută traducerea; dacă nu există, returnează textul original.
  */
+/** The stored type for a name shown in any language ("Rovinietă", "Passport" → stored) */
+export function untranslateSubtype(name: string): string {
+  const wanted = name.trim().toLowerCase();
+  for (const map of Object.values(SUBTYPE_TRANSLATIONS)) {
+    for (const [stored, shown] of Object.entries(map)) {
+      if (shown.toLowerCase() === wanted) return stored;
+    }
+  }
+  return name;
+}
+
 export function translateSubtype(subtype: string, lang: LanguageCode): string {
   return SUBTYPE_TRANSLATIONS[lang]?.[subtype] || subtype;
 }

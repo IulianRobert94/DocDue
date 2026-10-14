@@ -10,6 +10,8 @@
 import type { CurrencyCode, EnrichedDocument } from "./constants";
 import { isDemoDocument } from "./helpers";
 import { sumByCurrency } from "./money";
+import { missedPeriods } from "./payment";
+import { getTodayString } from "./dateUtils";
 import type { CurrencyTotals } from "./money";
 
 export type AlertGroupKey = "overdue" | "week" | "month" | "later";
@@ -30,7 +32,7 @@ function groupOf(daysUntil: number): AlertGroupKey {
   return "later";
 }
 
-export function groupAlerts(docs: EnrichedDocument[], fallbackCurrency: CurrencyCode): AlertGroup[] {
+export function groupAlerts(docs: EnrichedDocument[], fallbackCurrency: CurrencyCode, today: string = getTodayString()): AlertGroup[] {
   const byKey: Record<AlertGroupKey, EnrichedDocument[]> = { overdue: [], week: [], month: [], later: [] };
   for (const doc of docs) {
     if (doc._status === "ok" && doc._daysUntil > 30) continue;
@@ -39,7 +41,11 @@ export function groupAlerts(docs: EnrichedDocument[], fallbackCurrency: Currency
   return ORDER
     .map((key) => {
       const data = byKey[key].sort((a, b) => a._daysUntil - b._daysUntil);
-      const totals = sumByCurrency(data.filter((d) => !isDemoDocument(d)), fallbackCurrency);
+      // A late bill owes every missed period — the same total the pay sheet shows
+      const owed = data
+        .filter((d) => !isDemoDocument(d))
+        .map((d) => (key === "overdue" && d.amt ? { ...d, amt: d.amt * Math.max(1, missedPeriods(d, today)) } : d));
+      const totals = sumByCurrency(owed, fallbackCurrency);
       return { key, data, totals };
     })
     .filter((group) => group.data.length > 0);

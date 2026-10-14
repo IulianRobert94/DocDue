@@ -186,6 +186,24 @@ describe("notification scheduling logic", () => {
     expect(schedule).toHaveBeenCalledTimes(4);
   });
 
+  it("with many documents, reminders before and on the due day come before late follow-ups", async () => {
+    const { rescheduleAllNotifications } = require("../services/notifications");
+    const schedule = Notifications.scheduleNotificationAsync as jest.Mock;
+    schedule.mockClear();
+    const bills: RawDocument[] = Array.from({ length: 7 }, (_, i) => ({
+      id: `b${i}`, cat: "casa", type: "Gaz", title: `Bill ${i}`, due: addDaysToDate(getTodayString(), 1 + i), amt: null, rec: "monthly",
+    }));
+    const rcaDue = addDaysToDate(getTodayString(), 37);
+    await rescheduleAllNotifications([...bills, { id: "rca", cat: "vehicule", type: "RCA", title: "RCA", due: rcaDue, amt: null, rec: "annual" }], [], "ro");
+
+    expect(schedule.mock.calls.length).toBeLessThanOrEqual(60);
+    const rcaDays = schedule.mock.calls
+      .filter(([req]) => req.content.data.documentId === "rca")
+      .map(([req]) => calculateDaysUntil(`${req.trigger.date.getFullYear()}-${String(req.trigger.date.getMonth() + 1).padStart(2, "0")}-${String(req.trigger.date.getDate()).padStart(2, "0")}`));
+    // the day before and the due day itself are kept
+    expect(rcaDays).toEqual(expect.arrayContaining([36, 37]));
+  });
+
   it("each reminder sets the app badge to the documents expired by then", async () => {
     const { rescheduleAllNotifications } = require("../services/notifications");
     const schedule = Notifications.scheduleNotificationAsync as jest.Mock;
@@ -261,6 +279,39 @@ describe("notification scheduling logic", () => {
     expect(schedule.mock.calls[0][0].content.data).toEqual({
       documentId: "u1", type: "document_reminder", snoozed: true, due: "2026-05-01",
     });
+  });
+
+  it("a snooze is not doubled by the regular reminder of the same morning", async () => {
+    const { rescheduleAllNotifications } = require("../services/notifications");
+    const schedule = Notifications.scheduleNotificationAsync as jest.Mock;
+    schedule.mockClear();
+    const due = addDaysToDate(getTodayString(), 2);
+    const [y, m, d] = addDaysToDate(getTodayString(), 1).split("-").map(Number);
+    const tomorrow9 = new Date(y, m - 1, d, 9).getTime();
+    (Notifications.getAllScheduledNotificationsAsync as jest.Mock).mockResolvedValueOnce([
+      { identifier: "snz", content: { data: { type: "document_reminder", documentId: "u1", snoozed: true, due } }, trigger: { type: "date", value: tomorrow9 } },
+    ]);
+
+    await rescheduleAllNotifications([
+      { id: "u1", cat: "casa", type: "Gaz", title: "Gaz", due, amt: null, rec: "monthly" },
+    ], [], "ro");
+
+    const tomorrowCalls = schedule.mock.calls.filter(([req]) => req.trigger.date.getTime() === tomorrow9);
+    expect(tomorrowCalls).toHaveLength(0);
+  });
+
+  it("snoozing doesn't add a second notification when one already comes tomorrow", async () => {
+    const { snoozeNotification } = require("../services/notifications");
+    const schedule = Notifications.scheduleNotificationAsync as jest.Mock;
+    schedule.mockClear();
+    const [y, m, d] = addDaysToDate(getTodayString(), 1).split("-").map(Number);
+    (Notifications.getAllScheduledNotificationsAsync as jest.Mock).mockResolvedValueOnce([
+      { identifier: "reg", content: { data: { type: "document_reminder", documentId: "u1" } }, trigger: { type: "date", value: new Date(y, m - 1, d, 9).getTime() } },
+    ]);
+
+    await snoozeNotification("u1", "notif-1", "Titlu", "Corp", "2026-05-01");
+
+    expect(schedule).not.toHaveBeenCalled();
   });
 
   it("schedules notifications for future dates only", async () => {
@@ -644,6 +695,16 @@ describe("review prompt conditions", () => {
 // ─── Excel Import Date Parsing ──────────────────────────
 
 describe("excel import columns", () => {
+  it("translated type names come back as the stored ones (RO 'Rovinietă', EN 'Passport')", () => {
+    const { parseImportedRows } = require("../core/importParser");
+    const { docs } = parseImportedRows([
+      { Titlu: "Vinieta", "Scadență": "2026-11-10", Tip: "Rovinietă" },
+      { Title: "Pass", "Due date": "2026-12-01", Type: "Passport" },
+      { Titlu: "Altceva", "Scadență": "2026-12-01", Tip: "Abonament sală" },
+    ], "ro");
+    expect(docs.map((d: RawDocument) => d.type)).toEqual(["Rovignetă", "Pașaport", "Abonament sală"]);
+  });
+
   it("reads the columns DocDue exports today ('Pentru', 'Monedă') and the older ones", () => {
     const { parseImportedRows } = require("../core/importParser");
     const { docs } = parseImportedRows([

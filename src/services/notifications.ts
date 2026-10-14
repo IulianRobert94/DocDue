@@ -158,12 +158,18 @@ export async function rescheduleAllNotifications(
   // 1. Cancel the document reminders we own (keep valid snoozes)
   const activeById = new Map(notifiableDocuments(documents).map((d) => [d.id, d]));
   const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  // Days already covered by a kept snooze — no second notification that morning
+  const snoozedDays = new Set<string>();
   for (const n of scheduled) {
     const data = n.content?.data;
     if (data?.type !== "document_reminder") continue;
     if (data.snoozed) {
       const doc = activeById.get(data.documentId as string);
-      if (doc && (typeof data.due !== "string" || data.due === doc.due)) continue;
+      if (doc && (typeof data.due !== "string" || data.due === doc.due)) {
+        const at = triggerTime(n.trigger);
+        if (at !== null) snoozedDays.add(`${doc.id}|${toDateString(new Date(at))}`);
+        continue;
+      }
     }
     await Notifications.cancelScheduledNotificationAsync(n.identifier).catch(() => {});
   }
@@ -188,8 +194,9 @@ export async function rescheduleAllNotifications(
       fireDate.setDate(fireDate.getDate() - daysBefore);
       fireDate.setHours(FIRE_HOUR, 0, 0, 0);
 
-      // Only schedule future notifications
+      // Only schedule future notifications, and not on a day a snooze already covers
       if (fireDate.getTime() <= now) continue;
+      if (snoozedDays.has(`${doc.id}|${toDateString(fireDate)}`)) continue;
 
       entries.push({
         docId: doc.id,
@@ -205,9 +212,16 @@ export async function rescheduleAllNotifications(
     }
   }
 
-  // 5. Sort by nearest first, cap at limit
+  // 5. Fill the limited slots by importance, nearest first: reminders before
+  //    and on the due day (and the day after) come first, later follow-ups fill
+  //    what's left — the app reschedules on every launch anyway
   entries.sort((a, b) => a.fireDate.getTime() - b.fireDate.getTime());
-  const toSchedule = entries.slice(0, MAX_SCHEDULED);
+  const essential = entries.filter((e) => e.reminderDay >= -1);
+  const followUps = entries.filter((e) => e.reminderDay < -1);
+  const toSchedule = [
+    ...essential.slice(0, MAX_SCHEDULED),
+    ...followUps.slice(0, Math.max(0, MAX_SCHEDULED - essential.length)),
+  ];
 
   // 6. Schedule each (wrap individually — exact alarms may fail on some Android versions)
   for (const entry of toSchedule) {
@@ -323,6 +337,16 @@ function buildDiscreetContent(entry: ScheduleEntry, language: LanguageCode): { t
   };
 }
 
+/** When a scheduled date trigger fires (ms), whatever shape the platform reports */
+function triggerTime(trigger: unknown): number | null {
+  const t = trigger as { value?: unknown; date?: unknown } | null;
+  if (!t) return null;
+  if (typeof t.value === "number") return t.value;
+  if (typeof t.date === "number") return t.date;
+  if (t.date instanceof Date) return t.date.getTime();
+  return null;
+}
+
 // ─── Snooze helper ───────────────────────────────────
 
 /**
@@ -343,6 +367,16 @@ export async function snoozeNotification(
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
   tomorrow.setHours(FIRE_HOUR, 0, 0, 0);
+
+  // A reminder for this document already arrives tomorrow morning — that's the snooze
+  const tomorrowKey = toDateString(tomorrow);
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync().catch(() => []);
+  const coveredTomorrow = scheduled.some((n) => {
+    const at = triggerTime(n.trigger);
+    return n.content?.data?.type === "document_reminder" && n.content?.data?.documentId === docId &&
+      at !== null && toDateString(new Date(at)) === tomorrowKey;
+  });
+  if (coveredTomorrow) return;
 
   try {
     await Notifications.scheduleNotificationAsync({

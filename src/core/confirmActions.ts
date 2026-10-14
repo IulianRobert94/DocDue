@@ -70,11 +70,11 @@ export function showDocumentMenu<T extends RawDocument>(
       },
     );
   } else {
+    // Android shows at most three buttons: no Cancel button, tapping outside cancels
     Alert.alert(item.title, undefined, [
-      { text: t(language, 'confirm_cancel'), style: 'cancel' },
       { text: payLabel, onPress: () => handlers.onPay(item) },
       { text: t(language, 'detail_edit'), onPress: () => handlers.onEdit(item) },
       { text: t(language, 'detail_delete'), style: 'destructive', onPress: confirmDelete },
-    ]);
+    ], { cancelable: true });
   }
 }

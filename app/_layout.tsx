@@ -118,6 +118,8 @@ function RootLayout() {
 
         // Reschedule notifications and update widget after hydration
         const settings = useSettingsStore.getState().settings;
+        // Amounts from older versions get today's app currency, once
+        if (!isDocumentLoadFailed()) useDocumentStore.getState().assignMissingCurrency(settings.currency);
         const documents = useDocumentStore.getState().documents;
         // Set up notification action buttons (Renewed / Tomorrow)
         setupNotificationCategories(settings.language)
@@ -222,7 +224,7 @@ function RootLayout() {
     if (!docId) {
       const type = content.data?.type;
       if (type === "morning_digest" || type === "weekly_summary") {
-        const openAlerts = () => setTimeout(() => router.push("/(tabs)/alerts"), 100);
+        const openAlerts = () => setTimeout(() => router.navigate("/(tabs)/alerts"), 100);
         if (isAppLocked()) deferUntilUnlock(openAlerts);
         else openAlerts();
       }

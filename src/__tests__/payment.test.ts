@@ -140,6 +140,13 @@ describe("applyPayAction", () => {
     expect(after.dueDay).toBe(14);
   });
 
+  it("weekly payments and renewals keep the day of month in step with the new date", () => {
+    const weekly = applyPayAction(doc({ rec: "weekly", due: "2026-10-16", dueDay: 3 }), { kind: "pay", nextDue: "2026-10-23", amount: null, periods: 1 }, TODAY);
+    expect(weekly.dueDay).toBe(23);
+    const renewed = applyPayAction(doc({ cat: "personal", type: "Pașaport", rec: "none", due: "2026-11-01", dueDay: 1 }), { kind: "renew", nextDue: "2036-10-14", amount: null }, TODAY);
+    expect(renewed.dueDay).toBe(14);
+  });
+
   it("renew: a one-time document stays active with its new date", () => {
     const passport = doc({ cat: "personal", type: "Pașaport", rec: "none", due: "2026-11-01", amt: null });
     const after = applyPayAction(passport, { kind: "renew", nextDue: "2036-10-14", amount: 258 }, TODAY);
@@ -162,12 +169,12 @@ describe("applyPayAction", () => {
     expect(after.paymentHistory).toEqual([{ date: TODAY, dueDate: fine.due, amt: 500 }]);
   });
 
-  it("paying an example makes it the user's and drops its sample history", () => {
+  it("paying an example makes it the user's and keeps its history (it may hold real payments from older versions)", () => {
     const example = createDemoDocuments("ro").find((d) => (d.paymentHistory?.length ?? 0) > 0)!;
     const plan = planPayment(example, TODAY);
     const after = applyPayAction(example, { kind: "pay", nextDue: plan.nextAll!, amount: example.amt, periods: 1 }, TODAY);
     expect(after.userEdited).toBe(true);
-    expect(after.paymentHistory).toHaveLength(1);
+    expect(after.paymentHistory).toHaveLength((example.paymentHistory?.length ?? 0) + 1);
   });
 
   it("does not touch the original document", () => {
