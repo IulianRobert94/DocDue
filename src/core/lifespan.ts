@@ -76,12 +76,14 @@ export function getItemStats(item: TrackedItem, today: string): ItemStats {
 /**
  * Human duration: "12 zile", "7 luni", "3 ani și 2 luni" / "3 years, 2 months".
  * Under a month it counts days; above that, whole months (rounded).
+ * `compact` keeps only the largest unit ("3 ani") for tight spots like list rows.
  */
-export function formatDuration(days: number, lang: LanguageCode): string {
+export function formatDuration(days: number, lang: LanguageCode, opts: { compact?: boolean } = {}): string {
   const whole = Math.round(days);
   if (whole <= 0) return t(lang, "duration_less_than_day");
   if (whole < 31) return tp(lang, "duration_days", whole);
   const totalMonths = Math.max(1, Math.round(whole / 30.4375));
+  if (opts.compact && totalMonths >= 12) return tp(lang, "duration_years", Math.round(totalMonths / 12));
   const years = Math.floor(totalMonths / 12);
   const months = totalMonths % 12;
   if (years === 0) return tp(lang, "duration_months", months);
@@ -112,10 +114,15 @@ export function minimumKm(item: TrackedItem, mode: "replace" | "broke" | "instal
  * wording up to a month ("în 12 zile"), then "peste ~7 luni", or
  * "depășită cu 1 lună" once the estimate has passed.
  */
-export function formatEstimateWhen(daysAway: number, lang: LanguageCode): string {
-  if (daysAway < 0) return t(lang, "journal_overdue_by", { duration: formatDuration(-daysAway, lang) });
+export function formatEstimateWhen(daysAway: number, lang: LanguageCode, opts: { compact?: boolean } = {}): string {
+  if (daysAway < 0) return t(lang, "journal_overdue_by", { duration: formatDuration(-daysAway, lang, opts) });
   if (daysAway < 31) return formatDaysRemaining(daysAway, lang);
-  return t(lang, "journal_in_about", { duration: formatDuration(daysAway, lang) });
+  return t(lang, "journal_in_about", { duration: formatDuration(daysAway, lang, opts) });
+}
+
+/** Odometer reading with the language's thousands separator ("141.000"). */
+export function formatKm(km: number, lang: LanguageCode): string {
+  return Math.round(km).toLocaleString(lang === "ro" ? "ro-RO" : "en-US");
 }
 
 /**

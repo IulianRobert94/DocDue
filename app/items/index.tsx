@@ -120,9 +120,9 @@ function ItemRow({ item, today, theme, language, onPress }: {
   } else if (stats.estimatedNext) {
     const daysAway = daysBetween(today, stats.estimatedNext);
     const color = daysAway < 0 ? '#FF3B30' : daysAway <= 30 ? '#FF9500' : theme.textSecondary;
-    right = { text: formatEstimateWhen(daysAway, language), color };
+    right = { text: formatEstimateWhen(daysAway, language, { compact: true }), color };
   } else if (stats.avgDays !== null) {
-    right = { text: t(language, 'journal_avg_short', { duration: formatDuration(stats.avgDays, language) }), color: theme.textSecondary };
+    right = { text: t(language, 'journal_avg_short', { duration: formatDuration(stats.avgDays, language, { compact: true }) }), color: theme.textSecondary };
   }
 
   return (

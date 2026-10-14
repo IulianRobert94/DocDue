@@ -19,7 +19,7 @@ import { showToast } from '../src/stores/useToastStore';
 import { t } from '../src/core/i18n';
 import { formatDate } from '../src/core/formatters';
 import { addDaysToDate } from '../src/core/dateUtils';
-import { getItemStats, minimumKm } from '../src/core/lifespan';
+import { formatKm, getItemStats, minimumKm } from '../src/core/lifespan';
 import { parseOptionalNumber } from '../src/core/validators';
 import { SegmentedControl } from '../src/components/settings/SettingsUI';
 import {
@@ -91,8 +91,8 @@ export default function ItemEventScreen() {
     const startKm = showKm && isPast ? parseOptionalNumber(startKmText, KM_LIMITS) : null;
     const cost = startsNew ? parseOptionalNumber(costText, COST_LIMITS) : null;
     if (Number.isNaN(km) || Number.isNaN(startKm)) e.km = t(language, 'val_km_invalid');
-    else if (km !== null && kmFloor !== null && km < kmFloor) e.km = t(language, 'val_km_below', { km: kmFloor });
-    else if (isPast && km !== null && startKm !== null && km < startKm) e.km = t(language, 'val_km_below', { km: startKm });
+    else if (km !== null && kmFloor !== null && km < kmFloor) e.km = t(language, 'val_km_below', { km: formatKm(kmFloor, language) });
+    else if (isPast && km !== null && startKm !== null && km < startKm) e.km = t(language, 'val_km_below', { km: formatKm(startKm, language) });
     if (Number.isNaN(cost)) e.cost = t(language, 'val_amount_positive');
     if (minDate && date < minDate) e.date = t(language, 'val_date_before', { date: formatDate(minDate, language) });
     if (date > maxDate) e.date = t(language, 'val_date_after', { date: formatDate(maxDate, language) });
@@ -191,7 +191,7 @@ export default function ItemEventScreen() {
                 label={t(language, isPast ? 'journal_form_km_end' : 'journal_form_km')}
                 value={kmText}
                 onChangeText={setKmText}
-                placeholder={kmFloor !== null ? `≥ ${kmFloor}` : t(language, 'journal_optional')}
+                placeholder={kmFloor !== null ? `≥ ${formatKm(kmFloor, language)}` : t(language, 'journal_optional')}
                 keyboardType="number-pad"
                 maxLength={9}
                 suffix="km"

@@ -18,16 +18,13 @@ import type { ItemInstall } from '../../src/core/constants';
 import { formatDate, formatMoney } from '../../src/core/formatters';
 import { daysBetween } from '../../src/core/dateUtils';
 import {
-  formatDuration, formatEstimateWhen, getItemStats, installDurationDays, installDurationKm,
+  formatDuration, formatEstimateWhen, formatKm, getItemStats, installDurationDays, installDurationKm,
 } from '../../src/core/lifespan';
 import { AnimatedPressable, FadeInView } from '../../src/components/AnimatedUI';
 import {
   Card, Divider, NavBar, NavIconButton, PrimaryButton, SecondaryButton, SectionHeader, StatRow,
 } from '../../src/components/journal/JournalUI';
 import { fonts } from '../../src/theme/typography';
-
-const formatKm = (km: number, language: 'ro' | 'en') =>
-  km.toLocaleString(language === 'ro' ? 'ro-RO' : 'en-US', { maximumFractionDigits: 0 });
 
 export default function ItemDetailScreen() {
   const insets = useSafeAreaInsets();

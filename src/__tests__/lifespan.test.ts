@@ -18,6 +18,7 @@ import {
   isValidItem,
   formatEstimateWhen,
   minimumKm,
+  formatKm,
 } from "../core/lifespan";
 
 // Car battery: broke after 1156 days (52,000 km), next one replaced after
@@ -208,5 +209,32 @@ describe("minimumKm (odometer can't go backwards)", () => {
   it("no limit when no reading was recorded", () => {
     const noKm: TrackedItem = { ...battery, installs: [{ id: "x", start: "2025-01-01" }] };
     expect(minimumKm(noKm, "replace")).toBeNull();
+  });
+});
+
+describe("compact durations (list rows)", () => {
+  it.each([
+    [400, "ro", "1 an"],
+    [1156, "ro", "3 ani"],
+    [1000, "ro", "3 ani"], // 2 years 9 months rounds to 3
+    [200, "ro", "7 luni"],
+    [12, "ro", "12 zile"],
+    [1156, "en", "3 years"],
+  ] as const)("%i days (%s) → %s", (days, lang, expected) => {
+    expect(formatDuration(days, lang, { compact: true })).toBe(expected);
+  });
+
+  it("a far estimate stays short enough for a list row", () => {
+    expect(formatEstimateWhen(1130, "ro", { compact: true })).toBe("peste ~3 ani");
+  });
+});
+
+describe("formatKm", () => {
+  it.each([
+    [141000, "ro", "141.000"],
+    [141000, "en", "141,000"],
+    [950, "ro", "950"],
+  ] as const)("%i (%s) → %s", (km, lang, expected) => {
+    expect(formatKm(km, lang)).toBe(expected);
   });
 });
