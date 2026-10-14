@@ -22,7 +22,6 @@ FUNCTII PRINCIPALE
 - Bilingv: Suport complet romana si engleza. Schimba oricand din setari.
 - Blocare Biometrica: Protejeaza documentele cu Face ID, Touch ID sau amprenta.
 - Backup & Restaurare: Exporta datele ca fisier backup. Importa pe orice dispozitiv.
-- Widget Ecran Principal: Vezi termenele apropiate fara sa deschizi aplicatia.
 - Design Dark: Interfata eleganta dark inspirata de aplicatii fintech moderne.
 
 CONFIDENTIALITATE

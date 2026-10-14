@@ -22,7 +22,6 @@ KEY FEATURES
 - Bilingual: Full Romanian and English support. Switch anytime in settings.
 - Biometric Lock: Protect your documents with Face ID, Touch ID, or fingerprint.
 - Backup & Restore: Export your data as a backup file. Import it on any device.
-- Home Screen Widget: See upcoming deadlines without opening the app.
 - Dark Design: Beautiful dark interface inspired by modern fintech apps.
 
 PRIVACY FIRST
