@@ -49,9 +49,13 @@ export function setPremiumGrantedCallback(cb: (() => void) | null): void {
   _onPremiumGranted = cb;
 }
 
-/** A purchase grants PRO only if it's our product and not still pending (Android Ask-to-Buy / slow payment). */
+/**
+ * A purchase grants PRO only if it's our product and the store confirmed it.
+ * "pending" (Ask-to-Buy / slow payment) and "unknown" (unspecified Play state)
+ * are not payments yet — iOS reports restored purchases as "purchased" too.
+ */
 function isOwnedPro(p: Purchase): boolean {
-  return p.productId === PRODUCT_ID && p.purchaseState !== "pending";
+  return p.productId === PRODUCT_ID && p.purchaseState === "purchased";
 }
 
 /** Robust cancel detection across lib versions (v14 uses "user-cancelled"; legacy used "E_USER_CANCELLED"). */
@@ -76,8 +80,9 @@ function registerPurchaseListeners(iap: NonNullable<typeof _iap>): void {
   if (typeof iap.purchaseUpdatedListener !== "function") return;
   _purchaseUpdateSub = iap.purchaseUpdatedListener((purchase: Purchase) => {
     if (purchase.productId !== PRODUCT_ID) return;
-    if (purchase.purchaseState === "pending") {
-      // Payment not confirmed yet (Android Ask-to-Buy / slow payment method).
+    if (purchase.purchaseState !== "purchased") {
+      // Payment not confirmed yet (Android Ask-to-Buy / slow payment method,
+      // or an unspecified store state).
       // Don't grant PRO and don't finish the transaction — the store fires
       // this listener again (or getAvailablePurchases returns the purchase)
       // once the payment is actually confirmed.
@@ -230,7 +235,7 @@ export async function purchasePackage(productId: string): Promise<PurchaseResult
     // Android returns array, iOS returns single object
     const p = Array.isArray(purchase) ? purchase[0] : purchase;
     if (p) {
-      if (p.purchaseState === "pending") {
+      if (p.purchaseState === "pending" || p.purchaseState === "unknown") {
         // Same rule as the listener path: no PRO for an unconfirmed payment.
         return { success: false, cancelled: false, pending: true };
       }

@@ -810,6 +810,14 @@ describe("IAP pending purchases", () => {
     expect(rniap.finishTransaction).toHaveBeenCalled();
   });
 
+  it("an unconfirmed ('unknown') purchase doesn't unlock PRO either", () => {
+    const granted = jest.fn();
+    iapService.setPremiumGrantedCallback(granted);
+    purchaseCallback!({ productId: PRO_PRODUCT_ID, purchaseState: "unknown" });
+    expect(granted).not.toHaveBeenCalled();
+    expect(rniap.finishTransaction).not.toHaveBeenCalled();
+  });
+
   it("ignores purchases for other product ids", () => {
     const granted = jest.fn();
     iapService.setPremiumGrantedCallback(granted);
