@@ -11,7 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { useTheme, useLanguage, useCurrency } from '../../src/stores/useSettingsStore';
 import { useEnrichedDocuments, useDocumentStore } from '../../src/stores/useDocumentStore';
-import { t, translateSubtype } from '../../src/core/i18n';
+import { t, tp, translateSubtype } from '../../src/core/i18n';
 import { SwipeableRow } from '../../src/components/SwipeableRow';
 import { buildMarkAsPaidAction, deleteWithUndo } from '../../src/core/confirmActions';
 import { formatDate, formatMoney, formatDaysRemaining } from '../../src/core/formatters';
@@ -38,20 +38,6 @@ export default function CategoryDetailScreen() {
 
   const categoryId = id as CategoryId;
   const category = CATEGORIES[categoryId];
-
-  if (!category) {
-    return (
-      <View style={[s.container, { backgroundColor: theme.background }]}>
-        <View style={{ paddingTop: insets.top + 16, alignItems: 'center', paddingVertical: 80 }}>
-          <Ionicons name="alert-circle-outline" size={40} color={theme.textDim} style={{ marginBottom: 12 }} />
-          <Text style={{ color: theme.textMuted, fontSize: 15, fontFamily: fonts.regular }}>{t(language, 'doc_not_found')}</Text>
-          <AnimatedPressable onPress={() => router.back()} style={{ marginTop: 20 }} accessibilityLabel={t(language, 'a11y_go_back')}>
-            <Text style={{ color: theme.primaryText, fontSize: 17, fontFamily: fonts.regular }}>{t(language, 'btn_back')}</Text>
-          </AnimatedPressable>
-        </View>
-      </View>
-    );
-  }
 
   const handleSortTap = (opt: typeof SORT_OPTIONS[number]) => {
     if (sortField === opt.value && opt.toggleable) {
@@ -92,6 +78,22 @@ export default function CategoryDetailScreen() {
     ].filter((sec) => sec.data.length > 0);
     return { categoryDocs: sorted, sections: sects };
   }, [enrichedDocs, categoryId, sortField, sortDir, language]);
+
+  // Unknown category id — after all hooks, so hook order never changes
+  if (!category) {
+    return (
+      <View style={[s.container, { backgroundColor: theme.background }]}>
+        <View style={{ paddingTop: insets.top + 16, alignItems: 'center', paddingVertical: 80 }}>
+          <Ionicons name="alert-circle-outline" size={40} color={theme.textDim} style={{ marginBottom: 12 }} />
+          <Text style={{ color: theme.textMuted, fontSize: 15, fontFamily: fonts.regular }}>{t(language, 'doc_not_found')}</Text>
+          <AnimatedPressable onPress={() => router.back()} style={{ marginTop: 20 }} accessibilityLabel={t(language, 'a11y_go_back')}>
+            <Text style={{ color: theme.primaryText, fontSize: 17, fontFamily: fonts.regular }}>{t(language, 'btn_back')}</Text>
+          </AnimatedPressable>
+        </View>
+      </View>
+    );
+  }
+
 
   const categoryLabel = category ? t(language, category.labelKey) : id;
 
@@ -136,7 +138,7 @@ export default function CategoryDetailScreen() {
       </View>
 
       <Text style={[s.countLabel, { color: theme.textMuted }]}>
-        {categoryDocs.length} {t(language, categoryDocs.length === 1 ? 'doc_singular' : 'doc_plural')}
+        {tp(language, 'doc_count', categoryDocs.length)}
       </Text>
 
       <SectionList

@@ -15,6 +15,8 @@ import {
   PAYMENT_WINDOW_DAYS,
   STORAGE_KEY_DOCUMENTS,
   STORAGE_KEY_DOCUMENTS_LEGACY,
+  STORAGE_KEY_DOCUMENTS_CORRUPT_BACKUP,
+  DEMO_ID_PREFIX,
 } from "../core/constants";
 import { t } from "../core/i18n";
 import type {
@@ -23,15 +25,16 @@ import type {
   CategoryId,
 } from "../core/constants";
 import { enrichDocument, stripEnrichedFields } from "../core/enrichment";
-import { generateId } from "../core/helpers";
-import { addDaysToDate, addMonthsToDate, getTodayString } from "../core/dateUtils";
+import { generateId, isDemoDocument, countTowardFreeLimit } from "../core/helpers";
+import { addDaysToDate, addMonthsKeepingDay, getTodayString } from "../core/dateUtils";
 import { getRecurrenceDays } from "../core/formatters";
 import { createDemoDocuments } from "../core/demo";
 import { migrateData } from "../core/migration";
 import { useSettingsStore } from "./useSettingsStore";
-import { rescheduleAllNotifications, scheduleMorningDigest, scheduleWeeklySummary } from "../services/notifications";
+import { syncAllNotifications, dismissDeliveredForDocument } from "../services/notifications";
 import { updateWidgetData } from "../services/widgetService";
 import { maybeRequestReview } from "../services/reviewPrompt";
+import { readStorageKey } from "../services/storage";
 
 // ─── Types ──────────────────────────────────────────────
 
@@ -58,11 +61,23 @@ interface DocumentsState {
   // Actions
   addDocument: (data: Omit<RawDocument, "id">) => void;
   addDocuments: (data: Omit<RawDocument, "id">[]) => void;
-  updateDocument: (data: RawDocument) => void;
+  /**
+   * Merge the given fields onto the stored document. Fields not present in
+   * `data` (e.g. paymentHistory, resolved) are kept; a key set to `undefined`
+   * clears that field.
+   */
+  updateDocument: (data: Partial<RawDocument> & { id: string }) => void;
   deleteDocument: (id: string) => void;
   undoDelete: () => void;
   markAsPaid: (doc: EnrichedDocument) => "paid_next" | "resolved";
   resetToDemo: () => void;
+  /** Remove only the example documents — the user's own documents stay. */
+  removeDemoDocuments: () => void;
+  /**
+   * Replace every document in one step (backup "Replace all"). Attachment
+   * files still referenced by `docs` are kept; only the others are deleted.
+   */
+  replaceAllDocuments: (docs: RawDocument[]) => void;
   clearAll: () => void;
   _hydrate: () => Promise<void>;
 }
@@ -71,8 +86,26 @@ interface DocumentsState {
 
 let _lastPersistedDocs: RawDocument[] | null = null;
 let _persistChain: Promise<void> = Promise.resolve();
+// Set when the saved documents couldn't be read at launch: nothing is written
+// for the rest of the session, so the data on disk survives until a relaunch.
+let _persistBlocked = false;
+
+/**
+ * Storage writes and notification syncs happen only after the saved data was
+ * loaded successfully — otherwise an early or partial in-memory list would
+ * overwrite the real documents or cancel their reminders.
+ */
+function canWrite(): boolean {
+  return !_persistBlocked && useDocumentStore.getState()._hydrated;
+}
+
+/** True when the saved documents couldn't be read this session. */
+export function isDocumentLoadFailed(): boolean {
+  return _persistBlocked;
+}
 
 function persistDocs(documents: RawDocument[]) {
+  if (!canWrite()) return;
   const lang = useSettingsStore?.getState?.()?.settings?.language || "en";
   // Serialize writes: each persist waits for the previous one to finish,
   // so the last write always wins and we never lose data from race conditions.
@@ -96,6 +129,14 @@ function persistDocs(documents: RawDocument[]) {
         }
       });
   });
+}
+
+/**
+ * Editing or paying an example document means the user is using it for real:
+ * from then on it notifies, counts and survives "Șterge exemplele".
+ */
+function adoptIfExample(doc: RawDocument): Partial<RawDocument> {
+  return doc.id.startsWith(DEMO_ID_PREFIX) && !doc.userEdited ? { userEdited: true } : {};
 }
 
 // ─── Attachment cleanup helper ──────────────────────────
@@ -127,50 +168,37 @@ function flushUndoBuffer() {
 
 let _rescheduleTimer: ReturnType<typeof setTimeout> | null = null;
 let _retryTimer: ReturnType<typeof setTimeout> | null = null;
-let _rescheduleRunning = false;
 
 async function doReschedule(documents: RawDocument[], attempt = 1) {
-  // Prevent concurrent reschedule calls (e.g. rapid immediate mutations)
-  // to avoid duplicate notification scheduling
-  if (_rescheduleRunning && attempt === 1) return;
-  _rescheduleRunning = true;
-  let retryScheduled = false;
-  try {
-    const settings = useSettingsStore?.getState?.()?.settings;
-    if (settings?.notificationsEnabled) {
-      try {
-        await rescheduleAllNotifications(documents, settings.reminderDays, settings.language);
-        await scheduleMorningDigest(documents, settings.language);
-        await scheduleWeeklySummary(documents, settings.language);
-      } catch (e) {
-        if (__DEV__) console.warn("DocDue: notification reschedule error", e);
-        if (attempt < 3) {
-          retryScheduled = true;
-          // Re-read fresh state on retry so we never reschedule a stale doc set.
-          _retryTimer = setTimeout(() => {
-            _retryTimer = null;
-            doReschedule(useDocumentStore.getState().documents, attempt + 1);
-          }, attempt * 2000);
-          return;
-        } else if (__DEV__) {
-          console.warn("DocDue: notification reschedule failed after 3 attempts — notifications may be stale");
-        }
+  if (!canWrite()) return;
+  const settings = useSettingsStore?.getState?.()?.settings;
+  if (settings?.notificationsEnabled) {
+    try {
+      // syncAllNotifications serializes runs and coalesces overlapping calls,
+      // so every mutation can call it — the newest document set always wins.
+      await syncAllNotifications(documents, settings.language);
+    } catch (e) {
+      if (__DEV__) console.warn("DocDue: notification reschedule error", e);
+      if (attempt < 3) {
+        // Re-read fresh state on retry so we never reschedule a stale doc set.
+        _retryTimer = setTimeout(() => {
+          _retryTimer = null;
+          doReschedule(useDocumentStore.getState().documents, attempt + 1);
+        }, attempt * 2000);
+      } else if (__DEV__) {
+        console.warn("DocDue: notification reschedule failed after 3 attempts — notifications may be stale");
       }
     }
-    updateWidgetData(documents);
-  } finally {
-    if (!retryScheduled) _rescheduleRunning = false;
   }
+  updateWidgetData(documents);
 }
 
 function triggerNotificationReschedule(documents: RawDocument[], immediate = false) {
   if (_rescheduleTimer) clearTimeout(_rescheduleTimer);
-  // A fresh mutation supersedes any pending failed-retry: cancel it and clear the
-  // running flag so the newest document set is always (re)scheduled, not stale data.
+  // A fresh mutation supersedes any pending failed-retry
   if (_retryTimer) {
     clearTimeout(_retryTimer);
     _retryTimer = null;
-    _rescheduleRunning = false;
   }
   if (immediate) {
     _rescheduleTimer = null;
@@ -199,44 +227,59 @@ export const useDocumentStore = create<DocumentsState>()((set, get) => ({
 
   _hydrate: async () => {
     if (get()._hydrated) return;
-    const withTimeout = <T,>(promise: Promise<T>, ms: number): Promise<T | null> =>
-      Promise.race([promise, new Promise<null>((resolve) => setTimeout(() => resolve(null), ms))]);
+    const lang = useSettingsStore?.getState?.()?.settings?.language || "ro";
+    // A read that fails or times out is NOT "nothing saved" — treating it as a
+    // first launch would write example documents over the user's real ones.
+    const failLoad = () => {
+      _persistBlocked = true;
+      set({ documents: [], _hydrated: true });
+      Alert.alert(t(lang, "load_error_title"), t(lang, "load_error_msg"));
+    };
     try {
-      let raw = await withTimeout(AsyncStorage.getItem(STORAGE_KEY_DOCUMENTS), 5000);
+      let read = await readStorageKey(STORAGE_KEY_DOCUMENTS);
+      if (!read.ok) return failLoad();
+      let raw = read.value;
       // Migrate from legacy key if needed
       if (!raw) {
-        raw = await withTimeout(AsyncStorage.getItem(STORAGE_KEY_DOCUMENTS_LEGACY), 5000);
+        read = await readStorageKey(STORAGE_KEY_DOCUMENTS_LEGACY);
+        if (!read.ok) return failLoad();
+        raw = read.value;
         if (raw) {
           await AsyncStorage.setItem(STORAGE_KEY_DOCUMENTS, raw);
           await AsyncStorage.removeItem(STORAGE_KEY_DOCUMENTS_LEGACY);
         }
       }
       if (raw) {
-        let parsed: unknown;
+        let parsed: unknown = null;
         try {
           parsed = JSON.parse(raw);
         } catch {
-          if (__DEV__) console.warn("DocDue: corrupted JSON in AsyncStorage, resetting");
-          parsed = null;
+          if (__DEV__) console.warn("DocDue: corrupted JSON in AsyncStorage");
         }
         const migrated = migrateData(parsed as Parameters<typeof migrateData>[0]);
         if (migrated) {
           // migrated can be [] (user deleted all docs) — that's valid
           _lastPersistedDocs = migrated;
+          // Startup notification sync is owned by the root layout's init
+          // (after settings are hydrated) — scheduling here too ran it twice.
           set({ documents: migrated, _hydrated: true });
-          if (migrated.length > 0) triggerNotificationReschedule(migrated);
           return;
         }
+        // Saved data exists but can't be understood: keep a copy for recovery
+        // and start empty — never replace it with example documents.
+        await AsyncStorage.setItem(STORAGE_KEY_DOCUMENTS_CORRUPT_BACKUP, raw).catch(() => {});
+        _lastPersistedDocs = [];
+        set({ documents: [], _hydrated: true });
+        Alert.alert(t(lang, "load_corrupt_title"), t(lang, "load_corrupt_msg"));
+        return;
       }
-      // First launch — persist demo data in current language
-      const lang = useSettingsStore?.getState?.()?.settings?.language || "ro";
+      // Genuine first launch — persist example documents in the current language
       const demo = createDemoDocuments(lang);
-      _lastPersistedDocs = demo;
-      persistDocs(demo);
       set({ documents: demo, _hydrated: true });
+      persistDocs(demo);
     } catch (e) {
       if (__DEV__) console.warn("DocDue: hydrate error", e);
-      set({ _hydrated: true });
+      failLoad();
     }
   },
 
@@ -245,7 +288,7 @@ export const useDocumentStore = create<DocumentsState>()((set, get) => ({
     set((state) => ({ documents: [...state.documents, newDoc] }));
     const documents = get().documents;
     afterMutation(documents, true);
-    maybeRequestReview(documents.length).catch(() => {});
+    maybeRequestReview(countTowardFreeLimit(documents)).catch(() => {});
   },
 
   addDocuments: (dataList) => {
@@ -257,7 +300,7 @@ export const useDocumentStore = create<DocumentsState>()((set, get) => ({
   updateDocument: (data) => {
     set((state) => ({
       documents: state.documents.map((d) =>
-        d.id === data.id ? stripEnrichedFields(data) : d
+        d.id === data.id ? stripEnrichedFields({ ...d, ...data, ...adoptIfExample(d) }) : d
       ),
     }));
     afterMutation(get().documents, true);
@@ -312,36 +355,42 @@ export const useDocumentStore = create<DocumentsState>()((set, get) => ({
       };
       const months = MONTH_MAP[fresh.rec];
       const today = getTodayString();
-      let nextDue = months
-        ? addMonthsToDate(fresh.due, months)
-        : addDaysToDate(fresh.due, recDays);
+      // The day of month the user picked, re-applied (clamped) every period so
+      // a 31st doesn't drift to the 28th after February
+      const anchorDay = Number.isInteger(fresh.dueDay) ? (fresh.dueDay as number) : Number(fresh.due.slice(8, 10));
+      const advance = (from: string) => months
+        ? addMonthsKeepingDay(from, months, anchorDay)
+        : addDaysToDate(from, recDays);
+      let nextDue = advance(fresh.due);
       // Catch up an overdue recurring document to its next genuinely-future due
       // date in a single tap, instead of advancing one period and staying expired
       // (which forced repeated taps + bogus payment records). ISO dates compare
       // lexicographically, so this string comparison is timezone-safe.
       let guard = 0;
       while (nextDue < today && guard < 1000) {
-        nextDue = months
-          ? addMonthsToDate(nextDue, months)
-          : addDaysToDate(nextDue, recDays);
+        nextDue = advance(nextDue);
         guard++;
       }
       set((state) => ({
         documents: state.documents.map((d) =>
-          d.id === doc.id ? { ...d, due: nextDue, paymentHistory: history } : d
+          d.id === doc.id
+            ? { ...d, ...adoptIfExample(d), due: nextDue, paymentHistory: history, ...(months ? { dueDay: anchorDay } : {}) }
+            : d
         ),
       }));
       afterMutation(get().documents, true);
-      maybeRequestReview(get().documents.length).catch(() => {});
+      dismissDeliveredForDocument(doc.id).catch(() => {});
+      maybeRequestReview(countTowardFreeLimit(get().documents)).catch(() => {});
       return "paid_next";
     } else {
       // Non-recurring: mark as resolved (keep for analytics history)
       set((state) => ({
         documents: state.documents.map((d) =>
-          d.id === doc.id ? { ...d, paymentHistory: history, resolved: getTodayString() } : d
+          d.id === doc.id ? { ...d, ...adoptIfExample(d), paymentHistory: history, resolved: getTodayString() } : d
         ),
       }));
       afterMutation(get().documents, true);
+      dismissDeliveredForDocument(doc.id).catch(() => {});
       return "resolved";
     }
   },
@@ -351,6 +400,36 @@ export const useDocumentStore = create<DocumentsState>()((set, get) => ({
     const demo = createDemoDocuments(lang);
     set({ documents: demo });
     afterMutation(demo);
+  },
+
+  removeDemoDocuments: () => {
+    const docs = get().documents;
+    const demo = docs.filter(isDemoDocument);
+    if (demo.length === 0) return;
+    for (const doc of demo) cleanupAttachments(doc);
+    set({ documents: docs.filter((d) => !isDemoDocument(d)) });
+    afterMutation(get().documents, true);
+  },
+
+  replaceAllDocuments: (incoming) => {
+    // Unique ids even if a malformed backup repeats one
+    const seen = new Set<string>();
+    const docs = incoming.map((d) => {
+      const doc = stripEnrichedFields(d);
+      if (!doc.id || seen.has(doc.id)) return { ...doc, id: generateId() };
+      seen.add(doc.id);
+      return doc;
+    });
+    const stillUsed = new Set(docs.flatMap((d) => (d.attachments || []).map((a) => a.uri)));
+    for (const old of get().documents) {
+      for (const att of old.attachments || []) {
+        if (!stillUsed.has(att.uri)) FileSystem.deleteAsync(att.uri, { idempotent: true }).catch(() => {});
+      }
+    }
+    // A pending undo would re-insert a document from the old set
+    flushUndoBuffer();
+    set({ documents: docs });
+    afterMutation(docs, true);
   },
 
   clearAll: () => {
@@ -379,30 +458,35 @@ export function clearPendingCleanups() {
     clearTimeout(_retryTimer);
     _retryTimer = null;
   }
-  _rescheduleRunning = false;
 }
 
 // ─── Computed Selectors (memoized for performance) ──────
 
 import { useMemo } from "react";
+import { useToday } from "./useClockStore";
+
+// `today` is a dependency so days remaining / status recompute when the date
+// changes (midnight, or the app resumed the next day) — not only on edits.
 
 export function useEnrichedDocuments(): EnrichedDocument[] {
   const documents = useDocumentStore((s) => s.documents);
+  const today = useToday();
   return useMemo(() =>
     documents
       .filter((d) => !d.resolved)
       .map((d) => enrichDocument(d))
       .sort((a, b) => a._daysUntil - b._daysUntil),
-    [documents]
+    [documents, today]
   );
 }
 
 export function useEnrichedDocument(id: string | undefined): EnrichedDocument | undefined {
   const doc = useDocumentStore((s) => s.documents.find((d) => d.id === id));
+  const today = useToday();
   return useMemo(() => {
     if (!doc) return undefined;
     return enrichDocument(doc);
-  }, [doc]);
+  }, [doc, today]);
 }
 
 export function useGlobalStats(enriched: EnrichedDocument[]): GlobalStats {

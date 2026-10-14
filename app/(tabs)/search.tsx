@@ -14,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { useTheme, useLanguage, useCurrency, useSettingsStore } from '../../src/stores/useSettingsStore';
 import { useEnrichedDocuments, useDocumentStore } from '../../src/stores/useDocumentStore';
-import { t, translateSubtype } from '../../src/core/i18n';
+import { t, tp, translateSubtype } from '../../src/core/i18n';
 import { SwipeableRow } from '../../src/components/SwipeableRow';
 import { buildMarkAsPaidAction, deleteWithUndo } from '../../src/core/confirmActions';
 import { formatMoney, formatDaysRemaining } from '../../src/core/formatters';
@@ -324,7 +324,7 @@ export default function SearchScreen() {
 
         {searchQuery.length === 0 && (
           <Text style={[s.hintText, { color: theme.textMuted }]}>
-            {t(language, 'search_count', { n: enrichedDocs.length })}
+            {tp(language, 'search_count', enrichedDocs.length)}
           </Text>
         )}
       </FadeInView>
@@ -375,7 +375,7 @@ export default function SearchScreen() {
                         if (idx === 1) markAsPaid(item);
                         else if (idx === 2) router.push(`/form?editId=${item.id}`);
                         else if (idx === 3) {
-                          Alert.alert(t(language, 'confirm_delete_title'), t(language, 'confirm_delete_msg'), [
+                          Alert.alert(t(language, 'confirm_delete_title'), t(language, 'confirm_delete_msg', { title: item.title }), [
                             { text: t(language, 'confirm_cancel'), style: 'cancel' },
                             { text: t(language, 'confirm_delete_btn'), style: 'destructive', onPress: () => { deleteWithUndo(item.id, language, deleteDocument, undoDelete); } },
                           ]);
@@ -388,7 +388,7 @@ export default function SearchScreen() {
                       { text: t(language, isRecurring ? 'confirm_paid_btn' : 'confirm_resolved_btn'), onPress: () => markAsPaid(item) },
                       { text: t(language, 'detail_edit'), onPress: () => router.push(`/form?editId=${item.id}`) },
                       { text: t(language, 'detail_delete'), style: 'destructive', onPress: () => {
-                        Alert.alert(t(language, 'confirm_delete_title'), t(language, 'confirm_delete_msg'), [
+                        Alert.alert(t(language, 'confirm_delete_title'), t(language, 'confirm_delete_msg', { title: item.title }), [
                           { text: t(language, 'confirm_cancel'), style: 'cancel' },
                           { text: t(language, 'confirm_delete_btn'), style: 'destructive', onPress: () => deleteWithUndo(item.id, language, deleteDocument, undoDelete) },
                         ]);

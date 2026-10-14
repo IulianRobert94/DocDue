@@ -10,11 +10,17 @@ import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import type { RawDocument, LanguageCode } from "../core/constants";
 import { CATEGORIES } from "../core/constants";
-import { t } from "../core/i18n";
+import { t, tp } from "../core/i18n";
 import { parseLocalDate } from "../core/dateUtils";
 import { formatDate } from "../core/formatters";
-import { enrichDocument, getActiveDocuments, getEffectiveReminderDays } from "../core/enrichment";
+import { enrichDocument, getEffectiveReminderDays } from "../core/enrichment";
 import { calculateHealthScore } from "../core/healthScore";
+import { isDemoDocument } from "../core/helpers";
+
+/** Documents that may produce notifications: active and not an example document. */
+function notifiableDocuments(documents: RawDocument[]): RawDocument[] {
+  return documents.filter((d) => !d.resolved && !isDemoDocument(d));
+}
 
 // ─── Constants ──────────────────────────────────────────
 
@@ -94,6 +100,16 @@ export async function checkNotificationPermission(): Promise<boolean> {
   return status === "granted";
 }
 
+/** Raw OS permission state — "undetermined" means the user was never asked. */
+export async function getNotificationPermissionStatus(): Promise<"granted" | "denied" | "undetermined"> {
+  try {
+    const { status } = await Notifications.getPermissionsAsync();
+    return status === "granted" || status === "undetermined" ? status : "denied";
+  } catch {
+    return "denied";
+  }
+}
+
 // ─── Scheduling ─────────────────────────────────────────
 
 interface ScheduleEntry {
@@ -107,16 +123,28 @@ interface ScheduleEntry {
 }
 
 /**
- * Cancel all existing notifications and reschedule based on
- * current documents and reminderDays setting.
+ * Cancel the document reminders scheduled earlier and reschedule them from the
+ * current documents. Snoozed reminders ("Mâine") survive as long as their
+ * document still exists with the same due date. Digest and weekly summary are
+ * managed by their own functions.
  */
 export async function rescheduleAllNotifications(
   documents: RawDocument[],
   _reminderDays: number[], // kept for call-site compat; actual reminders are per-document
   language: LanguageCode,
 ): Promise<void> {
-  // 1. Cancel all existing
-  await Notifications.cancelAllScheduledNotificationsAsync();
+  // 1. Cancel the document reminders we own (keep valid snoozes)
+  const activeById = new Map(notifiableDocuments(documents).map((d) => [d.id, d]));
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  for (const n of scheduled) {
+    const data = n.content?.data;
+    if (data?.type !== "document_reminder") continue;
+    if (data.snoozed) {
+      const doc = activeById.get(data.documentId as string);
+      if (doc && (typeof data.due !== "string" || data.due === doc.due)) continue;
+    }
+    await Notifications.cancelScheduledNotificationAsync(n.identifier).catch(() => {});
+  }
 
   // 2. Check permission
   const hasPermission = await checkNotificationPermission();
@@ -126,8 +154,7 @@ export async function rescheduleAllNotifications(
   const now = Date.now();
   const entries: ScheduleEntry[] = [];
 
-  for (const doc of documents) {
-    if (doc.resolved) continue; // skip resolved docs
+  for (const doc of notifiableDocuments(documents)) {
     const dueDate = parseLocalDate(doc.due);
     if (isNaN(dueDate.getTime())) continue;
 
@@ -171,6 +198,8 @@ export async function rescheduleAllNotifications(
           data: {
             documentId: entry.docId,
             type: "document_reminder",
+            // Lets a stale "Plătit" tap (after the doc was already paid) be ignored
+            due: entry.dueDate,
           },
           ...(Platform.OS === "android" && { channelId: CHANNEL_ID }),
         },
@@ -232,8 +261,20 @@ function buildContent(
     };
   }
 
+  if (entry.reminderDay < 0) {
+    // Reminder after expiry (e.g. -1 = "1 day after")
+    const daysAgo = -entry.reminderDay;
+    return {
+      title: tp(language, "notif_overdue_title", daysAgo, { days: daysAgo }),
+      body: t(language, "notif_overdue_body", {
+        title: entry.docTitle,
+        date: dateFormatted,
+      }),
+    };
+  }
+
   return {
-    title: t(language, "notif_reminder_title", { days: entry.reminderDay }),
+    title: tp(language, "notif_reminder_title", entry.reminderDay, { days: entry.reminderDay }),
     body: t(language, "notif_reminder_body", {
       title: entry.docTitle,
       date: dateFormatted,
@@ -252,6 +293,7 @@ export async function snoozeNotification(
   notificationId: string,
   title: string,
   body: string,
+  due?: string,
 ): Promise<void> {
   // Cancel the original notification to prevent duplicate
   await Notifications.dismissNotificationAsync(notificationId).catch(() => {});
@@ -267,7 +309,8 @@ export async function snoozeNotification(
         body,
         sound: "default",
         categoryIdentifier: NOTIFICATION_CATEGORY,
-        data: { documentId: docId, type: "document_reminder" },
+        // `snoozed` + `due` let later reschedules keep this reminder
+        data: { documentId: docId, type: "document_reminder", snoozed: true, ...(due ? { due } : {}) },
         ...(Platform.OS === "android" && { channelId: CHANNEL_ID }),
       },
       trigger: {
@@ -278,6 +321,74 @@ export async function snoozeNotification(
   } catch {
     // Exact alarm scheduling may fail on Android
   }
+}
+
+// ─── "Plătit" from a notification ────────────────────────
+
+/**
+ * Whether a "Plătit" (MARK_PAID) tap should mark the document as paid.
+ * False when the document is gone, archived, or was already paid since this
+ * reminder was scheduled (its due date moved on) — otherwise an old
+ * notification left in Notification Center would skip a whole period.
+ */
+export function shouldApplyMarkPaid(
+  doc: RawDocument | undefined,
+  data: Record<string, unknown> | undefined,
+): boolean {
+  if (!doc || doc.resolved) return false;
+  return typeof data?.due !== "string" || data.due === doc.due;
+}
+
+/** Remove this document's delivered reminders from Notification Center. */
+export async function dismissDeliveredForDocument(docId: string): Promise<void> {
+  try {
+    const presented = await Notifications.getPresentedNotificationsAsync();
+    for (const n of presented) {
+      if (n.request.content.data?.documentId === docId) {
+        await Notifications.dismissNotificationAsync(n.request.identifier);
+      }
+    }
+  } catch {
+    // Best effort — not supported everywhere (e.g. Expo Go)
+  }
+}
+
+// ─── Serialized sync ─────────────────────────────────────
+
+let _syncRun: Promise<void> | null = null;
+let _syncNext: { documents: RawDocument[]; language: LanguageCode } | null = null;
+
+/**
+ * Bring every scheduled notification in line with `documents`: reminders,
+ * then the morning digest, then the weekly summary, in sequence.
+ * Runs never overlap — calls made while one is running are coalesced into a
+ * single follow-up run with the newest arguments. Rejects if the last run failed.
+ */
+export function syncAllNotifications(documents: RawDocument[], language: LanguageCode): Promise<void> {
+  _syncNext = { documents, language };
+  if (!_syncRun) {
+    _syncRun = (async () => {
+      let lastError: unknown = null;
+      try {
+        while (_syncNext) {
+          const { documents: docs, language: lang } = _syncNext;
+          _syncNext = null;
+          try {
+            await rescheduleAllNotifications(docs, [], lang);
+            await scheduleMorningDigest(docs, lang);
+            await scheduleWeeklySummary(docs, lang);
+            lastError = null;
+          } catch (e) {
+            lastError = e;
+          }
+        }
+      } finally {
+        _syncRun = null;
+      }
+      if (lastError) throw lastError;
+    })();
+  }
+  return _syncRun;
 }
 
 // ─── Morning Digest ─────────────────────────────────────
@@ -302,21 +413,20 @@ export async function scheduleMorningDigest(
     }
   }
 
+  // Nothing real to report (no documents, or only examples) — no daily ping
+  const docs = notifiableDocuments(documents);
+  if (docs.length === 0) return;
+
   // Calculate current stats for the digest (active docs only)
-  const enriched = getActiveDocuments(documents).map((d) => enrichDocument(d));
+  const enriched = docs.map((d) => enrichDocument(d));
   const score = calculateHealthScore(enriched);
   const needsAttention = enriched.filter(
     (d) => d._status === "expired" || d._status === "warning"
   ).length;
 
-  let body: string;
-  if (needsAttention === 0) {
-    body = t(language, "notif_digest_body_zero", { score });
-  } else if (needsAttention === 1) {
-    body = t(language, "notif_digest_body_one", { n: 1, score });
-  } else {
-    body = t(language, "notif_digest_body_plural", { n: needsAttention, score });
-  }
+  const body = needsAttention === 0
+    ? t(language, "notif_digest_body_zero", { score })
+    : tp(language, "notif_digest_body", needsAttention, { score });
 
   // Schedule for tomorrow at 9 AM (one-time, re-scheduled on next mutation/launch)
   const tomorrow = new Date();
@@ -363,8 +473,12 @@ export async function scheduleWeeklySummary(
     }
   }
 
+  // Nothing real to report — no Monday "0 documents" summary
+  const docs = notifiableDocuments(documents);
+  if (docs.length === 0) return;
+
   // Calculate stats for the week (active docs only)
-  const enriched = getActiveDocuments(documents).map((d) => enrichDocument(d));
+  const enriched = docs.map((d) => enrichDocument(d));
   const score = calculateHealthScore(enriched);
   const thisWeek = enriched.filter(
     (d) => d._daysUntil >= 0 && d._daysUntil <= 7
@@ -374,8 +488,8 @@ export async function scheduleWeeklySummary(
   ).length;
 
   const body = t(language, "notif_weekly_body", {
-    weekCount: thisWeek,
-    urgentCount: urgent,
+    week: tp(language, "notif_weekly_due", thisWeek),
+    urgent: tp(language, "notif_weekly_urgent", urgent),
     score,
   });
 

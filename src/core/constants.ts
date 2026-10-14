@@ -20,9 +20,18 @@ export const PAYMENT_WINDOW_DAYS = 30;
 export const STORAGE_KEY_DOCUMENTS = "dt12_docs";
 export const STORAGE_KEY_SETTINGS = "dt12_settings";
 export const STORAGE_KEY_DOCUMENTS_LEGACY = "dt11_docs";
+/** Copy of saved document data that couldn't be parsed (kept for recovery) */
+export const STORAGE_KEY_DOCUMENTS_CORRUPT_BACKUP = "dt12_docs_corrupt_backup";
+/** Maintenance journal (tracked items and their install history) */
+export const STORAGE_KEY_ITEMS = "dt12_items";
+export const STORAGE_KEY_ITEMS_CORRUPT_BACKUP = "dt12_items_corrupt_backup";
+export const ITEMS_DATA_VERSION = 1;
 export const STORAGE_KEY_SETTINGS_LEGACY = "dt11_settings";
+export const STORAGE_KEY_SETTINGS_CORRUPT_BACKUP = "dt12_settings_corrupt_backup";
 export const STORAGE_KEY_ONBOARDED = "dt_onboarded";
 export const MAX_ATTACHMENTS = 5;
+/** Example documents seeded on first launch carry this id prefix */
+export const DEMO_ID_PREFIX = "demo_";
 
 // ─── TypeScript Types ───────────────────────────────────
 
@@ -102,6 +111,8 @@ export interface RawDocument {
   title: string;
   asset?: string;
   due: string; // "YYYY-MM-DD"
+  /** Day of month the user picked (1–31); monthly-type due dates return to it after short months */
+  dueDay?: number;
   amt: number | null;
   rec: RecurrenceValue;
   notes?: string;
@@ -109,6 +120,34 @@ export interface RawDocument {
   paymentHistory?: PaymentRecord[];
   resolved?: string; // "YYYY-MM-DD" when non-recurring doc was marked as paid
   reminderDays?: number[]; // Custom reminder days override (null = auto based on recurrence)
+  /** An example document the user edited or paid — from then on it's theirs */
+  userEdited?: boolean;
+}
+
+/**
+ * One period of use of a tracked item: from installation until it broke or
+ * was replaced. `end` absent = still in use.
+ */
+export interface ItemInstall {
+  id: string;
+  start: string;       // YYYY-MM-DD installed / started using
+  startKm?: number;    // odometer at installation (vehicles, optional)
+  end?: string;        // YYYY-MM-DD removed
+  endKm?: number;
+  endReason?: "broke" | "replaced";
+  cost?: number | null;
+  note?: string;       // brand, model, where it was done
+}
+
+/** Something whose lifespan the user tracks — car battery, tyres, water filter… */
+export interface TrackedItem {
+  id: string;
+  name: string;
+  cat: CategoryId;
+  asset?: string;           // the car / home it belongs to ("Dacia Duster")
+  notes?: string;
+  installs: ItemInstall[];  // oldest first; only the last one may be open
+  createdAt: string;        // YYYY-MM-DD
 }
 
 /** Documentul îmbogățit (cu câmpuri calculate la runtime) */
@@ -235,7 +274,7 @@ export const CATEGORIES: Record<CategoryId, Category> = {
       "Asigurare PAD", "Asigurare facultativă", "Revizie centrală", "Verificare gaze",
       "TV", "Telefon fix", "Gunoi",
       "Streaming video", "Streaming muzică", "Cloud storage",
-      "Domeniu web", "Hosting", "Licență software", "Altele",
+      "Domeniu web", "Hosting", "Licență software", "Garanție produs", "Altele",
     ],
   },
   financiar: {

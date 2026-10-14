@@ -52,6 +52,8 @@ interface AnimatedPressableProps {
   accessibilityLabel?: string;
   accessibilityRole?: "button" | "link" | "none";
   accessibilityState?: { selected?: boolean; disabled?: boolean; checked?: boolean | 'mixed'; busy?: boolean; expanded?: boolean };
+  /** Current value read by screen readers after the label (e.g. a selected date) */
+  accessibilityValue?: { text: string };
   hitSlop?: number | { top?: number; bottom?: number; left?: number; right?: number };
   disabled?: boolean;
 }
@@ -67,6 +69,7 @@ export const AnimatedPressable = React.memo(function AnimatedPressable({
   accessibilityLabel,
   accessibilityRole = "button",
   accessibilityState,
+  accessibilityValue,
   hitSlop,
   disabled,
 }: AnimatedPressableProps) {
@@ -116,6 +119,7 @@ export const AnimatedPressable = React.memo(function AnimatedPressable({
         accessibilityLabel={accessibilityLabel}
         accessibilityRole={accessibilityRole}
         accessibilityState={{ ...accessibilityState, disabled: disabled || accessibilityState?.disabled }}
+        accessibilityValue={accessibilityValue}
         hitSlop={hitSlop}
         disabled={disabled}
       >

@@ -18,9 +18,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { AnimatedPressable, useReduceMotion } from '../src/components/AnimatedUI';
 import {
   requestNotificationPermission,
-  rescheduleAllNotifications,
-  scheduleMorningDigest,
-  scheduleWeeklySummary,
+  syncAllNotifications,
 } from '../src/services/notifications';
 import { useDocumentStore } from '../src/stores/useDocumentStore';
 import { t } from '../src/core/i18n';
@@ -161,32 +159,43 @@ export default function OnboardingScreen() {
 
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 50 }).current;
 
-  const finishOnboarding = async () => {
+  // Ask for notification permission exactly once, whichever way the user
+  // leaves onboarding (button on slide 3, Skip, or swiping to the end) —
+  // without it reminders silently never fire. The setting mirrors the answer
+  // so the Settings toggle never shows ON while the OS blocks notifications.
+  const permissionAskedRef = useRef(false);
+  const askNotificationPermission = async () => {
+    if (permissionAskedRef.current) return;
+    permissionAskedRef.current = true;
+    let granted = false;
+    try {
+      granted = await requestNotificationPermission();
+    } catch {
+      // Not available (e.g. Expo Go) — treated as not granted
+    }
+    useSettingsStore.getState().updateSetting('notificationsEnabled', granted);
+    if (granted) {
+      const docs = useDocumentStore.getState().documents;
+      const language = useSettingsStore.getState().settings.language;
+      await syncAllNotifications(docs, language)
+        .catch((e) => { if (__DEV__) console.warn("DocDue: onboarding schedule error", e); });
+    }
+  };
+
+  // Finishing from the last slide asks (the reminders slide explained why);
+  // Skip doesn't fire the one-time OS prompt without context — the app asks
+  // when the first real document is saved instead.
+  const finishOnboarding = async (askPermission: boolean) => {
+    if (askPermission) await askNotificationPermission();
     await AsyncStorage.setItem(STORAGE_KEY_ONBOARDED, '1');
     router.replace('/(tabs)');
   };
 
   const handleNext = async () => {
     try {
-      if (currentIndex === 2) {
-        const granted = await requestNotificationPermission();
-        if (granted) {
-          useSettingsStore.getState().updateSetting('notificationsEnabled', true);
-          const docs = useDocumentStore.getState().documents;
-          const settings = useSettingsStore.getState().settings;
-          // Sequence so cancelAll (inside rescheduleAll) completes before the
-          // digest/weekly summary are inserted — concurrent calls can wipe them (L6).
-          try {
-            await rescheduleAllNotifications(docs, settings.reminderDays, settings.language);
-            await scheduleMorningDigest(docs, settings.language);
-            await scheduleWeeklySummary(docs, settings.language);
-          } catch (e) {
-            if (__DEV__) console.warn("DocDue: onboarding schedule error", e);
-          }
-        }
-      }
+      if (currentIndex === 2) await askNotificationPermission();
       if (isLastSlide) {
-        await finishOnboarding();
+        await finishOnboarding(true);
       } else {
         flatListRef.current?.scrollToIndex({ index: currentIndex + 1, animated: true });
       }
@@ -197,8 +206,7 @@ export default function OnboardingScreen() {
 
   const handleSkip = async () => {
     try {
-      await AsyncStorage.setItem(STORAGE_KEY_ONBOARDED, '1');
-      router.replace('/(tabs)');
+      await finishOnboarding(false);
     } catch (e) {
       if (__DEV__) console.warn("DocDue: onboarding skip error", e);
     }

@@ -34,7 +34,7 @@ import {
   useCategoryStats,
   useDocumentStore,
 } from "../../src/stores/useDocumentStore";
-import { t } from "../../src/core/i18n";
+import { t, tp } from "../../src/core/i18n";
 import { CATEGORIES, QUICK_PREVIEW_LIMIT } from "../../src/core/constants";
 import type { CategoryId } from "../../src/core/constants";
 import { formatDaysRemaining, getCategoryLabel } from "../../src/core/formatters";
@@ -42,6 +42,9 @@ import { AnimatedPressable, AnimatedSection, AnimatedCounter, AnimatedBar, useRe
 import { CircularProgress } from "../../src/components/CircularProgress";
 import { Celebration } from "../../src/components/Celebration";
 import { calculateHealthScore, getHealthScoreColor } from "../../src/core/healthScore";
+import { isDemoDocument } from "../../src/core/helpers";
+import { useClockStore } from "../../src/stores/useClockStore";
+import { JournalHomeCard } from "../../src/components/journal/JournalHomeCard";
 import { fonts } from "../../src/theme/typography";
 
 const COLLAPSE_START = 30;
@@ -106,47 +109,43 @@ export default function HomeScreen() {
     return () => anim.stop();
   }, [enriched.length, reduceMotion]);
 
-  // Demo banner — show only when demo data is present and not dismissed
-  const clearAll = useDocumentStore((s) => s.clearAll);
+  // Demo banner — show only when example documents are present and not dismissed
+  const removeDemoDocuments = useDocumentStore((s) => s.removeDemoDocuments);
   const [showDemoBanner, setShowDemoBanner] = useState(false);
   useEffect(() => {
     AsyncStorage.getItem("dt_demo_dismissed").then((val) => {
-      if (!val && enriched.length > 0) {
-        // Check if first doc looks like demo (has demo-style titles)
-        const hasDemo = enriched.some((d) => d.id.startsWith("demo_"));
-        setShowDemoBanner(hasDemo);
-      }
+      setShowDemoBanner(!val && enriched.some(isDemoDocument));
     }).catch(() => {});
-  }, [enriched.length]);
+  }, [enriched]);
 
   const handleDismissDemo = useCallback(() => {
     Alert.alert(
       t(lang, "demo_banner_dismiss"),
-      t(lang, "demo_banner_text"),
+      t(lang, "demo_remove_confirm"),
       [
         { text: t(lang, "confirm_cancel"), style: "cancel" },
         {
           text: t(lang, "demo_banner_dismiss"),
           style: "destructive",
           onPress: () => {
-            clearAll();
+            // Only the example documents — the user's own documents stay
+            removeDemoDocuments();
             AsyncStorage.setItem("dt_demo_dismissed", "1").catch(() => {});
             setShowDemoBanner(false);
           },
         },
       ]
     );
-  }, [lang, clearAll]);
+  }, [lang, removeDemoDocuments]);
 
   // ─── Pull-to-refresh ────────────────────────────────
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    // Re-hydrate stores
-    Promise.all([
-      useDocumentStore.getState()._hydrate(),
-    ]).finally(() => setTimeout(() => setRefreshing(false), 600));
+    // Recompute everything date-based (days remaining, status, score)
+    useClockStore.getState().refreshToday();
+    setTimeout(() => setRefreshing(false), 600);
   }, []);
 
   // ─── Scroll-driven collapse ────────────────────────
@@ -226,7 +225,7 @@ export default function HomeScreen() {
               DocDue
             </Text>
             <Text style={[styles.subtitle, { color: theme.textMuted }]}>
-              {enriched.length} {enriched.length !== 1 ? t(lang, "doc_plural") : t(lang, "doc_singular")}
+              {tp(lang, "doc_count", enriched.length)}
             </Text>
           </View>
         </RNAnimated.View>
@@ -365,7 +364,7 @@ export default function HomeScreen() {
                     {getCategoryLabel(cat, lang)}
                   </Text>
                   <Text style={[styles.catMeta, { color: theme.textMuted }]}>
-                    {catStat.total} {catStat.total !== 1 ? t(lang, "doc_plural") : t(lang, "doc_singular")}
+                    {tp(lang, "doc_count", catStat.total)}
                   </Text>
                 </AnimatedPressable>
               );
@@ -421,6 +420,11 @@ export default function HomeScreen() {
             </View>
           </AnimatedSection>
         )}
+
+        {/* ─── Maintenance journal ──────────────────── */}
+        <AnimatedSection index={3} style={{ marginHorizontal: CARD_PADDING, marginTop: 16 }}>
+          <JournalHomeCard />
+        </AnimatedSection>
 
         {/* ─── Empty State ──────────────────────────── */}
         {enriched.length === 0 && (

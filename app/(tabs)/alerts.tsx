@@ -116,7 +116,7 @@ export default function AlertsScreen() {
                           if (idx === 1) markAsPaid(item);
                           else if (idx === 2) router.push(`/form?editId=${item.id}`);
                           else if (idx === 3) {
-                            Alert.alert(t(language, 'confirm_delete_title'), t(language, 'confirm_delete_msg'), [
+                            Alert.alert(t(language, 'confirm_delete_title'), t(language, 'confirm_delete_msg', { title: item.title }), [
                               { text: t(language, 'confirm_cancel'), style: 'cancel' },
                               { text: t(language, 'confirm_delete_btn'), style: 'destructive', onPress: () => { deleteWithUndo(item.id, language, deleteDocument, undoDelete); } },
                             ]);
@@ -129,7 +129,7 @@ export default function AlertsScreen() {
                         { text: t(language, isRecurring ? 'confirm_paid_btn' : 'confirm_resolved_btn'), onPress: () => markAsPaid(item) },
                         { text: t(language, 'detail_edit'), onPress: () => router.push(`/form?editId=${item.id}`) },
                         { text: t(language, 'detail_delete'), style: 'destructive', onPress: () => {
-                          Alert.alert(t(language, 'confirm_delete_title'), t(language, 'confirm_delete_msg'), [
+                          Alert.alert(t(language, 'confirm_delete_title'), t(language, 'confirm_delete_msg', { title: item.title }), [
                             { text: t(language, 'confirm_cancel'), style: 'cancel' },
                             { text: t(language, 'confirm_delete_btn'), style: 'destructive', onPress: () => deleteWithUndo(item.id, language, deleteDocument, undoDelete) },
                           ]);

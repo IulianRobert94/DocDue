@@ -27,15 +27,16 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { AnimatedPressable, FadeInView, useReduceMotion } from '../src/components/AnimatedUI';
 import { SegmentedControl, RowDivider } from '../src/components/settings/SettingsUI';
 import { AttachmentPicker, deleteAttachmentFiles } from '../src/components/AttachmentPicker';
-import { getSmartDefaults, autoCategorize } from '../src/core/smartDefaults';
+import { autoCategorize, resolveRecurrenceForType } from '../src/core/smartDefaults';
 import { getAutoReminderDays } from '../src/core/enrichment';
-import { findDuplicate, isAtFreeLimit } from '../src/core/helpers';
+import { findDuplicate, isAtFreeLimit, countTowardFreeLimit } from '../src/core/helpers';
 import { FREE_DOCUMENT_LIMIT } from '../src/core/constants';
 import { validateDocument } from '../src/core/validators';
 import { fonts } from '../src/theme/typography';
 import { isOcrAvailable, scanDocument } from '../src/services/ocr';
 import * as ImagePicker from 'expo-image-picker';
 import { showToast } from '../src/stores/useToastStore';
+import { getNotificationPermissionStatus, requestNotificationPermission, syncAllNotifications } from '../src/services/notifications';
 
 function dateToString(date: Date): string {
   const year = date.getFullYear();
@@ -62,9 +63,10 @@ export default function FormScreen() {
   const language = useLanguage();
   const currency = useCurrency();
 
-  const { editId, cat: catParam, dupCat, dupType, dupTitle, dupAsset, dupAmt, dupRec, dupNotes } = useLocalSearchParams<{
+  const { editId, cat: catParam, dupCat, dupType, dupTitle, dupAsset, dupAmt, dupRec, dupNotes, prefillTitle, prefillDue, prefillAsset } = useLocalSearchParams<{
     editId?: string; cat?: string;
     dupCat?: string; dupType?: string; dupTitle?: string; dupAsset?: string; dupAmt?: string; dupRec?: string; dupNotes?: string;
+    prefillTitle?: string; prefillDue?: string; prefillAsset?: string;
   }>();
   const existingDoc = useEnrichedDocument(editId);
   const addDocument = useDocumentStore((s) => s.addDocument);
@@ -86,14 +88,18 @@ export default function FormScreen() {
   const isCustomType = existingDoc?.type ? !initSubtypes.includes(existingDoc.type) && !initCustom.includes(existingDoc.type) : false;
   const [type, setType] = useState<string>(isCustomType ? 'Altele' : (existingDoc?.type || dupType || ''));
   const [customType, setCustomType] = useState<string>(isCustomType ? (existingDoc?.type || '') : '');
-  const [title, setTitle] = useState<string>(existingDoc?.title || (dupTitle ? `${dupTitle} (copy)` : ''));
-  const [asset, setAsset] = useState<string>(existingDoc?.asset || dupAsset || '');
+  const [title, setTitle] = useState<string>(
+    existingDoc?.title || prefillTitle || (dupTitle ? `${dupTitle} ${t(language, 'copy_suffix')}` : '')
+  );
+  const [asset, setAsset] = useState<string>(existingDoc?.asset || dupAsset || prefillAsset || '');
   // Smart default: +30 days for new docs (today is rarely the right due date)
-  const defaultDue = existingDoc?.due || (() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 30);
-    return dateToString(d);
-  })();
+  const defaultDue = existingDoc?.due
+    || (prefillDue && !isNaN(parseLocalDate(prefillDue).getTime()) ? prefillDue : null)
+    || (() => {
+      const d = new Date();
+      d.setDate(d.getDate() + 30);
+      return dateToString(d);
+    })();
   const [due, setDue] = useState<string>(defaultDue);
   const [amt, setAmt] = useState<string>(existingDoc?.amt ? String(existingDoc.amt) : (dupAmt || ''));
   const [rec, setRec] = useState<RecurrenceValue>(existingDoc?.rec || (dupRec as RecurrenceValue) || 'none');
@@ -118,7 +124,12 @@ export default function FormScreen() {
   const [recAutoSet, setRecAutoSet] = useState(false);
   const recAutoSetTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [autoDetected, setAutoDetected] = useState(false);
-  const manualCatRef = useRef(false);
+  // A prefilled title (journal reminder) comes with its category — don't re-detect it
+  const manualCatRef = useRef(!!prefillTitle);
+  // What the user chose themselves (vs. values the form filled in)
+  const typeTouchedRef = useRef(false);
+  const dueTouchedRef = useRef(false);
+  const recTouchedRef = useRef(false);
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
   const [showTypePicker, setShowTypePicker] = useState(false);
   const [typeSearch, setTypeSearch] = useState('');
@@ -134,9 +145,8 @@ export default function FormScreen() {
 
   // Toggle date picker dialog (both platforms now)
   const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
-  const [pickerDate, setPickerDate] = useState<Date>(
-    existingDoc?.due ? stringToDate(existingDoc.due) : new Date()
-  );
+  // Opens on the due date shown in the form (not today)
+  const [pickerDate, setPickerDate] = useState<Date>(stringToDate(defaultDue));
 
   const category = CATEGORIES[cat];
   const presetSubtypes = category?.subtypes || [];
@@ -149,25 +159,31 @@ export default function FormScreen() {
   }, [presetSubtypes, savedCustom]);
 
   // Check if user has entered any data (reads from refs for current typing values)
-  const getHasUnsavedData = () => isEdit
-    ? (titleRef.current.trim() !== (existingDoc?.title || '') ||
-       assetRef.current.trim() !== (existingDoc?.asset || '') ||
-       amtRef.current.trim() !== (existingDoc?.amt ? String(existingDoc.amt) : '') ||
-       notesRef.current.trim() !== (existingDoc?.notes || '') ||
-       cat !== (existingDoc?.cat || 'vehicule') ||
-       type !== (existingDoc?.type || '') ||
-       due !== defaultDue ||
-       rec !== (existingDoc?.rec || 'none') ||
-       attachments.length !== (existingDoc?.attachments?.length || 0))
-    : (titleRef.current.trim().length > 0 ||
-       assetRef.current.trim().length > 0 ||
-       amtRef.current.trim().length > 0 ||
-       notesRef.current.trim().length > 0 ||
-       type.trim().length > 0 ||
-       due !== defaultDue ||
-       rec !== 'none' ||
-       attachments.length > 0 ||
-       cat !== initCat);
+  const getHasUnsavedData = () => {
+    if (isEdit) {
+      const effectiveType = type === 'Altele' ? (customType.trim() || 'Altele') : type;
+      return (titleRef.current.trim() !== (existingDoc?.title || '') ||
+        assetRef.current.trim() !== (existingDoc?.asset || '') ||
+        amtRef.current.trim() !== (existingDoc?.amt ? String(existingDoc.amt) : '') ||
+        notesRef.current.trim() !== (existingDoc?.notes || '') ||
+        cat !== (existingDoc?.cat || 'vehicule') ||
+        effectiveType !== (existingDoc?.type || '') ||
+        due !== defaultDue ||
+        rec !== (existingDoc?.rec || 'none') ||
+        JSON.stringify(customReminders) !== JSON.stringify(existingDoc?.reminderDays || null) ||
+        attachments.length !== (existingDoc?.attachments?.length || 0));
+    }
+    // New document: only what the user entered or chose counts — values the
+    // form filled in itself (default type, due date, smart recurrence) don't,
+    // so cancelling an untouched form doesn't ask "discard changes?".
+    return (titleRef.current.trim().length > 0 ||
+      assetRef.current.trim().length > 0 ||
+      amtRef.current.trim().length > 0 ||
+      notesRef.current.trim().length > 0 ||
+      attachments.length > 0 ||
+      customReminders !== null ||
+      manualCatRef.current || typeTouchedRef.current || dueTouchedRef.current || recTouchedRef.current);
+  };
 
   const cleanupNewAttachments = () => {
     // Delete files for attachments added during this session (not in original)
@@ -192,24 +208,39 @@ export default function FormScreen() {
     }
   };
 
-  // Android back button: show unsaved data warning
+  // Android back button: same unsaved-data check as Cancel. The listener is
+  // registered once, so it reads the handler from a ref that every render
+  // refreshes — otherwise it would only ever see the first render's state.
+  const onHardwareBackRef = useRef<() => boolean>(() => false);
+  onHardwareBackRef.current = () => {
+    if (getHasUnsavedData()) {
+      handleCancel();
+      return true;
+    }
+    return false;
+  };
   useEffect(() => {
     if (Platform.OS !== 'android') return;
-    const onBack = () => {
-      if (getHasUnsavedData()) {
-        handleCancel();
-        return true;
-      }
-      return false;
-    };
-    const sub = BackHandler.addEventListener('hardwareBackPress', onBack);
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => onHardwareBackRef.current());
     return () => sub.remove();
   }, []);
+
+  /** Smart recurrence for a type the user picked or the form pre-filled (new docs only). */
+  const applyTypeDefaults = (sub: string) => {
+    if (isEdit) return;
+    const next = resolveRecurrenceForType(sub, rec, recTouchedRef.current);
+    if (next === rec) return;
+    setRec(next);
+    if (recAutoSetTimer.current) clearTimeout(recAutoSetTimer.current);
+    setRecAutoSet(true);
+    recAutoSetTimer.current = setTimeout(() => setRecAutoSet(false), 2000);
+  };
 
   useEffect(() => {
     if (!isEdit && subtypes.length > 0 && !subtypes.includes(type)) {
       setType(subtypes[0]);
       setCustomType('');
+      applyTypeDefaults(subtypes[0]);
     }
   }, [cat]);
 
@@ -223,6 +254,7 @@ export default function FormScreen() {
       return;
     }
     if (selectedDate) {
+      dueTouchedRef.current = true;
       setPickerDate(selectedDate);
       setDue(dateToString(selectedDate));
       clearError('due');
@@ -233,18 +265,11 @@ export default function FormScreen() {
     if (errors[key]) setErrors((e) => { const n = { ...e }; delete n[key]; return n; });
   };
 
-  /** Apply smart defaults when selecting a subtype (only for new documents) */
+  /** User picked a subtype — apply its smart recurrence (new documents only) */
   const handleSubtypeSelect = (sub: string) => {
+    typeTouchedRef.current = true;
     setType(sub);
-    if (!isEdit && rec === 'none') {
-      const defaults = getSmartDefaults(sub);
-      if (defaults) {
-        setRec(defaults.recurrence);
-        if (recAutoSetTimer.current) clearTimeout(recAutoSetTimer.current);
-        setRecAutoSet(true);
-        recAutoSetTimer.current = setTimeout(() => setRecAutoSet(false), 2000);
-      }
-    }
+    applyTypeDefaults(sub);
   };
 
   const handleScan = async () => {
@@ -267,16 +292,10 @@ export default function FormScreen() {
 
       // Auto-fill form fields from OCR result
       if (ocrResult.category) { setCat(ocrResult.category); manualCatRef.current = false; }
-      if (ocrResult.type) setType(ocrResult.type);
+      if (ocrResult.type) { setType(ocrResult.type); applyTypeDefaults(ocrResult.type); }
       if (ocrResult.title) { titleRef.current = ocrResult.title; setTitle(ocrResult.title); }
-      if (ocrResult.date) { setDue(ocrResult.date); setPickerDate(stringToDate(ocrResult.date)); }
+      if (ocrResult.date) { dueTouchedRef.current = true; setDue(ocrResult.date); setPickerDate(stringToDate(ocrResult.date)); }
       if (ocrResult.amount != null) { amtRef.current = String(ocrResult.amount); setAmt(String(ocrResult.amount)); }
-
-      // Apply smart defaults for recurrence based on detected type
-      if (ocrResult.type && rec === 'none') {
-        const defaults = getSmartDefaults(ocrResult.type);
-        if (defaults) setRec(defaults.recurrence);
-      }
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       showToast(t(language, 'scan_success'));
@@ -316,9 +335,32 @@ export default function FormScreen() {
     }, language);
     if (sharedErrors.length > 0) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+      Alert.alert(t(language, 'alert_error'), sharedErrors[0]);
       return false;
     }
     return true;
+  };
+
+  /**
+   * Never asked for notifications yet (e.g. onboarding skipped)? Ask now, in
+   * context — right after the user saved a real document.
+   */
+  const askForRemindersIfNeeded = () => {
+    getNotificationPermissionStatus().then((status) => {
+      if (status !== 'undetermined') return;
+      Alert.alert(t(language, 'notif_ask_title'), t(language, 'notif_ask_msg'), [
+        { text: t(language, 'notif_ask_later'), style: 'cancel' },
+        {
+          text: t(language, 'notif_allow_btn'),
+          onPress: () => {
+            requestNotificationPermission().catch(() => false).then((granted) => {
+              useSettingsStore.getState().updateSetting('notificationsEnabled', granted);
+              if (granted) syncAllNotifications(useDocumentStore.getState().documents, language).catch(() => {});
+            });
+          },
+        },
+      ]);
+    }).catch(() => {});
   };
 
   const handleSave = () => {
@@ -327,7 +369,7 @@ export default function FormScreen() {
     // otherwise Duplicate / category-add routes into this form bypass it.
     if (!effectiveEdit) {
       const isPremium = useSettingsStore.getState().settings.isPremium;
-      const docCount = useDocumentStore.getState().documents.length;
+      const docCount = countTowardFreeLimit(useDocumentStore.getState().documents);
       if (isAtFreeLimit(docCount, isPremium)) {
         router.push('/premium');
         return;
@@ -353,16 +395,20 @@ export default function FormScreen() {
       notes: notesRef.current.trim() || undefined,
       attachments: attachments.length > 0 ? attachments : undefined,
       reminderDays: customReminders || undefined,
+      // Remember the picked day of month — only when the date was (re)chosen,
+      // so saving an edit doesn't overwrite it with a month-end clamped day
+      ...(!effectiveEdit || due !== existingDoc?.due ? { dueDay: Number(due.slice(8, 10)) } : {}),
     };
     try {
       if (effectiveEdit && existingDoc) {
-        updateDocument({ ...docData, id: existingDoc.id } as RawDocument);
+        updateDocument({ ...docData, id: existingDoc.id });
         // Clean up files for attachments that were removed during edit
         const savedIds = new Set(attachments.map((a) => a.id));
         const removed = (existingDoc.attachments || []).filter((a) => !savedIds.has(a.id));
         if (removed.length > 0) deleteAttachmentFiles(removed);
       } else {
         addDocument(docData);
+        askForRemindersIfNeeded();
       }
       // Show success animation then navigate back
       // With reduce motion: appear statically, keep only the gentle fade-out
@@ -460,7 +506,8 @@ export default function FormScreen() {
               <Text style={[s.sectionHeader, { color: theme.textSecondary }]}>{t(language, 'settings_general')}</Text>
               <View style={[s.group, { backgroundColor: theme.card }]}>
                 {/* Type row — tappable, opens modal */}
-                <AnimatedPressable style={s.inputRow} onPress={() => { setTypeSearch(''); setShowTypePicker(true); }} haptic={false} accessibilityLabel={t(language, 'form_type')} accessibilityRole="button">
+                <AnimatedPressable style={s.inputRow} onPress={() => { setTypeSearch(''); setShowTypePicker(true); }} haptic={false} accessibilityLabel={t(language, 'form_type')} accessibilityRole="button"
+                  accessibilityValue={{ text: type === 'Altele' ? (customType.trim() || translateSubtype('Altele', language)) : (type ? translateSubtype(type, language) : '') }}>
                   <Text style={[s.inputLabel, { color: theme.textSecondary }]}>{t(language, 'form_type')}</Text>
                   <Text style={[s.inputField, { color: type ? theme.text : theme.textDim }]} numberOfLines={1}>
                     {type === 'Altele'
@@ -481,7 +528,7 @@ export default function FormScreen() {
                         const detected = autoCategorize(titleRef.current);
                         if (detected) {
                           if (detected.cat) setCat(detected.cat);
-                          if (detected.type) setType(detected.type);
+                          if (detected.type) { setType(detected.type); applyTypeDefaults(detected.type); }
                           setAutoDetected(true);
                           setTimeout(() => setAutoDetected(false), 2500);
                         }
@@ -511,7 +558,8 @@ export default function FormScreen() {
                 <View style={s.dividerWrap}><View style={[s.divider, { backgroundColor: theme.divider }]} /></View>
 
                 {/* Date — tap to show picker, Done to dismiss */}
-                <AnimatedPressable style={s.inputRow} onPress={() => setShowDatePicker(true)} haptic={false} accessibilityLabel={t(language, 'form_due')} accessibilityRole="button">
+                <AnimatedPressable style={s.inputRow} onPress={() => setShowDatePicker(true)} haptic={false} accessibilityLabel={t(language, 'form_due')} accessibilityRole="button"
+                  accessibilityValue={{ text: due ? formatDate(due, language) : '' }}>
                   <Text style={[s.inputLabel, { color: theme.textSecondary }]}>{t(language, 'form_due')}</Text>
                   <Text style={[s.inputField, { color: due ? theme.text : theme.textDim }]}>
                     {due ? formatDate(due, language) : t(language, 'form_date_placeholder')}
@@ -567,7 +615,7 @@ export default function FormScreen() {
                               paddingVertical: 10, borderRadius: 10,
                               backgroundColor: isActive ? theme.primary : theme.inputFill,
                             }}
-                            onPress={() => { setRec(opt.value); setShowRecPicker(false); }}
+                            onPress={() => { recTouchedRef.current = true; setRec(opt.value); setShowRecPicker(false); }}
                             hapticStyle="selection"
                             accessibilityLabel={t(language, opt.labelKey)}
                             accessibilityState={{ selected: isActive }}
@@ -620,7 +668,7 @@ export default function FormScreen() {
                         <View key={opt.value}>
                           <AnimatedPressable
                             style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 16, minHeight: 44 }}
-                            onPress={() => { setRec(opt.value); setShowRecPicker(false); }}
+                            onPress={() => { recTouchedRef.current = true; setRec(opt.value); setShowRecPicker(false); }}
                             hapticStyle="selection"
                           >
                             <Text style={{ flex: 1, fontSize: 17, fontFamily: fonts.regular, color: rec === opt.value ? theme.primaryText : theme.text }}>

@@ -8,7 +8,7 @@
 import * as FileSystem from "expo-file-system/legacy";
 
 import { generateId } from "../core/helpers";
-import type { RawDocument } from "../core/constants";
+import type { Attachment, RawDocument } from "../core/constants";
 
 const ATTACHMENTS_DIR = `${FileSystem.documentDirectory}attachments/`;
 const MAX_ATTACHMENT_SIZE = 20 * 1024 * 1024; // 20MB base64 limit
@@ -53,4 +53,42 @@ export async function restoreAttachmentFiles(
       }
     }
   }
+}
+
+/** A plain file name we can safely place in the attachments folder. */
+const SAFE_FILE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,200}$/;
+
+/**
+ * Make restored attachments point only at files that exist in this app's
+ * attachments folder. Returns new document objects (inputs aren't modified).
+ *
+ * - A file already in the folder is kept as-is.
+ * - A file saved under an older app folder path (iOS changes it across
+ *   devices / reinstalls) is re-pointed to the current folder by file name.
+ * - Anything else — missing files, web links, paths outside the app from a
+ *   crafted backup — is dropped, so the app never loads remote content or
+ *   later deletes files outside its own folder.
+ */
+export async function resolveRestoredAttachments(docs: RawDocument[]): Promise<RawDocument[]> {
+  const resolved: RawDocument[] = [];
+  for (const doc of docs) {
+    if (!doc.attachments?.length) {
+      resolved.push(doc);
+      continue;
+    }
+    const kept: Attachment[] = [];
+    for (const att of doc.attachments) {
+      const fileName = typeof att.uri === "string" ? att.uri.split("/").pop() ?? "" : "";
+      if (!SAFE_FILE_NAME.test(fileName) || fileName.includes("..")) continue;
+      const localUri = `${ATTACHMENTS_DIR}${fileName}`;
+      try {
+        const info = await FileSystem.getInfoAsync(localUri);
+        if (info.exists) kept.push({ ...att, uri: localUri });
+      } catch {
+        // Unreadable — drop this attachment, keep the document
+      }
+    }
+    resolved.push({ ...doc, attachments: kept.length > 0 ? kept : undefined });
+  }
+  return resolved;
 }

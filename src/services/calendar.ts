@@ -64,11 +64,15 @@ export async function addDocumentToCalendar(
   const dueDate = parseLocalDate(doc.due);
   if (isNaN(dueDate.getTime())) return false;
 
-  // All-day event on the due date
-  const startDate = new Date(dueDate);
-  startDate.setHours(0, 0, 0, 0);
-  const endDate = new Date(dueDate);
-  endDate.setHours(23, 59, 59, 999);
+  // All-day event on the due date. Android's calendar stores all-day events
+  // in UTC and snaps the start to UTC midnight — a local-midnight start
+  // (22:00/21:00 UTC the day before in Romania) landed a day early there.
+  const isAndroid = Platform.OS === "android";
+  const y = dueDate.getFullYear();
+  const m = dueDate.getMonth();
+  const d = dueDate.getDate();
+  const startDate = isAndroid ? new Date(Date.UTC(y, m, d)) : new Date(y, m, d, 0, 0, 0, 0);
+  const endDate = isAndroid ? new Date(Date.UTC(y, m, d + 1)) : new Date(y, m, d, 23, 59, 59, 999);
 
   const typeLabel = translateSubtype(doc.type, language);
   const title = `${doc.title} — ${t(language, "detail_due")}`;
@@ -87,6 +91,7 @@ export async function addDocumentToCalendar(
       startDate,
       endDate,
       allDay: true,
+      ...(isAndroid ? { timeZone: "UTC" } : {}),
       notes: `${typeLabel}\n${notes}`.trim(),
       location,
       alarms: [{ relativeOffset: -1440 }], // Remind 1 day before (in minutes)

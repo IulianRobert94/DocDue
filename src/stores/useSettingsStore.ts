@@ -9,11 +9,13 @@ import { useMemo } from "react";
 import { create } from "zustand";
 import { Alert } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { DEFAULT_SETTINGS, STORAGE_KEY_SETTINGS, STORAGE_KEY_SETTINGS_LEGACY } from "../core/constants";
+import { DEFAULT_SETTINGS, STORAGE_KEY_SETTINGS, STORAGE_KEY_SETTINGS_LEGACY, STORAGE_KEY_SETTINGS_CORRUPT_BACKUP } from "../core/constants";
 import { createTheme } from "../theme/colors";
 import { t } from "../core/i18n";
 import type { AppSettings, CurrencyCode, LanguageCode } from "../core/constants";
 import type { AppTheme } from "../theme/colors";
+import { readStorageKey } from "../services/storage";
+import { detectDeviceDefaults } from "../core/locale";
 
 // ─── Types ──────────────────────────────────────────────
 
@@ -30,8 +32,13 @@ interface SettingsState {
 
 let _settingsPersistChain: Promise<void> = Promise.resolve();
 let _lastPersistedSettings: AppSettings | null = null;
+// Set when saved settings couldn't be read at launch: changes stay in memory
+// only, so defaults never overwrite the user's real settings on disk.
+let _settingsPersistBlocked = false;
 
 function persistSettings(settings: AppSettings) {
+  // Never before the saved settings were read (or after that failed)
+  if (_settingsPersistBlocked || !useSettingsStore.getState()._hydrated) return;
   const lang = settings?.language || "en";
   const prevPersisted = _lastPersistedSettings;
   _lastPersistedSettings = settings;
@@ -115,18 +122,27 @@ function validateHydratedSettings(cleaned: Record<string, unknown>): Record<stri
 // ─── Store ──────────────────────────────────────────────
 
 export const useSettingsStore = create<SettingsState>()((set, get) => ({
-  settings: { ...DEFAULT_SETTINGS },
+  // First launch follows the phone's language/currency; saved settings replace this on hydrate
+  settings: { ...DEFAULT_SETTINGS, ...detectDeviceDefaults() },
   _hydrated: false,
 
   _hydrate: async () => {
     if (get()._hydrated) return;
-    const withTimeout = <T,>(promise: Promise<T>, ms: number): Promise<T | null> =>
-      Promise.race([promise, new Promise<null>((resolve) => setTimeout(() => resolve(null), ms))]);
+    // A failed/slow read is not "nothing saved" — keep defaults in memory but
+    // never persist them over the real settings.
+    const failLoad = () => {
+      _settingsPersistBlocked = true;
+      set({ _hydrated: true });
+    };
     try {
-      let raw = await withTimeout(AsyncStorage.getItem(STORAGE_KEY_SETTINGS), 5000);
+      let read = await readStorageKey(STORAGE_KEY_SETTINGS);
+      if (!read.ok) return failLoad();
+      let raw = read.value;
       // Migrate from legacy key if needed
       if (!raw) {
-        raw = await withTimeout(AsyncStorage.getItem(STORAGE_KEY_SETTINGS_LEGACY), 5000);
+        read = await readStorageKey(STORAGE_KEY_SETTINGS_LEGACY);
+        if (!read.ok) return failLoad();
+        raw = read.value;
         if (raw) {
           await AsyncStorage.setItem(STORAGE_KEY_SETTINGS, raw);
           await AsyncStorage.removeItem(STORAGE_KEY_SETTINGS_LEGACY);
@@ -154,11 +170,13 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
           set({ settings: merged, _hydrated: true });
           return;
         }
+        // Unreadable settings: keep a copy before defaults replace them
+        await AsyncStorage.setItem(STORAGE_KEY_SETTINGS_CORRUPT_BACKUP, raw).catch(() => {});
       }
       set({ _hydrated: true });
     } catch (e) {
       if (__DEV__) console.warn("DocDue: settings hydrate error", e);
-      set({ _hydrated: true });
+      failLoad();
     }
   },
 

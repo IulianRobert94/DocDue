@@ -21,22 +21,23 @@ import * as Notifications from "expo-notifications";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useDocumentStore } from "../src/stores/useDocumentStore";
+import { useDocumentStore, isDocumentLoadFailed } from "../src/stores/useDocumentStore";
+import { useItemStore } from "../src/stores/useItemStore";
 import { useTheme, useSettingsStore } from "../src/stores/useSettingsStore";
 import { ErrorBoundary } from "../src/components/ErrorBoundary";
 import { Toast } from "../src/components/Toast";
 import { BiometricGate } from "../src/components/BiometricGate";
+import { useClockStore, startMidnightTimer } from "../src/stores/useClockStore";
 import * as QuickActions from "expo-quick-actions";
 import { STORAGE_KEY_ONBOARDED } from "../src/core/constants";
-import { isAtFreeLimit } from "../src/core/helpers";
+import { isAtFreeLimit, countTowardFreeLimit } from "../src/core/helpers";
 import {
   configureNotifications,
-  rescheduleAllNotifications,
   getDocumentIdFromNotification,
   setupNotificationCategories,
   snoozeNotification,
-  scheduleMorningDigest,
-  scheduleWeeklySummary,
+  syncAllNotifications,
+  shouldApplyMarkPaid,
 } from "../src/services/notifications";
 import { initializeIAP, checkPremiumStatus, isIAPConfigured, setPremiumGrantedCallback } from "../src/services/iap";
 import { enrichDocument, getActiveDocuments } from "../src/core/enrichment";
@@ -107,7 +108,10 @@ function RootLayout() {
         await Promise.all([
           useDocumentStore.getState()._hydrate(),
           useSettingsStore.getState()._hydrate(),
-          initializeIAP(),
+          useItemStore.getState()._hydrate(),
+          // A hanging store connection must not block startup (onboarding
+          // check, notification handling, quick actions all run after this).
+          Promise.race([initializeIAP(), new Promise((resolve) => setTimeout(resolve, 5000))]),
         ]);
         const onboarded = await AsyncStorage.getItem(STORAGE_KEY_ONBOARDED);
         setShowOnboarding(!onboarded);
@@ -119,18 +123,12 @@ function RootLayout() {
         setupNotificationCategories(settings.language)
           .catch((e) => { if (__DEV__) console.warn("DocDue: notification category error", e); });
 
-        if (settings.notificationsEnabled) {
-          // Sequence so cancelAll (inside rescheduleAll) completes before the digest
-          // and weekly summary are inserted — concurrent calls can wipe them (L6).
-          (async () => {
-            try {
-              await rescheduleAllNotifications(documents, settings.reminderDays, settings.language);
-              await scheduleMorningDigest(documents, settings.language);
-              await scheduleWeeklySummary(documents, settings.language);
-            } catch (e) {
-              if (__DEV__) console.warn("DocDue: notification schedule error", e);
-            }
-          })();
+        // If the documents couldn't be read, leave reminders, widget and streak
+        // exactly as they are — an empty list would cancel every reminder
+        const documentsLoaded = !isDocumentLoadFailed();
+        if (settings.notificationsEnabled && documentsLoaded) {
+          syncAllNotifications(documents, settings.language)
+            .catch((e) => { if (__DEV__) console.warn("DocDue: notification schedule error", e); });
         }
 
         // Persist PRO whenever a purchase is confirmed — including deferred /
@@ -149,7 +147,7 @@ function RootLayout() {
             }
           }).catch(() => {});
         }
-        updateWidgetData(documents);
+        if (documentsLoaded) updateWidgetData(documents);
 
         // Evaluate streak (only active / non-resolved docs)
         const enrichedDocs = getActiveDocuments(documents).map(enrichDocument);
@@ -159,7 +157,7 @@ function RootLayout() {
           settings.bestStreak ?? 0,
           settings.lastStreakCheck ?? null,
         );
-        if (streakResult.isNew || streakResult.streakDays !== (settings.streakDays ?? 0)) {
+        if (documentsLoaded && (streakResult.isNew || streakResult.streakDays !== (settings.streakDays ?? 0))) {
           const today = getTodayString();
           useSettingsStore.getState().updateSetting('streakDays', streakResult.streakDays);
           useSettingsStore.getState().updateSetting('bestStreak', streakResult.bestStreak);
@@ -200,9 +198,10 @@ function RootLayout() {
         await SplashScreen.hideAsync();
       }
     }
-    // Safety net: hide splash after 8s even if init stalls
+    // Safety net: hide the native splash after 8s if init stalls — but keep the
+    // loading spinner until the saved data is loaded (showing the app earlier
+    // would let edits happen on an empty list)
     const splashTimeout = setTimeout(() => {
-      setReady(true);
       SplashScreen.hideAsync();
     }, 8000);
     init().finally(() => clearTimeout(splashTimeout));
@@ -226,7 +225,8 @@ function RootLayout() {
       // deleted between deferral and unlock.
       const applyMarkAsPaid = () => {
         const raw = useDocumentStore.getState().documents.find((d) => d.id === docId);
-        if (raw) {
+        // Ignore a stale tap: the doc was already paid since this reminder fired
+        if (raw && shouldApplyMarkPaid(raw, content.data)) {
           useDocumentStore.getState().markAsPaid(enrichDocument(raw));
         }
       };
@@ -239,14 +239,18 @@ function RootLayout() {
       }
     } else if (actionId === "SNOOZE_1DAY") {
       const notifId = response.notification.request.identifier;
-      snoozeNotification(docId, notifId, content.title || "", content.body || "")
+      const due = typeof content.data?.due === "string" ? content.data.due : undefined;
+      snoozeNotification(docId, notifId, content.title || "", content.body || "", due)
         .catch((e) => { if (__DEV__) console.warn("DocDue: snooze error", e); });
     } else {
-      // Default tap — open document detail (verify doc still exists)
-      const exists = useDocumentStore.getState().documents.some((d) => d.id === docId);
-      if (exists) {
-        setTimeout(() => router.push(`/document/${docId}`), 100);
-      }
+      // Default tap — open document detail (verify doc still exists). Behind the
+      // biometric lock, wait for the unlock: a screen opened now would sit on top.
+      const openDetail = () => {
+        const exists = useDocumentStore.getState().documents.some((d) => d.id === docId);
+        if (exists) setTimeout(() => router.push(`/document/${docId}`), 100);
+      };
+      if (isAppLocked()) deferUntilUnlock(openDetail);
+      else openDetail();
     }
   };
 
@@ -262,10 +266,12 @@ function RootLayout() {
   useEffect(() => {
     try {
       const sub = QuickActions.addListener((action) => {
-        setTimeout(() => {
+        // Same as notification taps: never open screens behind the biometric lock
+        const run = (go: () => void) => (isAppLocked() ? deferUntilUnlock(go) : go());
+        run(() => setTimeout(() => {
           if (action.id === "add_document") {
             const settings = useSettingsStore.getState().settings;
-            const docCount = useDocumentStore.getState().documents.length;
+            const docCount = countTowardFreeLimit(useDocumentStore.getState().documents);
             if (isAtFreeLimit(docCount, settings.isPremium)) {
               router.push("/premium");
             } else {
@@ -276,7 +282,7 @@ function RootLayout() {
           } else if (action.id === "search") {
             router.push("/(tabs)/search");
           }
-        }, 100);
+        }, 100));
       });
       return () => sub.remove();
     } catch {
@@ -284,20 +290,23 @@ function RootLayout() {
     }
   }, [router]);
 
+  // Keep "today" current while the app stays open past midnight
+  useEffect(() => startMidnightTimer(), []);
+
   // Re-schedule notifications when app returns from background (debounced — skip if <60s)
   const lastRescheduleRef = useRef(0);
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (nextState) => {
       if (nextState === "active") {
+        // The day may have changed while in the background
+        useClockStore.getState().refreshToday();
         const now = Date.now();
         if (now - lastRescheduleRef.current < 60000) return;
         lastRescheduleRef.current = now;
         const settings = useSettingsStore.getState().settings;
         const documents = useDocumentStore.getState().documents;
-        if (settings.notificationsEnabled && documents.length > 0) {
-          rescheduleAllNotifications(documents, settings.reminderDays, settings.language).catch(() => {});
-          scheduleMorningDigest(documents, settings.language).catch(() => {});
-          scheduleWeeklySummary(documents, settings.language).catch(() => {});
+        if (settings.notificationsEnabled && documents.length > 0 && !isDocumentLoadFailed()) {
+          syncAllNotifications(documents, settings.language).catch(() => {});
         }
       }
     });
@@ -317,10 +326,8 @@ function RootLayout() {
     const documents = useDocumentStore.getState().documents;
     const settings = useSettingsStore.getState().settings;
     setupNotificationCategories(language).catch(() => {});
-    if (settings.notificationsEnabled && documents.length > 0) {
-      rescheduleAllNotifications(documents, settings.reminderDays, language).catch(() => {});
-      scheduleMorningDigest(documents, language).catch(() => {});
-      scheduleWeeklySummary(documents, language).catch(() => {});
+    if (settings.notificationsEnabled && documents.length > 0 && !isDocumentLoadFailed()) {
+      syncAllNotifications(documents, language).catch(() => {});
     }
     try {
       QuickActions.setItems([
@@ -357,6 +364,10 @@ function RootLayout() {
               <Stack.Screen name="analytics" options={{ animation: "slide_from_bottom", presentation: "modal" }} />
               <Stack.Screen name="premium" options={{ animation: "slide_from_bottom", presentation: "modal" }} />
               <Stack.Screen name="form" options={{ animation: "slide_from_bottom", presentation: "modal", gestureEnabled: false }} />
+              <Stack.Screen name="items/index" options={{ animation: "slide_from_right" }} />
+              <Stack.Screen name="items/[id]" options={{ animation: "slide_from_right" }} />
+              <Stack.Screen name="item-form" options={{ animation: "slide_from_bottom", presentation: "modal", gestureEnabled: false }} />
+              <Stack.Screen name="item-event" options={{ animation: "slide_from_bottom", presentation: "modal", gestureEnabled: false }} />
               <Stack.Screen name="privacy" options={{ animation: "slide_from_right" }} />
             </Stack>
           </SafeAreaProvider>

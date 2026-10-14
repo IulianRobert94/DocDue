@@ -63,3 +63,16 @@ export function validateDocument(doc: Partial<RawDocument>, lang: LanguageCode =
 
   return errors;
 }
+
+/**
+ * Parse an optional numeric form field ("1.234,5" style decimals allowed).
+ * Returns null when empty, NaN when invalid, otherwise the number.
+ */
+export function parseOptionalNumber(text: string, opts: { decimals: number; max: number }): number | null {
+  const normalized = text.trim().replace(/\s/g, "").replace(",", ".");
+  if (!normalized) return null;
+  const pattern = opts.decimals > 0 ? new RegExp(`^\\d+(\\.\\d{1,${opts.decimals}})?$`) : /^\d+$/;
+  if (!pattern.test(normalized)) return NaN;
+  const value = Number(normalized);
+  return value >= 0 && value <= opts.max ? value : NaN;
+}

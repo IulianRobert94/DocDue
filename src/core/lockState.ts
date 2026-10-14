@@ -13,6 +13,7 @@
 
 let _locked: boolean | null = null; // null = gate hasn't reported yet
 let _deferred: Array<() => void> = [];
+const _listeners = new Set<(locked: boolean) => void>();
 
 /**
  * Report the gate's lock state. Unlocking (false) runs all deferred actions.
@@ -20,7 +21,26 @@ let _deferred: Array<() => void> = [];
  */
 export function setAppLocked(locked: boolean): void {
   _locked = locked;
+  for (const listener of _listeners) {
+    try {
+      listener(locked);
+    } catch {
+      // One failing listener must not block the rest
+    }
+  }
   if (!locked) flushDeferredActions();
+}
+
+/**
+ * Get told when the app locks or unlocks — e.g. a full-screen photo viewer
+ * (its own native window, above the lock overlay) closes itself on lock.
+ * Returns an unsubscribe function.
+ */
+export function subscribeLockState(listener: (locked: boolean) => void): () => void {
+  _listeners.add(listener);
+  return () => {
+    _listeners.delete(listener);
+  };
 }
 
 /** True while the gate is locked or hasn't reported yet (cold start). */

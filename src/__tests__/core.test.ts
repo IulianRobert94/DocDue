@@ -336,7 +336,7 @@ describe("getRecurrenceDays", () => {
 
 // ─── i18n Completeness ──────────────────────────────────
 
-import { t, translateSubtype } from "../core/i18n";
+import { t, translateSubtype, TRANSLATIONS } from "../core/i18n";
 import { getWarningDaysForRecurrence } from "../core/enrichment";
 
 // Mock react-native Alert for confirmActions tests
@@ -431,7 +431,7 @@ describe("PaymentRecord in RawDocument", () => {
 
 import { createDemoDocuments } from "../core/demo";
 import { calculateHealthScore, getHealthScoreColor, getHealthScoreLabel } from "../core/healthScore";
-import { getSmartDefaults } from "../core/smartDefaults";
+import { getSmartDefaults, autoCategorize } from "../core/smartDefaults";
 
 describe("demo data", () => {
   it("creates documents with valid structure", () => {
@@ -759,7 +759,7 @@ describe("i18n new keys (health, notifications, digest)", () => {
     "health_hint_expired", "health_hint_warning",
     // Notification digest keys
     "notif_digest_title", "notif_digest_body_zero",
-    "notif_digest_body_one", "notif_digest_body_plural",
+    "notif_digest_body_one", "notif_digest_body_few", "notif_digest_body_other",
     // Smart notification keys
     "notif_smart_rca", "notif_smart_itp", "notif_smart_tax",
     "notif_smart_utility", "notif_smart_contract", "notif_smart_generic",
@@ -791,14 +791,10 @@ describe("i18n new keys (health, notifications, digest)", () => {
     expect(result).toContain("due soon");
   });
 
-  it("notif_digest_body_plural supports interpolation", () => {
-    const resultRo = t("ro", "notif_digest_body_plural", { n: 4, score: 75 });
-    expect(resultRo).toContain("4");
-    expect(resultRo).toContain("75");
-
-    const resultEn = t("en", "notif_digest_body_plural", { n: 4, score: 75 });
-    expect(resultEn).toContain("4");
-    expect(resultEn).toContain("75");
+  it("the digest body uses Romanian plural forms", () => {
+    expect(tp("ro", "notif_digest_body", 4, { score: 75 })).toBe("4 documente necesită atenție. Scor: 75/100");
+    expect(tp("ro", "notif_digest_body", 21, { score: 40 })).toBe("21 de documente necesită atenție. Scor: 40/100");
+    expect(tp("en", "notif_digest_body", 4, { score: 75 })).toBe("4 documents need attention. Score: 75/100");
   });
 
   it("alert_error key exists in both languages", () => {
@@ -1209,7 +1205,8 @@ describe("i18n RO/EN parity", () => {
     "sort_urgency", "sort_date", "sort_date_asc", "sort_date_desc",
     "sort_amount", "sort_name", "sort_label",
     // Days
-    "days_overdue_plural", "days_overdue_singular", "days_today", "days_tomorrow", "days_future",
+    "days_overdue_few", "days_overdue_other", "days_overdue_singular", "days_today", "days_tomorrow",
+    "days_future_few", "days_future_other", "doc_count_one", "doc_count_few", "doc_count_other",
     // Home
     "home_needs_attention", "home_see_all", "home_welcome", "home_welcome_sub", "home_30days",
     // Months
@@ -1219,7 +1216,7 @@ describe("i18n RO/EN parity", () => {
     // Alerts
     "alerts_title", "alerts_needs_attention", "alerts_none_title", "alerts_empty",
     // Search
-    "search_title", "search_placeholder", "search_no_results", "search_count",
+    "search_title", "search_placeholder", "search_no_results", "search_count_one", "search_count_few", "search_count_other",
     "search_no_filter_results", "search_all",
     // Document detail
     "detail_due", "detail_amount", "detail_recurrence", "detail_type", "detail_notes",
@@ -1252,8 +1249,8 @@ describe("i18n RO/EN parity", () => {
     "settings_reminders", "settings_reminders_desc",
     "settings_export_excel", "settings_import_excel",
     "settings_export_success", "settings_export_error",
-    "settings_import_success", "settings_import_error", "settings_import_no_data",
-    "settings_import_confirm_title", "settings_import_confirm_msg", "settings_import_confirm_btn",
+    "settings_import_success_one", "settings_import_success_few", "settings_import_success_other", "settings_import_error", "settings_import_no_data",
+    "settings_import_confirm_title", "settings_import_confirm_msg_one", "settings_import_confirm_msg_few", "settings_import_confirm_msg_other", "settings_import_confirm_btn",
     "settings_reset_demo", "settings_reset_demo_desc",
     "settings_clear_all", "settings_clear_all_desc", "settings_about_text",
     "settings_days_suffix", "settings_per_category", "settings_all_categories",
@@ -1274,7 +1271,7 @@ describe("i18n RO/EN parity", () => {
     // Congrats
     "congrats_paid",
     // Weekly
-    "notif_weekly_title", "notif_weekly_body",
+    "notif_weekly_title", "notif_weekly_body", "notif_weekly_due_one", "notif_weekly_urgent_one",
     // Accessibility
     "a11y_search_btn", "a11y_see_all_alerts", "a11y_close_modal", "a11y_go_back",
     "a11y_add_document", "a11y_save_document", "a11y_cancel",
@@ -1297,7 +1294,8 @@ describe("i18n RO/EN parity", () => {
     "restore_replace", "restore_merge", "restore_confirm",
     "restore_success", "restore_error", "restore_invalid", "restore_choose",
     // Notifications
-    "notif_reminder_title", "notif_reminder_body",
+    "notif_reminder_title_one", "notif_reminder_title_few", "notif_reminder_title_other", "notif_reminder_body",
+    "notif_overdue_title_one", "notif_overdue_title_other", "notif_overdue_body",
     "notif_due_today_title", "notif_due_today_body",
     "notif_permission_title", "notif_permission_denied",
     "settings_notifications", "settings_notifications_desc",
@@ -1330,7 +1328,7 @@ describe("i18n RO/EN parity", () => {
     "health_hint_expired", "health_hint_warning",
     // Digest
     "notif_digest_title", "notif_digest_body_zero",
-    "notif_digest_body_one", "notif_digest_body_plural",
+    "notif_digest_body_one", "notif_digest_body_few", "notif_digest_body_other",
     // Smart notifications
     "notif_smart_rca", "notif_smart_itp", "notif_smart_tax",
     "notif_smart_utility", "notif_smart_contract", "notif_smart_generic",
@@ -1360,20 +1358,29 @@ describe("i18n RO/EN parity", () => {
     "onboarding_skip", "onboarding_next", "onboarding_start",
   ];
 
-  it("every key exists in Romanian (not falling back to raw key)", () => {
-    const missing: string[] = [];
-    for (const key of ALL_KEYS) {
-      if (t("ro", key) === key) missing.push(key);
-    }
-    expect(missing).toEqual([]);
+  it("every key exists in Romanian", () => {
+    expect(ALL_KEYS.filter((key) => !(key in TRANSLATIONS.ro))).toEqual([]);
   });
 
-  it("every key exists in English (not falling back to raw key)", () => {
-    const missing: string[] = [];
-    for (const key of ALL_KEYS) {
-      if (t("en", key) === key) missing.push(key);
-    }
-    expect(missing).toEqual([]);
+  // Checked against the dictionary itself: t() silently falls back to
+  // Romanian, so an English key missing would otherwise go unnoticed.
+  it("every key exists in English", () => {
+    expect(ALL_KEYS.filter((key) => !(key in TRANSLATIONS.en))).toEqual([]);
+  });
+
+  it("Romanian and English define exactly the same keys", () => {
+    const ro = Object.keys(TRANSLATIONS.ro);
+    const en = Object.keys(TRANSLATIONS.en);
+    expect(ro.filter((k) => !en.includes(k))).toEqual([]);
+    expect(en.filter((k) => !ro.includes(k))).toEqual([]);
+  });
+
+  it("placeholders match between Romanian and English", () => {
+    const placeholders = (s: string) => (s.match(/\{[a-zA-Z]+\}/g) || []).sort().join(",");
+    const mismatched = Object.keys(TRANSLATIONS.ro).filter(
+      (k) => k in TRANSLATIONS.en && placeholders(TRANSLATIONS.ro[k]) !== placeholders(TRANSLATIONS.en[k])
+    );
+    expect(mismatched).toEqual([]);
   });
 });
 
@@ -1657,6 +1664,15 @@ describe("getEffectiveReminderDays", () => {
     const doc = makeDoc("monthly", []);
     expect(getEffectiveReminderDays(doc)).toEqual([1, 3, 7]);
   });
+
+  it("keeps the '1 day after expiry' choice (-1) the form offers", () => {
+    expect(getEffectiveReminderDays(makeDoc("annual", [-1]))).toEqual([-1]);
+    expect(getEffectiveReminderDays(makeDoc("annual", [7, -1]))).toEqual([7, -1]);
+  });
+
+  it("drops corrupted values (fractions, far past, beyond a year)", () => {
+    expect(getEffectiveReminderDays(makeDoc("annual", [2.5, -100, 400, 7]))).toEqual([7]);
+  });
 });
 
 // ─── Extended Recurrence ────────────────────────────────
@@ -1785,10 +1801,9 @@ describe("i18n — new recurrence keys", () => {
   });
 
   it("confirm_clear_msg_count supports interpolation", () => {
-    const ro = t("ro", "confirm_clear_msg_count", { n: 5 });
-    expect(ro).toContain("5");
-    const en = t("en", "confirm_clear_msg_count", { n: 3 });
-    expect(en).toContain("3");
+    expect(tp("ro", "confirm_clear_msg_count", 5)).toContain("5 documente");
+    expect(tp("ro", "confirm_clear_msg_count", 25)).toContain("25 de documente");
+    expect(tp("en", "confirm_clear_msg_count", 3)).toContain("3 documents");
   });
 
   it("undo/delete toast keys exist in both languages", () => {
@@ -2088,6 +2103,44 @@ describe("isAtFreeLimit (free-tier gate)", () => {
   });
 });
 
+import { countTowardFreeLimit, isDemoDocument } from "../core/helpers";
+
+describe("isDemoDocument", () => {
+  it("an untouched example is an example", () => {
+    expect(isDemoDocument(createDemoDocuments("ro")[0])).toBe(true);
+  });
+
+  it("an example renamed by the user (e.g. before this update) is the user's", () => {
+    const example = createDemoDocuments("ro")[0];
+    expect(isDemoDocument({ ...example, title: "RCA Logan" })).toBe(false);
+  });
+
+  it("an example marked as edited is the user's", () => {
+    const example = createDemoDocuments("en")[0];
+    expect(isDemoDocument({ ...example, userEdited: true })).toBe(false);
+  });
+});
+
+describe("countTowardFreeLimit", () => {
+  it("counts only the user's active documents — demo and resolved ones are free", () => {
+    const demo = createDemoDocuments("ro"); // 8 example documents
+    const real: RawDocument[] = [
+      { id: "u1", cat: "vehicule", type: "RCA", title: "RCA Logan", due: "2026-06-01", amt: 900, rec: "annual" },
+      { id: "u2", cat: "personal", type: "Pașaport", title: "Pașaport", due: "2030-01-01", amt: null, rec: "none" },
+      { id: "u3", cat: "casa", type: "Gaz", title: "Gaz", due: "2026-02-01", amt: 80, rec: "none", resolved: "2026-01-20" },
+    ];
+    expect(countTowardFreeLimit([...demo, ...real])).toBe(2);
+  });
+
+  it("a new user keeping the 8 examples can still add 10 real documents", () => {
+    const demo = createDemoDocuments("en");
+    const nineReal: RawDocument[] = Array.from({ length: 9 }, (_, i) => ({
+      id: `u${i}`, cat: "casa" as const, type: "Gaz", title: `Doc ${i}`, due: "2026-06-01", amt: null, rec: "none" as const,
+    }));
+    expect(isAtFreeLimit(countTowardFreeLimit([...demo, ...nineReal]), false)).toBe(false);
+  });
+});
+
 // ─── parseImportedDate (Excel import) ────────────────────
 
 import { parseImportedDate } from "../core/dateUtils";
@@ -2199,7 +2252,7 @@ describe("theme text contrast (WCAG AA)", () => {
 
 // ─── lockState (biometric gate deferral) ─────────────────
 
-import { setAppLocked, isAppLocked, deferUntilUnlock } from "../core/lockState";
+import { setAppLocked, isAppLocked, deferUntilUnlock, subscribeLockState } from "../core/lockState";
 
 describe("lockState (biometric gate deferral)", () => {
   beforeEach(() => {
@@ -2247,6 +2300,16 @@ describe("lockState (biometric gate deferral)", () => {
     deferUntilUnlock(second);
     setAppLocked(false);
     expect(second).toHaveBeenCalledTimes(1);
+  });
+
+  it("tells subscribers when the app locks/unlocks until they unsubscribe", () => {
+    const seen: boolean[] = [];
+    const unsubscribe = subscribeLockState((locked) => seen.push(locked));
+    setAppLocked(true);
+    setAppLocked(false);
+    unsubscribe();
+    setAppLocked(true);
+    expect(seen).toEqual([true, false]);
   });
 });
 
@@ -2362,4 +2425,204 @@ describe("source scan: text colors use primaryText, not primary", () => {
     roots.forEach(scan);
     expect(offending).toEqual([]);
   });
+});
+
+// ─── resolveRecurrenceForType (form auto-recurrence) ─────
+
+import { resolveRecurrenceForType } from "../core/smartDefaults";
+
+describe("resolveRecurrenceForType", () => {
+  it("applies the type's default when the type was pre-filled (RCA → annual)", () => {
+    expect(resolveRecurrenceForType("RCA", "none", false)).toBe("annual");
+  });
+
+  it("switches an automatic recurrence when the type changes (RCA → electricity bill)", () => {
+    expect(resolveRecurrenceForType("Curent electric", "annual", false)).toBe("monthly");
+  });
+
+  it("never overrides a recurrence the user picked", () => {
+    expect(resolveRecurrenceForType("RCA", "monthly", true)).toBe("monthly");
+  });
+
+  it("applies a 'none' default too (passport doesn't repeat)", () => {
+    expect(resolveRecurrenceForType("Pașaport", "annual", false)).toBe("none");
+  });
+
+  it("keeps the current value for types without a default", () => {
+    expect(resolveRecurrenceForType("Altele", "annual", false)).toBe("annual");
+  });
+});
+
+// ─── Romanian plurals ────────────────────────────────────
+
+import { pluralCategory, tp } from "../core/i18n";
+
+describe("pluralCategory (CLDR rules)", () => {
+  it.each([
+    [0, "few"], [1, "one"], [2, "few"], [19, "few"], [20, "other"], [21, "other"],
+    [100, "other"], [101, "few"], [119, "few"], [120, "other"],
+  ])("ro %i → %s", (n, expected) => {
+    expect(pluralCategory("ro", n)).toBe(expected);
+  });
+
+  it.each([[0, "other"], [1, "one"], [2, "other"], [21, "other"]])("en %i → %s", (n, expected) => {
+    expect(pluralCategory("en", n)).toBe(expected);
+  });
+});
+
+describe("Romanian day and document counts read naturally", () => {
+  it.each([
+    [14, "ro", "în 14 zile"],
+    [25, "ro", "în 25 de zile"],
+    [101, "ro", "în 101 zile"],
+    [25, "en", "in 25 days"],
+  ] as const)("in %i days (%s) → %s", (days, lang, expected) => {
+    expect(formatDaysRemaining(days, lang)).toBe(expected);
+  });
+
+  it.each([
+    [-3, "ro", "3 zile întârziere"],
+    [-30, "ro", "30 de zile întârziere"],
+    [-30, "en", "30 days overdue"],
+  ] as const)("%i days (%s) → %s", (days, lang, expected) => {
+    expect(formatDaysRemaining(days, lang)).toBe(expected);
+  });
+
+  it.each([
+    [1, "ro", "1 document"],
+    [7, "ro", "7 documente"],
+    [20, "ro", "20 de documente"],
+    [1, "en", "1 document"],
+    [5, "en", "5 documents"],
+  ] as const)("%i documents (%s) → %s", (n, lang, expected) => {
+    expect(tp(lang, "doc_count", n)).toBe(expected);
+  });
+});
+
+// ─── computeAnalytics ────────────────────────────────────
+
+import { computeAnalytics } from "../core/analytics";
+
+describe("computeAnalytics", () => {
+  const now = new Date(2026, 2, 15); // 15 Mar 2026
+  const active: RawDocument = {
+    id: "a", cat: "casa", type: "Gaz", title: "Gaz", due: "2026-03-25", amt: 100, rec: "monthly",
+    paymentHistory: [{ date: "2026-02-20", dueDate: "2026-02-25", amt: 100 }],
+  };
+  const paidOneTime: RawDocument = {
+    id: "r", cat: "financiar", type: "Amendă", title: "Amendă", due: "2026-01-10", amt: 500, rec: "none",
+    resolved: "2026-01-09", paymentHistory: [{ date: "2026-01-09", dueDate: "2026-01-10", amt: 500 }],
+  };
+
+  it("counts payments of archived one-time documents in the totals", () => {
+    const result = computeAnalytics([enrichDocument(active)], [active, paidOneTime], "ro", now);
+    expect(result.totalPaid).toBe(600);
+    expect(result.totalPayments).toBe(2);
+    expect(result.trendMonths.map((m) => m.amount)).toEqual([500, 100]);
+  });
+
+  it("forecasts only active documents due in the next 30 days", () => {
+    const result = computeAnalytics([enrichDocument(active)], [active, paidOneTime], "ro", now);
+    expect(result.total30).toBe(100);
+    expect(result.count30).toBe(1);
+  });
+});
+
+// ─── detectDeviceDefaults (first-launch language & currency) ──
+
+import { detectDeviceDefaults } from "../core/locale";
+
+describe("detectDeviceDefaults", () => {
+  it.each([
+    ["ro-RO", "ro", "RON"],
+    ["ro", "ro", "RON"],
+    ["en-US", "en", "USD"],
+    ["de-DE", "en", "EUR"],
+    ["fr-FR", "en", "EUR"],
+    ["en-IE", "en", "EUR"],
+    ["bg-BG", "en", "EUR"],
+    ["en-GB", "en", "USD"],
+    ["sr-Latn-RS", "en", "USD"],
+    ["en-RO", "en", "RON"],
+  ] as const)("%s → %s / %s", (locale, language, currency) => {
+    expect(detectDeviceDefaults(locale)).toEqual({ language, currency });
+  });
+
+  it("falls back to Romanian / lei when the locale is unknown", () => {
+    expect(detectDeviceDefaults("")).toEqual({ language: "ro", currency: "RON" });
+  });
+});
+
+// ─── addMonthsKeepingDay (month-end due dates) ───────────
+
+import { addMonthsKeepingDay } from "../core/dateUtils";
+
+describe("addMonthsKeepingDay", () => {
+  it.each([
+    ["2026-01-31", 1, 31, "2026-02-28"],
+    ["2026-02-28", 1, 31, "2026-03-31"],
+    ["2028-01-31", 1, 31, "2028-02-29"],
+    ["2026-11-30", 3, 30, "2027-02-28"],
+    ["2027-02-28", 3, 30, "2027-05-30"],
+    ["2026-03-15", 1, 15, "2026-04-15"],
+    ["2026-12-31", 1, 31, "2027-01-31"],
+  ])("%s + %i month(s), day %i → %s", (from, months, day, expected) => {
+    expect(addMonthsKeepingDay(from, months, day)).toBe(expected);
+  });
+});
+
+// ─── parseOptionalNumber (journal km / cost fields) ──────
+
+import { parseOptionalNumber } from "../core/validators";
+import { toDateString } from "../core/dateUtils";
+
+describe("parseOptionalNumber", () => {
+  const km = { decimals: 0, max: 9_999_999 };
+  const cost = { decimals: 2, max: 999_999_999 };
+
+  it("treats an empty field as 'not given'", () => {
+    expect(parseOptionalNumber("  ", km)).toBeNull();
+  });
+
+  it.each([
+    ["140000", km, 140000],
+    ["140 000", km, 140000],
+    ["450,50", cost, 450.5],
+    ["520", cost, 520],
+  ] as const)("parses %s", (text, opts, expected) => {
+    expect(parseOptionalNumber(text, opts)).toBe(expected);
+  });
+
+  it.each([
+    ["12.5", km],
+    ["-3", km],
+    ["abc", cost],
+    ["1.234", cost],
+    ["99999999", km],
+  ] as const)("rejects %s", (text, opts) => {
+    expect(parseOptionalNumber(text, opts)).toBeNaN();
+  });
+});
+
+describe("toDateString", () => {
+  it("formats the local calendar date", () => {
+    expect(toDateString(new Date(2026, 0, 5, 23, 30))).toBe("2026-01-05");
+  });
+});
+
+describe("warranty documents", () => {
+  it("a title mentioning a warranty is filed as a home warranty that doesn't repeat", () => {
+    const detected = autoCategorize("Garanție mașină de spălat");
+    expect(detected).toEqual({ cat: "casa", type: "Garanție produs" });
+    expect(getSmartDefaults("Garanție produs")?.recurrence).toBe("none");
+  });
+
+  it("is translated in English", () => {
+    expect(translateSubtype("Garanție produs", "en")).toBe("Product warranty");
+  });
+
+  it.each(["Garanție aparat foto", "Garanție apartament", "Garanție căști"])(
+    "'%s' is a warranty, not a water bill or a tax", (title) => {
+      expect(autoCategorize(title)).toEqual({ cat: "casa", type: "Garanție produs" });
+    });
 });

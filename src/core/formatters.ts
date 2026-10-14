@@ -12,7 +12,7 @@
 
 import { CURRENCY_OPTIONS, RECURRENCE_QUICK, RECURRENCE_OPTIONS, STATUS_DISPLAY } from "./constants";
 import type { LanguageCode, CurrencyCode, RecurrenceValue, DocumentStatus, Category } from "./constants";
-import { t } from "./i18n";
+import { t, tp } from "./i18n";
 
 /**
  * Formatează o dată "YYYY-MM-DD" în format uman:
@@ -52,11 +52,11 @@ export function formatMoney(amount: number | null, currencyCode: CurrencyCode = 
  * - formatDaysRemaining(14, "ro") → "în 14 zile"
  */
 export function formatDaysRemaining(days: number, lang: LanguageCode = "ro"): string {
-  if (days < -1) return t(lang, "days_overdue_plural", { n: Math.abs(days) });
+  if (days < -1) return tp(lang, "days_overdue", Math.abs(days));
   if (days === -1) return t(lang, "days_overdue_singular");
   if (days === 0) return t(lang, "days_today");
   if (days === 1) return t(lang, "days_tomorrow");
-  return t(lang, "days_future", { n: days });
+  return tp(lang, "days_future", days);
 }
 
 /**

@@ -16,6 +16,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 
 import { LinearGradient } from "expo-linear-gradient";
+import { FullWindowOverlay } from "react-native-screens";
+import { usePathname } from "expo-router";
 import { useSettingsStore, useTheme } from "../stores/useSettingsStore";
 import { t } from "../core/i18n";
 import { setAppLocked } from "../core/lockState";
@@ -51,6 +53,7 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
   const biometricEnabled = useSettingsStore((s) => s.settings.biometricEnabled);
   const language = useSettingsStore((s) => s.settings.language);
   const theme = useTheme();
+  const pathname = usePathname();
   const [locked, setLocked] = useState(biometricEnabled);
   // Opaque privacy cover shown while the app is backgrounded, so the OS
   // app-switcher / recents snapshot never captures document content. Separate
@@ -223,75 +226,103 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
     return `${seconds}s`;
   };
 
-  return (
-    <View style={{ flex: 1 }}>
-      {children}
-      {biometricEnabled && covered && !locked && (
-        <View style={[styles.overlay, { backgroundColor: theme.background }]}>
-          <View style={styles.content}>
-            <View style={[styles.iconCircle, { backgroundColor: theme.primary + '26' }]}>
-              <Ionicons name="lock-closed" size={44} color={theme.primary} />
-            </View>
-            <Text style={[styles.title, { color: theme.text }]}>DocDue</Text>
-          </View>
+  // While locked (or covered for the app switcher) the app content is hidden
+  // from screen readers too, not just painted over.
+  const hidden = locked || (biometricEnabled && covered);
+
+  const cover = (
+    <View style={[styles.overlay, { backgroundColor: theme.background }]}>
+      <View style={styles.content}>
+        <View style={[styles.iconCircle, { backgroundColor: theme.primary + '26' }]}>
+          <Ionicons name="lock-closed" size={44} color={theme.primary} />
         </View>
-      )}
-      {locked && (
-        <View style={[styles.overlay, { backgroundColor: theme.background }]}>
-          <View style={styles.content}>
-            <View style={[styles.iconCircle, { backgroundColor: theme.primary + '26' }]}>
-              <Ionicons name="lock-closed" size={44} color={theme.primary} />
-            </View>
-            <Text style={[styles.title, { color: theme.text }]}>
-              DocDue
-            </Text>
-            <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
-              {t(language, "biometric_unlock")}
-            </Text>
-            {failed && failCount < MAX_ATTEMPTS && (
-              <Text style={styles.failedText}>
-                {t(language, "biometric_failed")}
-              </Text>
-            )}
-            {failCount >= MAX_ATTEMPTS ? (
-              <Text style={styles.failedText}>
-                {t(language, "biometric_locked_out_dynamic", { time: formatLockoutTime(lockoutSeconds) })}
-              </Text>
-            ) : (
-              <>
-                <AnimatedPressable
-                  style={[styles.retryBtn, { overflow: 'hidden' }]}
-                  onPress={authenticate}
-                  hapticStyle="medium"
-                  accessibilityLabel={t(language, "biometric_retry")}
-                >
-                  <LinearGradient
-                    colors={['#0E8BFF', '#0A79F1']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 14 }}
-                  >
-                    <Ionicons
-                      name={Platform.OS === "ios" ? "scan" : "finger-print"}
-                      size={20}
-                      color="#FFF"
-                      style={{ marginRight: 8 }}
-                    />
-                    <Text style={styles.retryText}>{t(language, "biometric_retry")}</Text>
-                  </LinearGradient>
-                </AnimatedPressable>
-                <Text style={[styles.passcodeHint, { color: theme.textMuted }]}>
-                  {Platform.OS === "ios"
-                    ? t(language, "biometric_passcode_hint_ios")
-                    : t(language, "biometric_passcode_hint_android")}
-                </Text>
-              </>
-            )}
-          </View>
-        </View>
-      )}
+        <Text style={[styles.title, { color: theme.text }]}>DocDue</Text>
+      </View>
     </View>
   );
+
+  const lockScreen = (
+    <View style={[styles.overlay, { backgroundColor: theme.background }]} accessibilityViewIsModal>
+      <View style={styles.content}>
+        <View style={[styles.iconCircle, { backgroundColor: theme.primary + '26' }]}>
+          <Ionicons name="lock-closed" size={44} color={theme.primary} />
+        </View>
+        <Text style={[styles.title, { color: theme.text }]}>
+          DocDue
+        </Text>
+        <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
+          {t(language, "biometric_unlock")}
+        </Text>
+        {failed && failCount < MAX_ATTEMPTS && (
+          <Text style={styles.failedText}>
+            {t(language, "biometric_failed")}
+          </Text>
+        )}
+        {failCount >= MAX_ATTEMPTS ? (
+          <Text style={styles.failedText}>
+            {t(language, "biometric_locked_out_dynamic", { time: formatLockoutTime(lockoutSeconds) })}
+          </Text>
+        ) : (
+          <>
+            <AnimatedPressable
+              style={[styles.retryBtn, { overflow: 'hidden' }]}
+              onPress={authenticate}
+              hapticStyle="medium"
+              accessibilityLabel={t(language, "biometric_retry")}
+            >
+              <LinearGradient
+                colors={['#0E8BFF', '#0A79F1']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 14 }}
+              >
+                <Ionicons
+                  name={Platform.OS === "ios" ? "scan" : "finger-print"}
+                  size={20}
+                  color="#FFF"
+                  style={{ marginRight: 8 }}
+                />
+                <Text style={styles.retryText}>{t(language, "biometric_retry")}</Text>
+              </LinearGradient>
+            </AnimatedPressable>
+            <Text style={[styles.passcodeHint, { color: theme.textMuted }]}>
+              {Platform.OS === "ios"
+                ? t(language, "biometric_passcode_hint_ios")
+                : t(language, "biometric_passcode_hint_android")}
+            </Text>
+          </>
+        )}
+      </View>
+    </View>
+  );
+
+  return (
+    <View style={{ flex: 1 }}>
+      <View
+        style={{ flex: 1 }}
+        importantForAccessibility={hidden ? "no-hide-descendants" : "auto"}
+        accessibilityElementsHidden={hidden}
+      >
+        {children}
+      </View>
+      {/* Keyed by mode and route: on iOS the overlay attaches to the window only
+          when it mounts, so it must mount again (on top) when the lock replaces
+          the background cover or a screen opens while locked. */}
+      {hidden && <LockLayer key={`${locked ? "lock" : "cover"}:${pathname}`}>{locked ? lockScreen : cover}</LockLayer>}
+    </View>
+  );
+}
+
+/**
+ * On iOS, screens presented as modals (document detail, form, analytics) and
+ * RN Modals are native windows above the root view — an overlay drawn inside
+ * the root view would sit underneath them. FullWindowOverlay renders above
+ * everything. On Android those screens live inside the root view, so the
+ * overlay (last child, zIndex 999) already covers them.
+ */
+function LockLayer({ children }: { children: React.ReactNode }) {
+  if (Platform.OS === "ios") return <FullWindowOverlay>{children}</FullWindowOverlay>;
+  return <>{children}</>;
 }
 
 const styles = StyleSheet.create({

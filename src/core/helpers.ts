@@ -5,21 +5,10 @@
  */
 
 import type { RawDocument, CategoryId } from "./constants";
-import { FREE_DOCUMENT_LIMIT } from "./constants";
+import { DEMO_ID_PREFIX, FREE_DOCUMENT_LIMIT } from "./constants";
+import { DEMO_TITLES } from "./demo";
 
-/**
- * Generează un ID unic, rezistent la coliziuni.
- *
- * Folosește crypto.randomUUID() dacă e disponibil (modern),
- * altfel un fallback bazat pe timestamp + random.
- */
-export function generateId(): string {
-  if (typeof crypto !== "undefined" && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-  // Fallback pentru medii mai vechi
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-}
+export { generateId } from "./id";
 
 /**
  * Find a duplicate document by matching category, type, and title.
@@ -50,4 +39,22 @@ export function findDuplicate(
  */
 export function isAtFreeLimit(docCount: number, isPremium: boolean): boolean {
   return !isPremium && docCount >= FREE_DOCUMENT_LIMIT;
+}
+
+/**
+ * True for the example documents seeded on first launch — but not once the
+ * user made one their own (edited or paid it, or renamed it before this was
+ * tracked): those notify and count like any other document.
+ */
+export function isDemoDocument(doc: Pick<RawDocument, "id" | "title" | "userEdited">): boolean {
+  return doc.id.startsWith(DEMO_ID_PREFIX) && !doc.userEdited && DEMO_TITLES.has(doc.title);
+}
+
+/**
+ * How many documents count toward the free-tier cap: the user's own active
+ * documents. Example documents and resolved (archived) ones are free —
+ * otherwise a new user hits the paywall after 2 real documents.
+ */
+export function countTowardFreeLimit(docs: RawDocument[]): number {
+  return docs.filter((d) => !d.resolved && !isDemoDocument(d)).length;
 }

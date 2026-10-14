@@ -12,7 +12,7 @@ import type { LanguageCode } from "./constants";
 
 // ─── Translation Dictionary ─────────────────────────────
 
-const TRANSLATIONS: Record<string, Record<string, string>> = {
+export const TRANSLATIONS: Record<string, Record<string, string>> = {
   ro: {
     // Navigation
     nav_home: "Acasă", nav_back: "Înapoi", nav_alerts: "Alerte", nav_search: "Caută", nav_settings: "Setări",
@@ -28,6 +28,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
 
     // Category card
     doc_singular: "document", doc_plural: "documente",
+    doc_count_one: "1 document", doc_count_few: "{n} documente", doc_count_other: "{n} de documente",
 
     // Recurrence
     rec_none: "Fără recurență", rec_weekly: "Săptămânal", rec_biweekly: "La 2 săptămâni",
@@ -43,8 +44,8 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     sort_amount: "Sumă", sort_name: "A → Z", sort_label: "Sortare",
 
     // Days remaining
-    days_overdue_plural: "{n} zile întârziere", days_overdue_singular: "1 zi întârziere",
-    days_today: "Astăzi!", days_tomorrow: "Mâine", days_future: "în {n} zile",
+    days_overdue_few: "{n} zile întârziere", days_overdue_other: "{n} de zile întârziere", days_overdue_singular: "1 zi întârziere",
+    days_today: "Astăzi!", days_tomorrow: "Mâine", days_future_few: "în {n} zile", days_future_other: "în {n} de zile",
 
     // Home screen
     home_needs_attention: "Necesită atenție", home_see_all: "Vezi toate",
@@ -64,7 +65,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
 
     // Search screen
     search_title: "Caută", search_placeholder: "Document, vehicul, tip, notă...",
-    search_no_results: "Niciun rezultat pentru \"{q}\"", search_count: "Caută în {n} documente",
+    search_no_results: "Niciun rezultat pentru \"{q}\"", search_count_one: "Caută în 1 document", search_count_few: "Caută în {n} documente", search_count_other: "Caută în {n} de documente",
     search_no_filter_results: "Niciun document pentru filtrele selectate",
     search_all: "Toate",
     search_recent: "Căutări recente",
@@ -117,7 +118,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     confirm_reset_btn: "Resetează",
     confirm_clear_title: "Șterge tot",
     confirm_clear_msg: "Toate documentele vor fi șterse permanent. Această acțiune este ireversibilă!",
-    confirm_clear_msg_count: "{n} documente vor fi șterse permanent. Această acțiune este ireversibilă!",
+    confirm_clear_msg_count_one: "1 document va fi șters permanent. Această acțiune este ireversibilă!", confirm_clear_msg_count_few: "{n} documente vor fi șterse permanent. Această acțiune este ireversibilă!", confirm_clear_msg_count_other: "{n} de documente vor fi șterse permanent. Această acțiune este ireversibilă!",
     confirm_clear_btn: "Șterge tot",
 
     // Toasts
@@ -152,11 +153,13 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     settings_import_excel: "Importă din Excel (.xlsx)",
     settings_export_success: "Backup exportat cu succes!",
     settings_export_error: "Eroare la exportul datelor",
-    settings_import_success: "Import reușit! {n} documente adăugate.",
+    settings_import_success_one: "Import reușit! 1 document adăugat.", settings_import_success_few: "Import reușit! {n} documente adăugate.", settings_import_success_other: "Import reușit! {n} de documente adăugate.",
     settings_import_error: "Eroare la importul fișierului",
     settings_import_no_data: "Fișierul nu conține date valide",
     settings_import_confirm_title: "Importă documente",
-    settings_import_confirm_msg: "S-au găsit {n} documente în fișier. Vor fi adăugate la documentele existente. Continui?",
+    settings_import_confirm_msg_one: "S-a găsit 1 document în fișier. Va fi adăugat la documentele existente. Continui?",
+    settings_import_confirm_msg_few: "S-au găsit {n} documente în fișier. Vor fi adăugate la documentele existente. Continui?",
+    settings_import_confirm_msg_other: "S-au găsit {n} de documente în fișier. Vor fi adăugate la documentele existente. Continui?",
     settings_import_confirm_btn: "Importă",
     settings_reset_demo: "Resetare date demo", settings_reset_demo_desc: "Reîncarcă datele demonstrative",
     settings_clear_all: "Șterge toate datele", settings_clear_all_desc: "Pornește de la zero, ireversibil",
@@ -192,7 +195,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     iap_restore_none: "Nu s-au găsit achiziții anterioare.",
     purchase_error: "Achiziția a eșuat. Încearcă din nou.",
     purchase_pending: "Plata așteaptă confirmarea magazinului. PRO se activează automat după confirmare.",
-    import_invalid_dates: "{n} rânduri sărite — dată lipsă sau invalidă",
+    import_invalid_dates_one: "1 rând sărit — dată lipsă sau invalidă", import_invalid_dates_few: "{n} rânduri sărite — dată lipsă sau invalidă", import_invalid_dates_other: "{n} de rânduri sărite — dată lipsă sau invalidă",
     plan_monthly: "Lunar",
     plan_annual: "Anual",
     plan_lifetime: "Pe viață",
@@ -208,7 +211,9 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
 
     // Weekly notification
     notif_weekly_title: "Rezumatul săptămânii",
-    notif_weekly_body: "Săptămâna aceasta: {weekCount} documente scadente, {urgentCount} urgente. Scor: {score}/100.",
+    notif_weekly_body: "Săptămâna aceasta: {week}, {urgent}. Scor: {score}/100.",
+    notif_weekly_due_one: "1 document scadent", notif_weekly_due_few: "{n} documente scadente", notif_weekly_due_other: "{n} de documente scadente",
+    notif_weekly_urgent_one: "1 urgent", notif_weekly_urgent_few: "{n} urgente", notif_weekly_urgent_other: "{n} de urgente",
 
     // Accessibility hints
     a11y_search_btn: "Deschide căutarea",
@@ -279,12 +284,22 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     restore_choose: "Cum vrei să restaurezi?",
 
     // Notifications
-    notif_reminder_title: "{days} zile rămase",
+    notif_reminder_title_one: "Mai e o zi",
+    notif_reminder_title_few: "{days} zile rămase",
+    notif_reminder_title_other: "{days} de zile rămase",
+    notif_overdue_title_one: "A expirat ieri",
+    notif_overdue_title_few: "A expirat acum {days} zile",
+    notif_overdue_title_other: "A expirat acum {days} de zile",
+    notif_overdue_body: "\"{title}\" a expirat pe {date}. Reînnoiește cât mai repede.",
     notif_reminder_body: "\"{title}\" expiră pe {date}",
     notif_due_today_title: "Expiră astăzi!",
     notif_due_today_body: "\"{title}\" expiră azi ({date})",
     notif_permission_title: "Activează notificările",
     notif_permission_denied: "Notificările sunt dezactivate. Le poți activa din Setări → Notificări.",
+    notif_open_settings: "Deschide setările",
+    notif_allow_btn: "Permite notificările",
+    notif_os_blocked: "Notificările sunt blocate din setările telefonului — nu vei primi remindere.",
+    notif_os_undetermined: "Notificările nu au fost încă permise — nu vei primi remindere până nu le permiți.",
     settings_notifications: "Notificări",
     settings_notifications_desc: "Primește remindere înainte de expirare",
     settings_notifications_enable: "Activează notificările",
@@ -360,6 +375,106 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     // Demo banner
     demo_banner_text: "Acestea sunt documente demonstrative. Adaugă-le pe ale tale!",
     demo_banner_dismiss: "Șterge exemplele",
+    demo_remove_confirm: "Se șterg doar documentele exemplu. Documentele adăugate de tine rămân neatinse.",
+    load_error_title: "Nu am putut citi datele",
+    copy_suffix: "(copie)",
+    load_corrupt_title: "Datele salvate erau deteriorate",
+    load_corrupt_msg: "Nu am putut citi documentele salvate, așa că am păstrat o copie a lor și am pornit cu o listă goală. Dacă ai un backup, îl poți restaura din Setări.",
+    notif_ask_title: "Vrei remindere?",
+    notif_ask_msg: "DocDue te anunță cu câteva zile înainte să expire un document, ca să nu ratezi termenele și să eviți amenzile.",
+    notif_ask_later: "Mai târziu",
+    duration_less_than_day: "sub o zi",
+    duration_days_one: "1 zi", duration_days_few: "{n} zile", duration_days_other: "{n} de zile",
+    duration_months_one: "1 lună", duration_months_few: "{n} luni", duration_months_other: "{n} de luni",
+    duration_years_one: "1 an", duration_years_few: "{n} ani", duration_years_other: "{n} de ani",
+    duration_join: "{a} și {b}",
+    // Maintenance journal
+    journal_title: "Jurnal întreținere",
+    journal_home_empty: "Notează ce schimbi la mașină și acasă și află cât ține fiecare piesă.",
+    journal_home_count_one: "1 obiect urmărit", journal_home_count_few: "{n} obiecte urmărite", journal_home_count_other: "{n} de obiecte urmărite",
+    journal_home_broken_one: "1 obiect de înlocuit", journal_home_broken_few: "{n} obiecte de înlocuit", journal_home_broken_other: "{n} de obiecte de înlocuit",
+    journal_home_next: "Următoarea schimbare: {name}, {when}",
+    journal_empty_title: "Află cât ține fiecare piesă",
+    journal_empty_text: "Când schimbi ceva — bateria mașinii, anvelopele, filtrul de apă — notează data. Când se strică sau îl schimbi din nou, DocDue îți arată cât a ținut și estimează următoarea schimbare.",
+    journal_empty_examples: "Exemple: baterie, anvelope, plăcuțe de frână, ulei, filtru de apă, centrală, electrocasnice",
+    journal_add_first: "Adaugă primul obiect",
+    journal_add: "Adaugă obiect",
+    journal_group_other: "Altele",
+    journal_status_in_use: "În uz de {duration}",
+    journal_status_out_of_use: "Nefolosit din {date}",
+    journal_status_empty: "Nicio înregistrare încă",
+    journal_avg_short: "medie {duration}",
+    journal_in_about: "peste ~{duration}",
+    journal_overdue_by: "depășită cu {duration}",
+    journal_current: "Acum",
+    journal_installed_on: "Montat pe {date}",
+    journal_at_km: "la {km} km",
+    journal_not_in_use: "Nimic montat acum",
+    journal_stats: "Statistici",
+    journal_avg_life: "Durată medie",
+    journal_shortest: "Cea mai scurtă",
+    journal_longest: "Cea mai lungă",
+    journal_avg_km: "Medie kilometri",
+    journal_total_cost: "Cost total",
+    journal_broke_count: "Defectări",
+    journal_times_one: "o dată", journal_times_few: "de {n} ori", journal_times_other: "de {n} de ori",
+    journal_estimate: "Următoarea schimbare (estimare)",
+    journal_based_on_one: "Pe baza unei schimbări anterioare", journal_based_on_few: "Pe baza a {n} schimbări anterioare", journal_based_on_other: "Pe baza a {n} de schimbări anterioare",
+    journal_add_reminder: "Adaugă reminder",
+    journal_reminder_title: "Schimbare {name}",
+    journal_action_replace: "Înlocuiește",
+    journal_action_broke: "S-a stricat",
+    journal_action_install: "Montaj nou",
+    journal_history: "Istoric",
+    journal_in_use_now: "în uz",
+    journal_reason_broke: "s-a stricat",
+    journal_reason_replaced: "înlocuit",
+    journal_delete_entry_title: "Ștergi înregistrarea?",
+    journal_delete_entry_msg: "Înregistrarea din {date} va fi scoasă din istoric.",
+    journal_delete_item: "Șterge obiectul",
+    journal_delete_item_msg: "„{name}” și tot istoricul lui vor fi șterse.",
+    journal_edit: "Editează",
+    journal_form_add_title: "Obiect nou",
+    journal_form_edit_title: "Editează obiectul",
+    journal_form_name: "Nume",
+    journal_form_name_placeholder: "ex. Baterie, Anvelope iarnă",
+    journal_form_asset: "Pentru",
+    journal_form_asset_placeholder: "ex. Dacia Duster, Apartament",
+    journal_form_first_install: "Montat / cumpărat",
+    journal_form_date: "Data",
+    journal_form_km: "Kilometraj",
+    journal_form_cost: "Cost",
+    journal_form_note: "Detalii",
+    journal_form_note_placeholder: "marcă, model, service",
+    journal_optional: "opțional",
+    journal_event_replace_title: "Înlocuire",
+    journal_event_broke_title: "S-a stricat",
+    journal_event_install_title: "Montaj nou",
+    journal_event_reason: "Motiv",
+    journal_event_reason_broke: "S-a stricat",
+    journal_event_reason_replaced: "Planificat",
+    journal_event_new_section: "Ce ai montat",
+    journal_event_hint_replace: "Perioada actuală se încheie și începe una nouă din aceeași zi.",
+    journal_event_hint_broke: "Perioada actuală se încheie. Când montezi altceva, apasă „Montaj nou”.",
+    journal_saved: "Salvat în jurnal ✓",
+    journal_to_replace: "De înlocuit",
+    journal_form_details_section: "Detalii",
+    journal_item_not_found: "Obiectul nu mai există",
+    journal_add_past: "Adaugă o perioadă anterioară",
+    journal_event_past_title: "Perioadă anterioară",
+    journal_form_start: "De la",
+    journal_form_end: "Până la",
+    journal_form_km_start: "Km la montaj",
+    journal_form_km_end: "Km la scoatere",
+    journal_no_stats_hint: "Statisticile apar după prima înlocuire. Dacă știi când s-au făcut schimbările anterioare, adaugă-le ca perioade anterioare.",
+    val_km_below: "Kilometrajul nu poate fi sub {km} km",
+    val_date_after: "Data nu poate fi după {date}",
+    val_end_before_start: "Data de sfârșit e înainte de început",
+    confirm_clear_items_count_one: "Jurnalul de întreținere (1 obiect) va fi șters definitiv.", confirm_clear_items_count_few: "Jurnalul de întreținere ({n} obiecte) va fi șters definitiv.", confirm_clear_items_count_other: "Jurnalul de întreținere ({n} de obiecte) va fi șters definitiv.",
+    val_name_required: "Introdu un nume",
+    val_km_invalid: "Kilometraj invalid",
+    val_date_before: "Data nu poate fi înainte de {date}",
+    load_error_msg: "Telefonul nu a răspuns la timp. Închide complet aplicația și deschide-o din nou — datele tale nu au fost modificate.",
 
     // Health Score
     health_score: "Scor sănătate",
@@ -374,7 +489,8 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     notif_digest_title: "Rezumat dimineața",
     notif_digest_body_zero: "Scor sănătate: {score}/100. Totul e în regulă!",
     notif_digest_body_one: "{n} document necesită atenție. Scor: {score}/100",
-    notif_digest_body_plural: "{n} documente necesită atenție. Scor: {score}/100",
+    notif_digest_body_few: "{n} documente necesită atenție. Scor: {score}/100",
+    notif_digest_body_other: "{n} de documente necesită atenție. Scor: {score}/100",
 
     // Smart notification templates
     notif_smart_rca: "Asigurarea costă mai mult dacă depășești termenul!",
@@ -488,6 +604,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     cat_financiar: "Financial",
 
     doc_singular: "document", doc_plural: "documents",
+    doc_count_one: "1 document", doc_count_few: "{n} documents", doc_count_other: "{n} documents",
 
     rec_none: "No recurrence", rec_weekly: "Weekly", rec_biweekly: "Biweekly",
     rec_monthly: "Monthly", rec_quarterly: "Quarterly", rec_biannual: "Biannual", rec_annual: "Annual",
@@ -500,8 +617,8 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     sort_urgency: "Urgency", sort_date: "Date", sort_date_asc: "Date ↑", sort_date_desc: "Date ↓",
     sort_amount: "Amount", sort_name: "A → Z", sort_label: "Sort",
 
-    days_overdue_plural: "{n} days overdue", days_overdue_singular: "1 day overdue",
-    days_today: "Today!", days_tomorrow: "Tomorrow", days_future: "in {n} days",
+    days_overdue_few: "{n} days overdue", days_overdue_other: "{n} days overdue", days_overdue_singular: "1 day overdue",
+    days_today: "Today!", days_tomorrow: "Tomorrow", days_future_few: "in {n} days", days_future_other: "in {n} days",
 
     home_needs_attention: "Needs attention", home_see_all: "See all",
     home_welcome: "Welcome!", home_welcome_sub: "Add your first document by tapping the + button below",
@@ -519,7 +636,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     alerts_no_docs: "Add documents to receive alerts about due dates.",
 
     search_title: "Search", search_placeholder: "Document, vehicle, type, note...",
-    search_no_results: "No results for \"{q}\"", search_count: "Search across {n} documents",
+    search_no_results: "No results for \"{q}\"", search_count_one: "Search 1 document", search_count_few: "Search across {n} documents", search_count_other: "Search across {n} documents",
     search_no_filter_results: "No documents match the selected filters",
     search_all: "All",
     search_recent: "Recent searches",
@@ -567,7 +684,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     confirm_reset_btn: "Reset",
     confirm_clear_title: "Delete all",
     confirm_clear_msg: "All documents will be permanently deleted. This cannot be undone!",
-    confirm_clear_msg_count: "{n} documents will be permanently deleted. This cannot be undone!",
+    confirm_clear_msg_count_one: "1 document will be permanently deleted. This cannot be undone!", confirm_clear_msg_count_few: "{n} documents will be permanently deleted. This cannot be undone!", confirm_clear_msg_count_other: "{n} documents will be permanently deleted. This cannot be undone!",
     confirm_clear_btn: "Delete all",
 
     toast_added: "Document added ✓", toast_updated: "Document updated ✓",
@@ -598,11 +715,13 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     settings_reminders: "Reminders", settings_reminders_desc: "Notify this many days before",
     settings_export_excel: "Export Excel (.xlsx)",
     settings_import_excel: "Import from Excel (.xlsx)",
-    settings_import_success: "Import successful! {n} documents added.",
+    settings_import_success_one: "Import successful! 1 document added.", settings_import_success_few: "Import successful! {n} documents added.", settings_import_success_other: "Import successful! {n} documents added.",
     settings_import_error: "Error importing file",
     settings_import_no_data: "File contains no valid data",
     settings_import_confirm_title: "Import documents",
-    settings_import_confirm_msg: "{n} documents found in file. They will be added to your existing documents. Continue?",
+    settings_import_confirm_msg_one: "1 document found in file. It will be added to your existing documents. Continue?",
+    settings_import_confirm_msg_few: "{n} documents found in file. They will be added to your existing documents. Continue?",
+    settings_import_confirm_msg_other: "{n} documents found in file. They will be added to your existing documents. Continue?",
     settings_import_confirm_btn: "Import",
     settings_export_success: "Backup exported successfully!",
     settings_export_error: "Error exporting data",
@@ -635,7 +754,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     iap_restore_none: "No previous purchases found.",
     purchase_error: "Purchase failed. Please try again.",
     purchase_pending: "Payment is awaiting store confirmation. PRO activates automatically once confirmed.",
-    import_invalid_dates: "{n} rows skipped — missing or invalid date",
+    import_invalid_dates_one: "1 row skipped — missing or invalid date", import_invalid_dates_few: "{n} rows skipped — missing or invalid date", import_invalid_dates_other: "{n} rows skipped — missing or invalid date",
     plan_monthly: "Monthly",
     plan_annual: "Annual",
     plan_lifetime: "Lifetime",
@@ -651,7 +770,9 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
 
     // Weekly notification
     notif_weekly_title: "Your Weekly Summary",
-    notif_weekly_body: "This week: {weekCount} documents due, {urgentCount} urgent. Health score: {score}/100.",
+    notif_weekly_body: "This week: {week}, {urgent}. Health score: {score}/100.",
+    notif_weekly_due_one: "1 document due", notif_weekly_due_few: "{n} documents due", notif_weekly_due_other: "{n} documents due",
+    notif_weekly_urgent_one: "1 urgent", notif_weekly_urgent_few: "{n} urgent", notif_weekly_urgent_other: "{n} urgent",
 
     // Accessibility hints
     a11y_search_btn: "Open search",
@@ -722,12 +843,22 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     restore_choose: "How do you want to restore?",
 
     // Notifications
-    notif_reminder_title: "{days} days remaining",
+    notif_reminder_title_one: "1 day left",
+    notif_reminder_title_few: "{days} days left",
+    notif_reminder_title_other: "{days} days left",
+    notif_overdue_title_one: "Expired yesterday",
+    notif_overdue_title_few: "Expired {days} days ago",
+    notif_overdue_title_other: "Expired {days} days ago",
+    notif_overdue_body: "\"{title}\" expired on {date}. Renew it as soon as you can.",
     notif_reminder_body: "\"{title}\" is due on {date}",
     notif_due_today_title: "Due today!",
     notif_due_today_body: "\"{title}\" is due today ({date})",
     notif_permission_title: "Enable notifications",
     notif_permission_denied: "Notifications are disabled. You can enable them in Settings → Notifications.",
+    notif_open_settings: "Open Settings",
+    notif_allow_btn: "Allow notifications",
+    notif_os_blocked: "Notifications are blocked in your phone's settings — you won't get reminders.",
+    notif_os_undetermined: "Notifications haven't been allowed yet — you won't get reminders until you allow them.",
     settings_notifications: "Notifications",
     settings_notifications_desc: "Get reminders before documents expire",
     settings_notifications_enable: "Enable notifications",
@@ -803,6 +934,106 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     // Demo banner
     demo_banner_text: "These are demo documents. Add your own!",
     demo_banner_dismiss: "Remove examples",
+    demo_remove_confirm: "Only the example documents will be removed. Documents you added stay untouched.",
+    load_error_title: "Couldn't read your data",
+    copy_suffix: "(copy)",
+    load_corrupt_title: "Your saved data was damaged",
+    load_corrupt_msg: "We couldn't read your saved documents, so we kept a copy and started with an empty list. If you have a backup, you can restore it in Settings.",
+    notif_ask_title: "Get reminders?",
+    notif_ask_msg: "DocDue lets you know a few days before a document expires, so you never miss a deadline or pay a fine.",
+    notif_ask_later: "Not now",
+    duration_less_than_day: "less than a day",
+    duration_days_one: "1 day", duration_days_few: "{n} days", duration_days_other: "{n} days",
+    duration_months_one: "1 month", duration_months_few: "{n} months", duration_months_other: "{n} months",
+    duration_years_one: "1 year", duration_years_few: "{n} years", duration_years_other: "{n} years",
+    duration_join: "{a}, {b}",
+    // Maintenance journal
+    journal_title: "Maintenance log",
+    journal_home_empty: "Log what you replace on your car and at home — find out how long each part lasts.",
+    journal_home_count_one: "1 item tracked", journal_home_count_few: "{n} items tracked", journal_home_count_other: "{n} items tracked",
+    journal_home_broken_one: "1 item to replace", journal_home_broken_few: "{n} items to replace", journal_home_broken_other: "{n} items to replace",
+    journal_home_next: "Next replacement: {name}, {when}",
+    journal_empty_title: "Find out how long each part lasts",
+    journal_empty_text: "When you replace something — the car battery, tyres, the water filter — log the date. When it breaks or you replace it again, DocDue shows how long it lasted and estimates the next replacement.",
+    journal_empty_examples: "Examples: battery, tyres, brake pads, oil, water filter, boiler, appliances",
+    journal_add_first: "Add your first item",
+    journal_add: "Add item",
+    journal_group_other: "Other",
+    journal_status_in_use: "In use for {duration}",
+    journal_status_out_of_use: "Not in use since {date}",
+    journal_status_empty: "No history yet",
+    journal_avg_short: "avg {duration}",
+    journal_in_about: "in ~{duration}",
+    journal_overdue_by: "overdue by {duration}",
+    journal_current: "Now",
+    journal_installed_on: "Installed {date}",
+    journal_at_km: "at {km} km",
+    journal_not_in_use: "Nothing installed right now",
+    journal_stats: "Stats",
+    journal_avg_life: "Average lifespan",
+    journal_shortest: "Shortest",
+    journal_longest: "Longest",
+    journal_avg_km: "Average distance",
+    journal_total_cost: "Total cost",
+    journal_broke_count: "Breakdowns",
+    journal_times_one: "once", journal_times_few: "{n} times", journal_times_other: "{n} times",
+    journal_estimate: "Next replacement (estimate)",
+    journal_based_on_one: "Based on 1 previous replacement", journal_based_on_few: "Based on {n} previous replacements", journal_based_on_other: "Based on {n} previous replacements",
+    journal_add_reminder: "Add a reminder",
+    journal_reminder_title: "Replace {name}",
+    journal_action_replace: "Replace",
+    journal_action_broke: "It broke",
+    journal_action_install: "New installation",
+    journal_history: "History",
+    journal_in_use_now: "in use",
+    journal_reason_broke: "broke",
+    journal_reason_replaced: "replaced",
+    journal_delete_entry_title: "Delete this entry?",
+    journal_delete_entry_msg: "The entry from {date} will be removed from the history.",
+    journal_delete_item: "Delete item",
+    journal_delete_item_msg: "\"{name}\" and all its history will be deleted.",
+    journal_edit: "Edit",
+    journal_form_add_title: "New item",
+    journal_form_edit_title: "Edit item",
+    journal_form_name: "Name",
+    journal_form_name_placeholder: "e.g. Battery, Winter tyres",
+    journal_form_asset: "Belongs to",
+    journal_form_asset_placeholder: "e.g. My car, Apartment",
+    journal_form_first_install: "Installed / bought",
+    journal_form_date: "Date",
+    journal_form_km: "Odometer",
+    journal_form_cost: "Cost",
+    journal_form_note: "Details",
+    journal_form_note_placeholder: "brand, model, shop",
+    journal_optional: "optional",
+    journal_event_replace_title: "Replacement",
+    journal_event_broke_title: "It broke",
+    journal_event_install_title: "New installation",
+    journal_event_reason: "Reason",
+    journal_event_reason_broke: "It broke",
+    journal_event_reason_replaced: "Planned",
+    journal_event_new_section: "What you installed",
+    journal_event_hint_replace: "The current period ends and a new one starts the same day.",
+    journal_event_hint_broke: "The current period ends. When you install something new, tap \"New installation\".",
+    journal_saved: "Saved to the log ✓",
+    journal_to_replace: "To replace",
+    journal_form_details_section: "Details",
+    journal_item_not_found: "This item no longer exists",
+    journal_add_past: "Add an earlier period",
+    journal_event_past_title: "Earlier period",
+    journal_form_start: "From",
+    journal_form_end: "Until",
+    journal_form_km_start: "Km when installed",
+    journal_form_km_end: "Km when removed",
+    journal_no_stats_hint: "Stats appear after the first replacement. If you know when earlier replacements happened, add them as earlier periods.",
+    val_km_below: "The odometer can't be below {km} km",
+    val_date_after: "The date can't be after {date}",
+    val_end_before_start: "The end date is before the start date",
+    confirm_clear_items_count_one: "The maintenance log (1 item) will be permanently deleted.", confirm_clear_items_count_few: "The maintenance log ({n} items) will be permanently deleted.", confirm_clear_items_count_other: "The maintenance log ({n} items) will be permanently deleted.",
+    val_name_required: "Enter a name",
+    val_km_invalid: "Invalid odometer value",
+    val_date_before: "The date can't be before {date}",
+    load_error_msg: "Your phone didn't respond in time. Fully close the app and open it again — your data hasn't been changed.",
 
     // Health Score
     health_score: "Health Score",
@@ -817,7 +1048,8 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
     notif_digest_title: "Morning Summary",
     notif_digest_body_zero: "Health score: {score}/100. Everything's good!",
     notif_digest_body_one: "{n} document needs attention. Score: {score}/100",
-    notif_digest_body_plural: "{n} documents need attention. Score: {score}/100",
+    notif_digest_body_few: "{n} documents need attention. Score: {score}/100",
+    notif_digest_body_other: "{n} documents need attention. Score: {score}/100",
 
     // Smart notification templates
     notif_smart_rca: "Insurance costs more if you miss the deadline!",
@@ -961,6 +1193,7 @@ const SUBTYPE_TRANSLATIONS: Record<string, Record<string, string>> = {
     "Telefonie mobilă": "Mobile phone", "Streaming video": "Video streaming",
     "Streaming muzică": "Music streaming", "Domeniu web": "Web domain",
     "Licență software": "Software license",
+    "Garanție produs": "Product warranty",
     // Financiar
     "Rată credit": "Loan payment", "Rată leasing": "Leasing payment",
     "Impozit ANAF": "Tax office", "Amendă": "Fine", "Impozit venit": "Income tax",
@@ -986,6 +1219,35 @@ export function t(lang: LanguageCode, key: string, params?: Record<string, strin
     });
   }
   return str;
+}
+
+export type PluralCategory = "one" | "few" | "other";
+
+/**
+ * CLDR plural category for a count.
+ * Romanian: 1 → "one" ("1 zi"); 0 and numbers ending in 01–19 → "few"
+ * ("7 zile", "101 zile"); everything else → "other" ("20 de zile").
+ * English: 1 → "one", everything else → "other".
+ */
+export function pluralCategory(lang: LanguageCode, n: number): PluralCategory {
+  const abs = Math.abs(Math.trunc(n));
+  if (abs === 1) return "one";
+  if (lang === "ro") {
+    const lastTwo = abs % 100;
+    return abs === 0 || (lastTwo >= 1 && lastTwo <= 19) ? "few" : "other";
+  }
+  return "other";
+}
+
+/**
+ * Plural-aware t(): uses `${key}_one` / `${key}_few` / `${key}_other` for `n`
+ * in the requested language (missing forms fall back to `${key}_other`).
+ * `{n}` is always available for interpolation.
+ */
+export function tp(lang: LanguageCode, key: string, n: number, params?: Record<string, string | number>): string {
+  const dict = TRANSLATIONS[lang] || TRANSLATIONS.ro;
+  const form = [`${key}_${pluralCategory(lang, n)}`, `${key}_other`].find((k) => k in dict) ?? key;
+  return t(lang, form, { n, ...params });
 }
 
 /**

@@ -7,10 +7,11 @@
  */
 
 import type { RawDocument, LanguageCode } from "./constants";
+import { DEMO_ID_PREFIX } from "./constants";
 import { getTodayString, addDaysToDate } from "./dateUtils";
-import { generateId } from "./helpers";
+import { generateId } from "./id";
 
-export const DEMO_ID_PREFIX = "demo_";
+export { DEMO_ID_PREFIX };
 
 const DEMO_TEXT: Record<string, Record<LanguageCode, string>> = {
   // Titles
@@ -48,6 +49,13 @@ const DEMO_TEXT: Record<string, Record<LanguageCode, string>> = {
   a_owner: { ro: "Titular", en: "Owner" },
   a_biz: { ro: "PFA Demo", en: "Freelance Demo" },
 };
+
+/** Every example-document title in both languages — recognises untouched examples. */
+export const DEMO_TITLES: ReadonlySet<string> = new Set(
+  Object.entries(DEMO_TEXT)
+    .filter(([key]) => key.startsWith("t_"))
+    .flatMap(([, text]) => [text.ro, text.en])
+);
 
 function d(key: string, lang: LanguageCode): string {
   return DEMO_TEXT[key]?.[lang] ?? DEMO_TEXT[key]?.ro ?? key;

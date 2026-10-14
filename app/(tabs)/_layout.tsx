@@ -13,7 +13,7 @@ import * as Haptics from "expo-haptics";
 import { useTheme, useLanguage, useSettingsStore } from "../../src/stores/useSettingsStore";
 import { useGlobalStats, useEnrichedDocuments, useDocumentStore } from "../../src/stores/useDocumentStore";
 import { t } from "../../src/core/i18n";
-import { isAtFreeLimit } from "../../src/core/helpers";
+import { isAtFreeLimit, countTowardFreeLimit } from "../../src/core/helpers";
 import { fonts } from "../../src/theme/typography";
 
 export default function TabLayout() {
@@ -21,7 +21,7 @@ export default function TabLayout() {
   const lang = useLanguage();
   const router = useRouter();
   const stats = useGlobalStats(useEnrichedDocuments());
-  const docCount = useDocumentStore((s) => s.documents.length);
+  const docCount = useDocumentStore((s) => countTowardFreeLimit(s.documents));
   const isPremium = useSettingsStore((s) => s.settings.isPremium);
 
   return (

@@ -90,7 +90,9 @@ export default function PremiumScreen() {
         // automatically once the store confirms it.
         Alert.alert(t(language, 'alert_notice'), t(language, 'purchase_pending'));
       } else if (!result.cancelled) {
-        Alert.alert(t(language, 'alert_error'), result.error || t(language, 'purchase_error'));
+        // Store/library messages are technical and English-only — log them, show ours
+        if (__DEV__ && result.error) console.warn('DocDue purchase error:', result.error);
+        Alert.alert(t(language, 'alert_error'), t(language, 'purchase_error'));
       }
     } finally {
       setLoading(false);

@@ -10,12 +10,10 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useTheme, useLanguage, useSettingsStore } from '../src/stores/useSettingsStore';
-import { useEnrichedDocuments } from '../src/stores/useDocumentStore';
+import { useEnrichedDocuments, useDocumentStore } from '../src/stores/useDocumentStore';
+import { computeAnalytics } from '../src/core/analytics';
 import { t } from '../src/core/i18n';
-import { CATEGORIES } from '../src/core/constants';
-import type { CategoryId } from '../src/core/constants';
 import { formatMoney, getCategoryLabel } from '../src/core/formatters';
-import { parseLocalDate } from '../src/core/dateUtils';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AnimatedPressable, FadeInView } from '../src/components/AnimatedUI';
 import { PremiumOverlay } from '../src/components/PremiumOverlay';
@@ -31,111 +29,12 @@ export default function AnalyticsScreen() {
   const currency = useSettingsStore((s) => s.settings.currency);
   const enriched = useEnrichedDocuments();
 
-  const analytics = useMemo(() => {
-    const now = new Date();
-    const in30 = new Date(now.getTime() + 30 * 86_400_000);
-    const in90 = new Date(now.getTime() + 90 * 86_400_000);
-
-    // ── Historical totals from paymentHistory ──
-    let totalPaid = 0;
-    let totalPayments = 0;
-    const monthSet = new Set<string>();
-
-    for (const doc of enriched) {
-      if (doc.paymentHistory) {
-        for (const p of doc.paymentHistory) {
-          if (p.amt != null) {
-            totalPaid += p.amt;
-            totalPayments++;
-            monthSet.add(p.date.substring(0, 7));
-          }
-        }
-      }
-    }
-
-    const monthCount = monthSet.size;
-    const avgMonthly = monthCount > 0 ? totalPaid / monthCount : 0;
-
-    // ── Forward-looking ──
-    let total30 = 0;
-    let count30 = 0;
-    const catTotals: Record<CategoryId, number> = {
-      vehicule: 0, casa: 0, personal: 0, financiar: 0,
-    };
-    const monthMap = new Map<string, number>();
-
-    for (const doc of enriched) {
-      const dueDate = parseLocalDate(doc.due);
-
-      if (doc._daysUntil >= 0 && doc.amt) {
-        catTotals[doc.cat] += doc.amt;
-      }
-
-      if (dueDate >= now && dueDate <= in30 && doc.amt) {
-        total30 += doc.amt;
-        count30++;
-      }
-
-      if (dueDate >= now && dueDate <= in90 && doc.amt) {
-        const y = dueDate.getFullYear();
-        const m = dueDate.getMonth() + 1;
-        const monthKey = `${y}-${String(m).padStart(2, '0')}`;
-        monthMap.set(monthKey, (monthMap.get(monthKey) || 0) + doc.amt);
-      }
-    }
-
-    // Category bars
-    const totalCatSum = Object.values(catTotals).reduce((a, b) => a + b, 0);
-    const maxCatTotal = Math.max(...Object.values(catTotals), 1);
-    const catBars = (Object.keys(CATEGORIES) as CategoryId[])
-      .map((catId) => ({
-        id: catId,
-        cat: CATEGORIES[catId],
-        amount: catTotals[catId],
-        ratio: catTotals[catId] / maxCatTotal,
-        pct: totalCatSum > 0 ? Math.round((catTotals[catId] / totalCatSum) * 100) : 0,
-      }))
-      .sort((a, b) => b.amount - a.amount);
-
-    // Monthly forecast (max 3 months)
-    const sortedMonths = [...monthMap.entries()]
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .slice(0, 3);
-    const monthBarsData = sortedMonths.map(([key, amt]) => {
-      const mNum = parseInt(key.split('-')[1], 10);
-      return { label: t(language, `month_short_${mNum}`), amount: amt };
-    });
-    const maxMonth = Math.max(...monthBarsData.map((m) => m.amount), 1);
-    const monthBars = monthBarsData.map((m) => ({
-      ...m,
-      ratio: m.amount / maxMonth,
-    }));
-
-    // Historical monthly totals for trend line (last 6 months)
-    const historyMonthMap = new Map<string, number>();
-    for (const doc of enriched) {
-      if (doc.paymentHistory) {
-        for (const p of doc.paymentHistory) {
-          if (p.amt != null) {
-            const key = p.date.substring(0, 7);
-            historyMonthMap.set(key, (historyMonthMap.get(key) || 0) + p.amt);
-          }
-        }
-      }
-    }
-    const trendMonths = [...historyMonthMap.entries()]
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .slice(-6)
-      .map(([key, amt]) => {
-        const mNum = parseInt(key.split('-')[1], 10);
-        return { label: t(language, `month_short_${mNum}`), amount: amt };
-      });
-
-    return {
-      totalPaid, totalPayments, avgMonthly, monthCount, total30, count30,
-      catBars, monthBars, trendMonths,
-    };
-  }, [enriched, language]);
+  // History includes archived one-time documents (their payments count)
+  const allDocs = useDocumentStore((s) => s.documents);
+  const analytics = useMemo(
+    () => computeAnalytics(enriched, allDocs, language),
+    [enriched, allDocs, language]
+  );
 
   const hasData = analytics.totalPaid > 0 || analytics.total30 > 0 || analytics.catBars.some((c) => c.amount > 0);
 

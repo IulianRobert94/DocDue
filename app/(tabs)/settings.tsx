@@ -15,6 +15,7 @@ import {
   Share,
   Platform,
   Linking,
+  AppState,
 } from 'react-native';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as Haptics from 'expo-haptics';
@@ -31,11 +32,11 @@ import {
 import { useDocumentStore } from '../../src/stores/useDocumentStore';
 import { t } from '../../src/core/i18n';
 import { CURRENCY_OPTIONS, CATEGORIES, FREE_DOCUMENT_LIMIT } from '../../src/core/constants';
+import { countTowardFreeLimit } from '../../src/core/helpers';
 import {
   requestNotificationPermission,
-  rescheduleAllNotifications,
-  scheduleMorningDigest,
-  scheduleWeeklySummary,
+  getNotificationPermissionStatus,
+  syncAllNotifications,
 } from '../../src/services/notifications';
 import { AnimatedPressable } from '../../src/components/AnimatedUI';
 import { RowDivider, InfoRow, SegmentedControl } from '../../src/components/settings/SettingsUI';
@@ -56,6 +57,7 @@ export default function SettingsScreen() {
   const addDocuments = useDocumentStore((s) => s.addDocuments);
   const resetToDemo = useDocumentStore((s) => s.resetToDemo);
   const clearAll = useDocumentStore((s) => s.clearAll);
+  const replaceAllDocuments = useDocumentStore((s) => s.replaceAllDocuments);
 
   const [isLoading, setIsLoading] = useState(false);
   const [biometricAvailable, setBiometricAvailable] = useState(false);
@@ -77,27 +79,44 @@ export default function SettingsScreen() {
     }).catch(() => {});
   }, []);
 
+  // Real OS permission — the toggle alone can't tell whether the phone blocks
+  // notifications (e.g. permission denied or never asked).
+  const [permStatus, setPermStatus] = useState<'granted' | 'denied' | 'undetermined' | null>(null);
+  useEffect(() => {
+    const refresh = () => { getNotificationPermissionStatus().then(setPermStatus).catch(() => {}); };
+    refresh();
+    const sub = AppState.addEventListener('change', (state) => { if (state === 'active') refresh(); });
+    return () => sub.remove();
+  }, []);
+
+  const showPermissionDeniedAlert = () => {
+    Alert.alert(
+      t(language, 'notif_permission_title'),
+      t(language, 'notif_permission_denied'),
+      [
+        { text: t(language, 'confirm_cancel'), style: 'cancel' },
+        { text: t(language, 'notif_open_settings'), onPress: () => { Linking.openSettings().catch(() => {}); } },
+      ],
+    );
+  };
+
+  /** Ask the OS (or send the user to system Settings if they denied before). */
+  const enableNotificationPermission = async (): Promise<boolean> => {
+    const granted = await requestNotificationPermission().catch(() => false);
+    setPermStatus(granted ? 'granted' : 'denied');
+    if (!granted) {
+      showPermissionDeniedAlert();
+      return false;
+    }
+    syncAllNotifications(documents, language).catch(() => { /* best-effort */ });
+    return true;
+  };
+
   const handleToggleNotifications = async (enabled: boolean) => {
     Haptics.selectionAsync().catch(() => {});
     if (enabled) {
-      const granted = await requestNotificationPermission();
-      if (!granted) {
-        Alert.alert(
-          t(language, 'notif_permission_title'),
-          t(language, 'notif_permission_denied'),
-        );
-        return;
-      }
+      if (!(await enableNotificationPermission())) return;
       updateSetting('notificationsEnabled', true);
-      // Sequence so cancelAll (inside rescheduleAll) finishes before digest/weekly
-      // are scheduled, and so enabling from Settings sets them up immediately (L6/L7).
-      (async () => {
-        try {
-          await rescheduleAllNotifications(documents, settings.reminderDays, language);
-          await scheduleMorningDigest(documents, language);
-          await scheduleWeeklySummary(documents, language);
-        } catch { /* notifications are best-effort */ }
-      })();
     } else {
       updateSetting('notificationsEnabled', false);
       ExpoNotifications.cancelAllScheduledNotificationsAsync().catch(() => {});
@@ -150,7 +169,7 @@ export default function SettingsScreen() {
                 </Text>
                 {!settings.isPremium && (
                   <Text style={[s.footerText, { color: theme.textMuted, marginTop: 2 }]}>
-                    {t(language, 'premium_free_count', { n: documents.length, max: FREE_DOCUMENT_LIMIT })}
+                    {t(language, 'premium_free_count', { n: countTowardFreeLimit(documents), max: FREE_DOCUMENT_LIMIT })}
                   </Text>
                 )}
               </View>
@@ -230,6 +249,32 @@ export default function SettingsScreen() {
               accessibilityLabel={t(language, 'settings_notifications_enable')}
             />
           </View>
+          {settings.notificationsEnabled && permStatus !== null && permStatus !== 'granted' && (
+            <>
+              <RowDivider theme={theme} />
+              <View style={[s.row, { alignItems: 'flex-start' }]}>
+                <Ionicons name="warning" size={18} color="#FF9500" style={{ marginRight: 10, marginTop: 1 }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[s.footerText, { color: theme.text }]}>
+                    {t(language, permStatus === 'undetermined' ? 'notif_os_undetermined' : 'notif_os_blocked')}
+                  </Text>
+                  <AnimatedPressable
+                    onPress={() => {
+                      if (permStatus === 'undetermined') enableNotificationPermission();
+                      else Linking.openSettings().catch(() => {});
+                    }}
+                    hapticStyle="light"
+                    style={{ marginTop: 8, alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center' }}
+                    accessibilityLabel={t(language, permStatus === 'undetermined' ? 'notif_allow_btn' : 'notif_open_settings')}
+                  >
+                    <Text style={[s.rowLabel, { color: theme.primaryText }]}>
+                      {t(language, permStatus === 'undetermined' ? 'notif_allow_btn' : 'notif_open_settings')}
+                    </Text>
+                  </AnimatedPressable>
+                </View>
+              </View>
+            </>
+          )}
           {settings.notificationsEnabled && (
             <>
               <RowDivider theme={theme} />
@@ -275,7 +320,15 @@ export default function SettingsScreen() {
                           updateSetting('biometricEnabled', true);
                         }
                       } else {
-                        updateSetting('biometricEnabled', false);
+                        // Turning the lock off must not be possible for someone
+                        // just holding the unlocked phone — confirm identity first.
+                        const result = await LocalAuthentication.authenticateAsync({
+                          promptMessage: t(language, 'biometric_lock'),
+                          cancelLabel: t(language, 'confirm_cancel'),
+                        });
+                        if (result.success) {
+                          updateSetting('biometricEnabled', false);
+                        }
                       }
                     } catch {}
                   }}
@@ -367,7 +420,7 @@ export default function SettingsScreen() {
           documents={documents}
           updateSetting={updateSetting}
           addDocuments={addDocuments}
-          clearAll={clearAll}
+          replaceAllDocuments={replaceAllDocuments}
           isLoading={isLoading}
           setIsLoading={setIsLoading}
           isPremium={settings.isPremium}

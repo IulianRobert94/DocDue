@@ -56,8 +56,11 @@ export function getAutoReminderDays(rec: RecurrenceValue): number[] {
  */
 export function getEffectiveReminderDays(doc: RawDocument): number[] {
   if (doc.reminderDays && doc.reminderDays.length > 0) {
-    // Validate: only positive integers up to 365
-    const valid = doc.reminderDays.filter((d) => typeof d === "number" && d > 0 && d <= 365);
+    // Validate: whole days from 30 after expiry (-30, e.g. "-1 = 1 day after")
+    // up to 365 before it
+    const valid = doc.reminderDays.filter(
+      (d) => typeof d === "number" && Number.isInteger(d) && d >= -30 && d <= 365
+    );
     if (valid.length > 0) return valid;
   }
   return getAutoReminderDays(doc.rec);

@@ -82,6 +82,9 @@ import { addDaysToDate, getTodayString } from "../core/dateUtils";
 import { enrichDocument } from "../core/enrichment";
 import { getRecurrenceDays } from "../core/formatters";
 import { addMonthsToDate } from "../core/dateUtils";
+import { createDemoDocuments } from "../core/demo";
+import { isDemoDocument } from "../core/helpers";
+import * as FileSystem from "expo-file-system/legacy";
 
 // ─── Helper ─────────────────────────────────────────────
 
@@ -212,6 +215,137 @@ describe("useDocumentStore", () => {
       const saved = useDocumentStore.getState().documents[0];
       expect((saved as any)._daysUntil).toBeUndefined();
       expect((saved as any)._status).toBeUndefined();
+    });
+
+    // The edit form only sends the fields it can edit — fields it doesn't know
+    // about (payment history, resolved date) must survive the save.
+    const formEdit = (doc: RawDocument, changes: Partial<RawDocument> = {}) => ({
+      id: doc.id, cat: doc.cat, type: doc.type, title: doc.title, asset: undefined,
+      due: doc.due, amt: doc.amt, rec: doc.rec, notes: undefined, attachments: undefined,
+      reminderDays: undefined, ...changes,
+    });
+
+    it("keeps payment history when the edit form saves", () => {
+      useDocumentStore.getState().addDocument(makeDoc({
+        title: "Factură curent",
+        paymentHistory: [{ date: "2025-12-01", dueDate: "2025-12-01", amt: 120 }],
+      }));
+      const doc = useDocumentStore.getState().documents[0];
+
+      useDocumentStore.getState().updateDocument(formEdit(doc, { title: "Factură Enel" }));
+
+      const saved = useDocumentStore.getState().documents[0];
+      expect(saved.title).toBe("Factură Enel");
+      expect(saved.paymentHistory).toEqual([{ date: "2025-12-01", dueDate: "2025-12-01", amt: 120 }]);
+    });
+
+    it("keeps the resolved date when the edit form saves", () => {
+      useDocumentStore.getState().addDocument(makeDoc({ rec: "none", resolved: "2025-12-15" }));
+      const doc = useDocumentStore.getState().documents[0];
+
+      useDocumentStore.getState().updateDocument(formEdit(doc, { amt: 650 }));
+
+      const saved = useDocumentStore.getState().documents[0];
+      expect(saved.amt).toBe(650);
+      expect(saved.resolved).toBe("2025-12-15");
+    });
+
+    it("clears a field the edit explicitly empties", () => {
+      useDocumentStore.getState().addDocument(makeDoc({ notes: "notă veche" }));
+      const doc = useDocumentStore.getState().documents[0];
+
+      useDocumentStore.getState().updateDocument(formEdit(doc));
+
+      expect(useDocumentStore.getState().documents[0].notes).toBeUndefined();
+    });
+  });
+
+  describe("replaceAllDocuments (restore 'Replace all')", () => {
+    it("swaps in the backup's documents in one step", () => {
+      useDocumentStore.getState().addDocument(makeDoc({ title: "Vechi" }));
+
+      useDocumentStore.getState().replaceAllDocuments([{ id: "b1", ...makeDoc({ title: "Din backup" }) }]);
+
+      expect(useDocumentStore.getState().documents.map((d) => d.title)).toEqual(["Din backup"]);
+    });
+
+    it("keeps photos the restored documents still use and deletes only the rest", () => {
+      const shared = "/mock/documents/attachments/shared.jpg";
+      const orphan = "/mock/documents/attachments/orphan.jpg";
+      useDocumentStore.setState({ documents: [{ id: "old", ...makeDoc({ attachments: [
+        { id: "a1", uri: shared, name: "s.jpg", type: "image" },
+        { id: "a2", uri: orphan, name: "o.jpg", type: "image" },
+      ] }) }] });
+
+      useDocumentStore.getState().replaceAllDocuments([{ id: "b1", ...makeDoc({
+        attachments: [{ id: "a1", uri: shared, name: "s.jpg", type: "image" }],
+      }) }]);
+
+      expect(FileSystem.deleteAsync).toHaveBeenCalledWith(orphan, { idempotent: true });
+      expect(FileSystem.deleteAsync).not.toHaveBeenCalledWith(shared, expect.anything());
+    });
+
+    it("gives duplicate ids from a malformed backup unique ids", () => {
+      useDocumentStore.getState().replaceAllDocuments([
+        { id: "same", ...makeDoc({ title: "A" }) },
+        { id: "same", ...makeDoc({ title: "B" }) },
+      ]);
+
+      const ids = useDocumentStore.getState().documents.map((d) => d.id);
+      expect(new Set(ids).size).toBe(2);
+    });
+  });
+
+  describe("removeDemoDocuments", () => {
+    it("removes only the example documents and keeps the user's own", () => {
+      useDocumentStore.setState({ documents: createDemoDocuments("ro") });
+      useDocumentStore.getState().addDocument(makeDoc({ title: "RCA Logan" }));
+      useDocumentStore.getState().addDocument(makeDoc({ title: "Buletin" }));
+
+      useDocumentStore.getState().removeDemoDocuments();
+
+      const titles = useDocumentStore.getState().documents.map((d) => d.title).sort();
+      expect(titles).toEqual(["Buletin", "RCA Logan"]);
+    });
+
+    it("an example the user edited becomes theirs: kept, notified, counted", () => {
+      useDocumentStore.setState({ documents: createDemoDocuments("ro") });
+      const example = useDocumentStore.getState().documents[0];
+
+      useDocumentStore.getState().updateDocument({ id: example.id, title: "RCA Logan", asset: "B-12-XYZ" });
+      useDocumentStore.getState().removeDemoDocuments();
+
+      const left = useDocumentStore.getState().documents;
+      expect(left.map((d) => d.title)).toEqual(["RCA Logan"]);
+      expect(isDemoDocument(left[0])).toBe(false);
+    });
+
+    it("paying an example also makes it the user's own", () => {
+      useDocumentStore.setState({ documents: createDemoDocuments("ro") });
+      const example = useDocumentStore.getState().documents.find((d) => d.rec !== "none")!;
+
+      useDocumentStore.getState().markAsPaid(enrichDocument(example));
+
+      const paid = useDocumentStore.getState().documents.find((d) => d.id === example.id)!;
+      expect(isDemoDocument(paid)).toBe(false);
+    });
+
+    it("deletes attachment files of example documents only", () => {
+      const demoDoc: RawDocument = {
+        ...createDemoDocuments("ro")[0],
+        id: "demo_x",
+        attachments: [{ id: "a1", uri: "/mock/documents/attachments/demo.jpg", name: "demo.jpg", type: "image" }],
+      };
+      const userDoc: RawDocument = { id: "user_1", ...makeDoc({
+        attachments: [{ id: "a2", uri: "/mock/documents/attachments/mine.jpg", name: "mine.jpg", type: "image" }],
+      }) };
+      useDocumentStore.setState({ documents: [demoDoc, userDoc] });
+
+      useDocumentStore.getState().removeDemoDocuments();
+
+      expect(FileSystem.deleteAsync).toHaveBeenCalledWith("/mock/documents/attachments/demo.jpg", { idempotent: true });
+      expect(FileSystem.deleteAsync).not.toHaveBeenCalledWith("/mock/documents/attachments/mine.jpg", expect.anything());
+      expect(useDocumentStore.getState().documents.map((d) => d.id)).toEqual(["user_1"]);
     });
   });
 
@@ -408,6 +542,18 @@ describe("useDocumentStore", () => {
       const doc = useDocumentStore.getState().documents[0];
       useDocumentStore.getState().markAsPaid(enrichDocument(doc));
       expect(useDocumentStore.getState().documents[0].due).toBe("2036-01-01");
+    });
+
+    it("a bill due on the 31st returns to the 31st after a short month", () => {
+      useDocumentStore.getState().addDocument(makeDoc({ due: "2026-01-31", rec: "monthly" }));
+
+      let doc = useDocumentStore.getState().documents[0];
+      useDocumentStore.getState().markAsPaid(enrichDocument(doc));
+      doc = useDocumentStore.getState().documents[0];
+      expect(doc.due).toBe("2026-02-28");
+
+      useDocumentStore.getState().markAsPaid(enrichDocument(doc));
+      expect(useDocumentStore.getState().documents[0].due).toBe("2026-03-31");
     });
 
     it("preserves reminderDays through markAsPaid", () => {
@@ -679,5 +825,35 @@ describe("useToastStore", () => {
     expect(state.action!.label).toBe("Undo");
     state.action!.onPress();
     expect(onPress).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ─── Clock ("today") ────────────────────────────────────
+
+import { useClockStore, startMidnightTimer } from "../stores/useClockStore";
+
+describe("useClockStore (today)", () => {
+  beforeAll(() => jest.useFakeTimers());
+  afterAll(() => jest.useRealTimers());
+
+  it("refreshToday picks up a new calendar day (app resumed after midnight)", () => {
+    jest.setSystemTime(new Date("2026-01-01T23:59:00"));
+    useClockStore.getState().refreshToday();
+    expect(useClockStore.getState().today).toBe("2026-01-01");
+
+    jest.setSystemTime(new Date("2026-01-02T00:01:00"));
+    useClockStore.getState().refreshToday();
+    expect(useClockStore.getState().today).toBe("2026-01-02");
+  });
+
+  it("the midnight timer moves to the next day while the app stays open", () => {
+    jest.setSystemTime(new Date("2026-01-01T23:58:00"));
+    useClockStore.getState().refreshToday();
+
+    const stop = startMidnightTimer();
+    jest.advanceTimersByTime(3 * 60 * 1000);
+
+    expect(useClockStore.getState().today).toBe("2026-01-02");
+    stop();
   });
 });

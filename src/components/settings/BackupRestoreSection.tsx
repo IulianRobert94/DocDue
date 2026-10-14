@@ -11,8 +11,10 @@ import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
 import Constants from 'expo-constants';
 
-import { t } from '../../core/i18n';
-import { restoreAttachmentFiles } from '../../services/backupRestore';
+import { t, tp } from '../../core/i18n';
+import { restoreAttachmentFiles, resolveRestoredAttachments } from '../../services/backupRestore';
+import { useItemStore } from '../../stores/useItemStore';
+import { isValidItem } from '../../core/lifespan';
 import { DATA_VERSION, MAX_IMPORT_LIMIT, DEFAULT_SETTINGS, VALID_RECURRENCE_VALUES } from '../../core/constants';
 import type { RawDocument, AppSettings, LanguageCode, CurrencyCode, ThemeMode } from '../../core/constants';
 import type { AppTheme } from '../../theme/colors';
@@ -27,11 +29,16 @@ interface BackupRestoreSectionProps {
   documents: RawDocument[];
   updateSetting: <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => void;
   addDocuments: (docs: Omit<RawDocument, 'id'>[]) => void;
-  clearAll: () => void;
+  replaceAllDocuments: (docs: RawDocument[]) => void;
   isLoading: boolean;
   setIsLoading: (v: boolean) => void;
   isPremium: boolean;
   onPremiumGate: () => void;
+}
+
+/** Copies so restore steps that rewrite attachment URIs never mutate the parsed backup. */
+function copyDocs(docs: RawDocument[]): RawDocument[] {
+  return docs.map((d) => ({ ...d, attachments: d.attachments?.map((a) => ({ ...a })) }));
 }
 
 export function BackupRestoreSection({
@@ -41,12 +48,16 @@ export function BackupRestoreSection({
   documents,
   updateSetting,
   addDocuments,
-  clearAll,
+  replaceAllDocuments,
   isLoading,
   setIsLoading,
   isPremium,
   onPremiumGate,
 }: BackupRestoreSectionProps) {
+
+  const journalItems = useItemStore((s) => s.items);
+  const replaceAllItems = useItemStore((s) => s.replaceAllItems);
+  const mergeItems = useItemStore((s) => s.mergeItems);
 
   const handleCreateBackup = async () => {
     if (!isPremium) { onPremiumGate(); return; }
@@ -81,8 +92,10 @@ export function BackupRestoreSection({
         appVersion: Constants.expoConfig?.version || '1.0.0',
         timestamp: new Date().toISOString(),
         documents,
+        items: journalItems,
         settings,
         documentCount: documents.length,
+        itemCount: journalItems.length,
         hasAttachments: Object.keys(attachmentsData).length > 0,
         attachments: Object.keys(attachmentsData).length > 0 ? attachmentsData : undefined,
       };
@@ -121,7 +134,7 @@ export function BackupRestoreSection({
       });
       if (result.canceled || !result.assets?.[0]) return;
       const fileContent = await FileSystem.readAsStringAsync(result.assets[0].uri);
-      let backup: { documents?: RawDocument[]; settings?: Partial<AppSettings>; attachments?: Record<string, string> };
+      let backup: { documents?: RawDocument[]; items?: unknown; settings?: Partial<AppSettings>; attachments?: Record<string, string> };
       try {
         backup = JSON.parse(fileContent);
       } catch {
@@ -152,7 +165,11 @@ export function BackupRestoreSection({
         VALID_RECURRENCE_VALUES.has(d.rec || 'none')
       );
 
-      if (backupDocs.length === 0) {
+      // Maintenance journal (absent in backups made before it existed)
+      const hasJournal = Array.isArray(backup.items);
+      const backupItems = hasJournal ? (backup.items as unknown[]).filter(isValidItem) : [];
+
+      if (backupDocs.length === 0 && backupItems.length === 0) {
         Alert.alert(t(language, 'restore_invalid'));
         return;
       }
@@ -160,7 +177,8 @@ export function BackupRestoreSection({
 
       Alert.alert(
         t(language, 'restore_confirm'),
-        t(language, 'restore_choose') + `\n\n${docCount} ${t(language, docCount === 1 ? 'doc_singular' : 'doc_plural')}`,
+        t(language, 'restore_choose') + `\n\n${tp(language, 'doc_count', docCount)}`
+          + (backupItems.length > 0 ? `\n${tp(language, 'journal_home_count', backupItems.length)}` : ''),
         [
           { text: t(language, 'confirm_cancel'), style: 'cancel' },
           {
@@ -171,22 +189,27 @@ export function BackupRestoreSection({
                 const existingKeys = new Set(
                   documents.map((d) => `${d.title}|${d.due}|${d.cat}`)
                 );
-                const newDocs = backupDocs.filter(
+                const newDocs = copyDocs(backupDocs.filter(
                   (d: RawDocument) => !existingKeys.has(`${d.title}|${d.due}|${d.cat}`)
-                );
+                ));
                 // Restore attachment files only for docs that will actually be
                 // added — skipped duplicates would leave orphan files behind
                 if (backup.attachments && newDocs.length > 0) {
                   await restoreAttachmentFiles(newDocs, backup.attachments);
                 }
                 if (newDocs.length > 0) {
-                  const docsWithoutId = newDocs.map((d: RawDocument) => {
+                  const usable = await resolveRestoredAttachments(newDocs);
+                  const docsWithoutId = usable.map((d: RawDocument) => {
                     const { id, ...rest } = d;
                     return rest;
                   });
                   addDocuments(docsWithoutId);
                 }
+                if (backupItems.length > 0) mergeItems(backupItems);
                 Alert.alert(t(language, 'alert_success'), t(language, 'restore_success'));
+              } catch (e) {
+                if (__DEV__) console.warn('DocDue restore (merge) error:', e);
+                Alert.alert(t(language, 'restore_error'));
               } finally {
                 setIsLoading(false);
               }
@@ -198,16 +221,16 @@ export function BackupRestoreSection({
             onPress: async () => {
               setIsLoading(true);
               try {
-                clearAll();
-                // Remap attachment URIs to current sandbox BEFORE adding docs
+                // Prepare everything first, then swap in one step — nothing is
+                // deleted if a step fails, and photos the backup doesn't carry
+                // (the default) stay on disk because the restored docs use them.
+                const incoming = copyDocs(backupDocs);
                 if (backup.attachments) {
-                  await restoreAttachmentFiles(backupDocs, backup.attachments);
+                  await restoreAttachmentFiles(incoming, backup.attachments);
                 }
-                const docsWithoutId = backupDocs.map((d: RawDocument) => {
-                  const { id, ...rest } = d;
-                  return rest;
-                });
-                addDocuments(docsWithoutId);
+                replaceAllDocuments(await resolveRestoredAttachments(incoming));
+                // Old backups have no journal — keep the current one instead of emptying it
+                if (hasJournal) replaceAllItems(backupItems);
                 if (backup.settings) {
                   const s = backup.settings;
                   // Validate each setting type before applying — skip biometricEnabled, lastBackupDate, isPremium
@@ -223,6 +246,9 @@ export function BackupRestoreSection({
                   if (typeof s.reviewPrompted === 'boolean') updateSetting('reviewPrompted', s.reviewPrompted);
                 }
                 Alert.alert(t(language, 'alert_success'), t(language, 'restore_success'));
+              } catch (e) {
+                if (__DEV__) console.warn('DocDue restore (replace) error:', e);
+                Alert.alert(t(language, 'restore_error'));
               } finally {
                 setIsLoading(false);
               }

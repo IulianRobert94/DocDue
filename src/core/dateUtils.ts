@@ -164,3 +164,42 @@ export function addMonthsToDate(dateString: string, monthsToAdd: number): string
   const d = String(date.getDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
 }
+
+/**
+ * Add calendar months and land on `day` of the target month, clamped to that
+ * month's length. Unlike chaining addMonthsToDate, a "31st" due date doesn't
+ * drift to the 28th forever after February: 31 Jan → 28 Feb → 31 Mar.
+ */
+export function addMonthsKeepingDay(dateString: string, monthsToAdd: number, day: number): string {
+  const date = parseLocalDate(dateString);
+  if (isNaN(date.getTime())) return dateString; // return original if invalid
+  const wantedDay = Number.isFinite(day) ? Math.max(1, Math.trunc(day)) : date.getDate();
+  const target = new Date(date.getFullYear(), date.getMonth() + monthsToAdd, 1);
+  const daysInMonth = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+  target.setDate(Math.min(wantedDay, daysInMonth));
+  const y = target.getFullYear();
+  const m = String(target.getMonth() + 1).padStart(2, "0");
+  const d = String(target.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+/**
+ * Whole calendar days from `from` to `to` (negative if `to` is earlier).
+ * DST-safe: counts calendar days, not 24-hour blocks. NaN for invalid dates.
+ */
+export function daysBetween(from: string, to: string): number {
+  const a = parseLocalDate(from);
+  const b = parseLocalDate(to);
+  if (isNaN(a.getTime()) || isNaN(b.getTime())) return NaN;
+  const utcA = Date.UTC(a.getFullYear(), a.getMonth(), a.getDate());
+  const utcB = Date.UTC(b.getFullYear(), b.getMonth(), b.getDate());
+  return Math.round((utcB - utcA) / MS_PER_DAY);
+}
+
+/** Local calendar date of a Date object as "YYYY-MM-DD". */
+export function toDateString(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}

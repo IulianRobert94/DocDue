@@ -2,7 +2,7 @@
  * ImageViewer — Full-screen image preview with pinch-to-zoom
  */
 
-import React from "react";
+import React, { useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -22,6 +22,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useLanguage } from "../stores/useSettingsStore";
 import { t } from "../core/i18n";
+import { subscribeLockState } from "../core/lockState";
 
 interface ImageViewerProps {
   visible: boolean;
@@ -35,6 +36,15 @@ export function ImageViewer({ visible, uri, onClose }: ImageViewerProps) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const language = useLanguage();
+
+  // The viewer is its own native window (above the biometric lock overlay on
+  // Android) — close it as soon as the app locks so the photo can't show.
+  useEffect(() => {
+    if (!visible) return;
+    return subscribeLockState((locked) => {
+      if (locked) onClose();
+    });
+  }, [visible, onClose]);
 
   const scale = useSharedValue(1);
   const savedScale = useSharedValue(1);

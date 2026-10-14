@@ -22,7 +22,8 @@ async function getXLSX() {
   return _xlsx;
 }
 
-import { t, translateSubtype } from '../../core/i18n';
+import { t, tp, translateSubtype } from '../../core/i18n';
+import { useItemStore } from '../../stores/useItemStore';
 import { parseImportedRows } from '../../core/importParser';
 import { CATEGORIES, FREE_DOCUMENT_LIMIT, MAX_IMPORT_LIMIT } from '../../core/constants';
 import type { RawDocument, AppSettings } from '../../core/constants';
@@ -58,13 +59,15 @@ export function DataSection({
   isPremium,
   onPremiumGate,
 }: DataSectionProps) {
+  const journalItems = useItemStore((s) => s.items);
+  const clearAllItems = useItemStore((s) => s.clearAllItems);
 
   const handleExportExcel = async () => {
     if (!isPremium) { onPremiumGate(); return; }
     setIsLoading(true);
     try {
       const XLSX = await getXLSX();
-      if (!XLSX) { Alert.alert(t(language, 'alert_error'), 'Excel module not available'); return; }
+      if (!XLSX) { Alert.alert(t(language, 'alert_error'), t(language, 'generic_error')); return; }
       const rows = documents.map((doc) => ({
         [t(language, 'form_category')]: t(language, CATEGORIES[doc.cat]?.labelKey || '') || doc.cat,
         [t(language, 'form_type')]: translateSubtype(doc.type, language),
@@ -98,10 +101,7 @@ export function DataSection({
       });
     } catch (e: unknown) {
       if (__DEV__) console.error('DocDue Excel export error:', e);
-      Alert.alert(
-        t(language, 'settings_export_error'),
-        (e as Error)?.message || String(e)
-      );
+      Alert.alert(t(language, 'settings_export_error'), t(language, 'generic_error'));
     } finally {
       setIsLoading(false);
     }
@@ -122,7 +122,7 @@ export function DataSection({
       if (result.canceled || !result.assets?.[0]) return;
       const fileUri = result.assets[0].uri;
       const XLSX = await getXLSX();
-      if (!XLSX) { Alert.alert(t(language, 'alert_error'), 'Excel module not available'); return; }
+      if (!XLSX) { Alert.alert(t(language, 'alert_error'), t(language, 'generic_error')); return; }
       const fileContent = await FileSystem.readAsStringAsync(fileUri, { encoding: FileSystem.EncodingType.Base64 });
       const wb = XLSX.read(fileContent, { type: 'base64', cellDates: true });
       const ws = wb.Sheets[wb.SheetNames[0]];
@@ -141,7 +141,7 @@ export function DataSection({
       if (parsedDocs.length === 0) {
         Alert.alert(
           t(language, 'settings_import_no_data') +
-            (invalidDates > 0 ? `\n${t(language, 'import_invalid_dates', { n: invalidDates })}` : '')
+            (invalidDates > 0 ? `\n${tp(language, 'import_invalid_dates', invalidDates)}` : '')
         );
         return;
       }
@@ -173,9 +173,9 @@ export function DataSection({
         }
       }
 
-      let msg = t(language, 'settings_import_confirm_msg', { n: uniqueDocs.length });
+      let msg = tp(language, 'settings_import_confirm_msg', uniqueDocs.length);
       if (skipped > 0) msg += `\n(${skipped} ${t(language, 'duplicates_skipped')})`;
-      if (invalidDates > 0) msg += `\n${t(language, 'import_invalid_dates', { n: invalidDates })}`;
+      if (invalidDates > 0) msg += `\n${tp(language, 'import_invalid_dates', invalidDates)}`;
 
       Alert.alert(
         t(language, 'settings_import_confirm_title'),
@@ -186,7 +186,7 @@ export function DataSection({
             text: t(language, 'settings_import_confirm_btn'),
             onPress: () => {
               addDocuments(uniqueDocs);
-              Alert.alert(t(language, 'settings_import_success', { n: uniqueDocs.length }));
+              Alert.alert(tp(language, 'settings_import_success', uniqueDocs.length));
             },
           },
         ]
@@ -209,14 +209,19 @@ export function DataSection({
     );
   };
 
+  // "Delete all data" also empties the maintenance journal
   const handleClearAll = () => {
-    if (documents.length === 0) return;
+    if (documents.length === 0 && journalItems.length === 0) return;
+    const message = [
+      documents.length > 0 ? tp(language, 'confirm_clear_msg_count', documents.length) : null,
+      journalItems.length > 0 ? tp(language, 'confirm_clear_items_count', journalItems.length) : null,
+    ].filter(Boolean).join('\n');
     Alert.alert(
       t(language, 'confirm_clear_title'),
-      t(language, 'confirm_clear_msg_count', { n: documents.length }),
+      message,
       [
         { text: t(language, 'confirm_cancel'), style: 'cancel' },
-        { text: t(language, 'confirm_clear_btn'), style: 'destructive', onPress: () => clearAll() },
+        { text: t(language, 'confirm_clear_btn'), style: 'destructive', onPress: () => { clearAll(); clearAllItems(); } },
       ]
     );
   };

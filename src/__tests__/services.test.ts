@@ -53,6 +53,16 @@ jest.mock("react-native-iap", () => ({
   purchaseErrorListener: jest.fn(() => ({ remove: jest.fn() })),
 }));
 
+jest.mock("expo-calendar", () => ({
+  getCalendarPermissionsAsync: jest.fn(() => Promise.resolve({ status: "granted" })),
+  requestCalendarPermissionsAsync: jest.fn(() => Promise.resolve({ status: "granted" })),
+  getCalendarsAsync: jest.fn(() => Promise.resolve([{ id: "cal1", allowsModifications: true, source: { type: "local" } }])),
+  getDefaultCalendarAsync: jest.fn(() => Promise.resolve({ id: "cal1" })),
+  getEventsAsync: jest.fn(() => Promise.resolve([])),
+  createEventAsync: jest.fn(() => Promise.resolve("evt1")),
+  EntityTypes: { EVENT: "event" },
+}));
+
 jest.mock("expo-file-system/legacy", () => ({
   deleteAsync: jest.fn(() => Promise.resolve()),
   getInfoAsync: jest.fn(() => Promise.resolve({ exists: true })),
@@ -67,7 +77,8 @@ jest.mock("expo-file-system/legacy", () => ({
 import { generateId } from "../core/helpers";
 import { enrichDocument } from "../core/enrichment";
 import { addDaysToDate, getTodayString, calculateDaysUntil } from "../core/dateUtils";
-import type { RawDocument, EnrichedDocument } from "../core/constants";
+import type { RawDocument, EnrichedDocument, Attachment } from "../core/constants";
+import * as FileSystem from "expo-file-system/legacy";
 import { calculateHealthScore } from "../core/healthScore";
 import * as Notifications from "expo-notifications";
 
@@ -98,12 +109,92 @@ describe("generateId", () => {
 // ─── Notification scheduling logic ──────────────────────
 
 describe("notification scheduling logic", () => {
-  it("rescheduleAllNotifications cancels existing first", async () => {
+  it("rescheduleAllNotifications never wipes every notification (snoozes survive)", async () => {
     const { rescheduleAllNotifications } = require("../services/notifications");
+    (Notifications.cancelAllScheduledNotificationsAsync as jest.Mock).mockClear();
 
     await rescheduleAllNotifications([], [7, 3, 1], "ro");
 
-    expect(Notifications.cancelAllScheduledNotificationsAsync).toHaveBeenCalled();
+    expect(Notifications.cancelAllScheduledNotificationsAsync).not.toHaveBeenCalled();
+  });
+
+  it("keeps a valid snooze and cancels the reminders it replaces", async () => {
+    const { rescheduleAllNotifications } = require("../services/notifications");
+    const due = addDaysToDate(getTodayString(), 10);
+    (Notifications.getAllScheduledNotificationsAsync as jest.Mock).mockResolvedValueOnce([
+      { identifier: "snooze-keep", content: { data: { type: "document_reminder", documentId: "u1", snoozed: true, due } } },
+      { identifier: "old-reminder", content: { data: { type: "document_reminder", documentId: "u1", due } } },
+      { identifier: "snooze-orphan", content: { data: { type: "document_reminder", documentId: "deleted", snoozed: true, due } } },
+      { identifier: "snooze-paid", content: { data: { type: "document_reminder", documentId: "u2", snoozed: true, due: addDaysToDate(getTodayString(), -20) } } },
+      { identifier: "digest", content: { data: { type: "morning_digest" } } },
+    ]);
+    const cancel = Notifications.cancelScheduledNotificationAsync as jest.Mock;
+    cancel.mockClear();
+
+    await rescheduleAllNotifications([
+      { id: "u1", cat: "casa", type: "Gaz", title: "Gaz", due, amt: null, rec: "monthly" },
+      { id: "u2", cat: "casa", type: "Apă", title: "Apă", due: addDaysToDate(getTodayString(), 30), amt: null, rec: "monthly" },
+    ], [], "ro");
+
+    expect(cancel.mock.calls.map((c) => c[0]).sort()).toEqual(["old-reminder", "snooze-orphan", "snooze-paid"]);
+  });
+
+  it("schedules the '1 day after expiry' reminder on the day after the due date", async () => {
+    const { rescheduleAllNotifications } = require("../services/notifications");
+    const due = addDaysToDate(getTodayString(), 3);
+    const schedule = Notifications.scheduleNotificationAsync as jest.Mock;
+    schedule.mockClear();
+
+    await rescheduleAllNotifications([
+      { id: "u1", cat: "vehicule", type: "ITP", title: "ITP Logan", due, amt: null, rec: "annual", reminderDays: [-1] },
+    ], [], "ro");
+
+    expect(schedule).toHaveBeenCalledTimes(1);
+    const { content, trigger } = schedule.mock.calls[0][0];
+    const [y, m, d] = addDaysToDate(due, 1).split("-").map(Number);
+    expect(trigger.date.getTime()).toBe(new Date(y, m - 1, d, 9, 0, 0, 0).getTime());
+    expect(content.title).toBe("A expirat ieri");
+  });
+
+  it.each([
+    [1, "Mai e o zi"],
+    [7, "7 zile rămase"],
+    [30, "30 de zile rămase"],
+  ])("a reminder %i day(s) before reads '%s' (Romanian plural)", async (days, title) => {
+    const { rescheduleAllNotifications } = require("../services/notifications");
+    const schedule = Notifications.scheduleNotificationAsync as jest.Mock;
+    schedule.mockClear();
+
+    await rescheduleAllNotifications([
+      { id: "u1", cat: "casa", type: "Gaz", title: "Gaz", due: addDaysToDate(getTodayString(), 60), amt: null, rec: "monthly", reminderDays: [days] },
+    ], [], "ro");
+
+    expect(schedule.mock.calls[0][0].content.title).toBe(title);
+  });
+
+  it("stores the due date in each reminder so a stale 'Paid' tap can be ignored", async () => {
+    const { rescheduleAllNotifications } = require("../services/notifications");
+    const due = addDaysToDate(getTodayString(), 20);
+    const schedule = Notifications.scheduleNotificationAsync as jest.Mock;
+    schedule.mockClear();
+
+    await rescheduleAllNotifications([
+      { id: "u1", cat: "casa", type: "Gaz", title: "Gaz", due, amt: null, rec: "monthly", reminderDays: [7] },
+    ], [], "ro");
+
+    expect(schedule.mock.calls[0][0].content.data).toEqual({ documentId: "u1", type: "document_reminder", due });
+  });
+
+  it("a snooze remembers the due date so later syncs keep it", async () => {
+    const { snoozeNotification } = require("../services/notifications");
+    const schedule = Notifications.scheduleNotificationAsync as jest.Mock;
+    schedule.mockClear();
+
+    await snoozeNotification("u1", "notif-1", "Titlu", "Corp", "2026-05-01");
+
+    expect(schedule.mock.calls[0][0].content.data).toEqual({
+      documentId: "u1", type: "document_reminder", snoozed: true, due: "2026-05-01",
+    });
   });
 
   it("schedules notifications for future dates only", async () => {
@@ -138,6 +229,23 @@ describe("notification scheduling logic", () => {
 
     // All reminder dates are in the past, so nothing should be scheduled
     expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
+  });
+
+  it("does not schedule reminders for the example (demo) documents", async () => {
+    const { rescheduleAllNotifications } = require("../services/notifications");
+    const due = addDaysToDate(getTodayString(), 20);
+    const docs: RawDocument[] = [
+      { id: "demo_1", cat: "vehicule", type: "RCA", title: "RCA — Dacia Duster", due, amt: 1850, rec: "annual" },
+      { id: "u1", cat: "vehicule", type: "RCA", title: "RCA Logan", due, amt: 900, rec: "annual" },
+    ];
+
+    (Notifications.scheduleNotificationAsync as jest.Mock).mockClear();
+    await rescheduleAllNotifications(docs, [7, 3, 1], "ro");
+
+    const ids = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls
+      .map((c) => c[0].content.data.documentId);
+    expect(ids.length).toBeGreaterThan(0);
+    expect(ids.filter((id: string) => id !== "u1")).toEqual([]);
   });
 
   it("does not schedule for resolved documents", async () => {
@@ -220,12 +328,132 @@ describe("notification scheduling logic", () => {
 
 // ─── Morning Digest ─────────────────────────────────────
 
+describe("syncAllNotifications (one sync at a time)", () => {
+  const docDue20 = (id: string): RawDocument => ({
+    id, cat: "casa", type: "Gaz", title: id, due: addDaysToDate(getTodayString(), 20), amt: null, rec: "monthly",
+  });
+
+  it("never overlaps runs and coalesces calls made meanwhile into the newest one", async () => {
+    const { syncAllNotifications } = require("../services/notifications");
+    const schedule = Notifications.scheduleNotificationAsync as jest.Mock;
+    schedule.mockClear();
+
+    const first = syncAllNotifications([docDue20("d1")], "ro");
+    const second = syncAllNotifications([docDue20("d2")], "ro");
+    const third = syncAllNotifications([docDue20("d3")], "ro");
+    await Promise.all([first, second, third]);
+
+    const order: string[] = schedule.mock.calls
+      .map((c) => c[0].content.data?.documentId)
+      .filter(Boolean);
+    expect(order).toContain("d1");
+    expect(order).toContain("d3");
+    expect(order).not.toContain("d2");
+    expect(order.lastIndexOf("d1")).toBeLessThan(order.indexOf("d3"));
+  });
+});
+
+describe("shouldApplyMarkPaid", () => {
+  const doc: RawDocument = { id: "u1", cat: "casa", type: "Gaz", title: "Gaz", due: "2026-03-10", amt: 80, rec: "monthly" };
+
+  it.each<[string, RawDocument | undefined, Record<string, unknown>, boolean]>([
+    ["the reminder is for the current due date", doc, { due: "2026-03-10" }, true],
+    ["an old reminder for a due date already paid", doc, { due: "2026-02-10" }, false],
+    ["the document was archived meanwhile", { ...doc, resolved: "2026-03-01" }, { due: "2026-03-10" }, false],
+    ["the document was deleted", undefined, { due: "2026-03-10" }, false],
+    ["a reminder scheduled before this update (no due stored)", doc, {}, true],
+  ])("%s", (_label, d, data, expected) => {
+    const { shouldApplyMarkPaid } = require("../services/notifications");
+    expect(shouldApplyMarkPaid(d, data)).toBe(expected);
+  });
+});
+
+describe("resolveRestoredAttachments (backup restore)", () => {
+  const ATT_DIR = "/mock/documents/attachments/";
+  const att = (id: string, uri: string): Attachment => ({ id, uri, name: `${id}.jpg`, type: "image" });
+  const docWith = (attachments: Attachment[]): RawDocument => ({
+    id: "d1", cat: "casa", type: "Gaz", title: "Gaz", due: "2026-06-01", amt: null, rec: "none", attachments,
+  });
+
+  beforeEach(() => {
+    const onDisk = new Set([`${ATT_DIR}local.jpg`, `${ATT_DIR}moved.jpg`]);
+    (FileSystem.getInfoAsync as jest.Mock).mockImplementation((uri: string) => Promise.resolve({ exists: onDisk.has(uri) }));
+  });
+
+  afterEach(() => {
+    (FileSystem.getInfoAsync as jest.Mock).mockImplementation(() => Promise.resolve({ exists: true }));
+  });
+
+  it("keeps an attachment whose file is in the app's attachments folder", async () => {
+    const { resolveRestoredAttachments } = require("../services/backupRestore");
+    const [doc] = await resolveRestoredAttachments([docWith([att("a", `${ATT_DIR}local.jpg`)])]);
+    expect(doc.attachments).toEqual([att("a", `${ATT_DIR}local.jpg`)]);
+  });
+
+  it("re-points an attachment saved under an old app folder to the current one", async () => {
+    const { resolveRestoredAttachments } = require("../services/backupRestore");
+    const old = "file:///var/mobile/Containers/Data/Application/OLD-ID/Documents/attachments/moved.jpg";
+    const [doc] = await resolveRestoredAttachments([docWith([att("a", old)])]);
+    expect(doc.attachments).toEqual([att("a", `${ATT_DIR}moved.jpg`)]);
+  });
+
+  it("drops attachments whose file is gone, web links, and paths outside the app", async () => {
+    const { resolveRestoredAttachments } = require("../services/backupRestore");
+    const [doc] = await resolveRestoredAttachments([docWith([
+      att("gone", `${ATT_DIR}missing.jpg`),
+      att("web", "https://tracker.example/pixel.png"),
+      att("escape", `${ATT_DIR}../../Library/secret.db`),
+      att("dots", `${ATT_DIR}..`),
+      att("ok", `${ATT_DIR}local.jpg`),
+    ])]);
+    expect(doc.attachments?.map((a: Attachment) => a.id)).toEqual(["ok"]);
+  });
+
+  it("removes the attachments field when nothing usable is left", async () => {
+    const { resolveRestoredAttachments } = require("../services/backupRestore");
+    const [doc] = await resolveRestoredAttachments([docWith([att("gone", `${ATT_DIR}missing.jpg`)])]);
+    expect(doc.attachments).toBeUndefined();
+  });
+});
+
+describe("digest and weekly summary", () => {
+  const exampleOnly: RawDocument[] = [
+    { id: "demo_1", cat: "vehicule", type: "RCA", title: "RCA — Dacia Duster", due: addDaysToDate(getTodayString(), -3), amt: 1850, rec: "annual" },
+  ];
+
+  it("are not scheduled when there is nothing real to report", async () => {
+    const { scheduleMorningDigest, scheduleWeeklySummary } = require("../services/notifications");
+    const schedule = Notifications.scheduleNotificationAsync as jest.Mock;
+    schedule.mockClear();
+
+    await scheduleMorningDigest(exampleOnly, "ro");
+    await scheduleWeeklySummary([], "ro");
+
+    expect(schedule).not.toHaveBeenCalled();
+  });
+
+  it("the weekly summary reads naturally in Romanian", async () => {
+    const { scheduleWeeklySummary } = require("../services/notifications");
+    const schedule = Notifications.scheduleNotificationAsync as jest.Mock;
+    schedule.mockClear();
+    const soon = addDaysToDate(getTodayString(), 2);
+
+    await scheduleWeeklySummary([
+      { id: "u1", cat: "casa", type: "Gaz", title: "Gaz", due: soon, amt: null, rec: "monthly" },
+    ], "ro");
+
+    expect(schedule.mock.calls[0][0].content.body).toMatch(/^Săptămâna aceasta: 1 document scadent, 1 urgent\. Scor: \d+\/100\.$/);
+  });
+});
+
 describe("morning digest logic", () => {
   it("scheduleMorningDigest schedules for tomorrow", async () => {
     const { scheduleMorningDigest } = require("../services/notifications");
 
     (Notifications.scheduleNotificationAsync as jest.Mock).mockClear();
-    await scheduleMorningDigest([], "ro");
+    await scheduleMorningDigest([
+      { id: "u1", cat: "casa", type: "Gaz", title: "Gaz", due: addDaysToDate(getTodayString(), 40), amt: null, rec: "monthly" },
+    ], "ro");
 
     expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -667,5 +895,44 @@ describe("restoreAttachmentFiles", () => {
       "/mock/documents/attachments/",
       { intermediates: true }
     );
+  });
+});
+
+// ─── Calendar (all-day event on the due date) ────────────
+
+describe("addDocumentToCalendar", () => {
+  const doc = enrichDocument({
+    id: "u1", cat: "vehicule", type: "ITP", title: "ITP Logan", due: "2026-06-01", amt: null, rec: "annual",
+  });
+
+  afterEach(() => {
+    require("react-native").Platform.OS = "ios";
+  });
+
+  it("on Android creates the all-day event at UTC midnight so it lands on the due date", async () => {
+    require("react-native").Platform.OS = "android";
+    const Calendar = require("expo-calendar");
+    Calendar.createEventAsync.mockClear();
+    const { addDocumentToCalendar } = require("../services/calendar");
+
+    await addDocumentToCalendar(doc, "ro");
+
+    const event = Calendar.createEventAsync.mock.calls[0][1];
+    expect(event.allDay).toBe(true);
+    expect(event.timeZone).toBe("UTC");
+    expect(event.startDate.getTime()).toBe(Date.UTC(2026, 5, 1));
+    expect(event.endDate.getTime()).toBe(Date.UTC(2026, 5, 2));
+  });
+
+  it("on iOS keeps the local-day event", async () => {
+    const Calendar = require("expo-calendar");
+    Calendar.createEventAsync.mockClear();
+    const { addDocumentToCalendar } = require("../services/calendar");
+
+    await addDocumentToCalendar(doc, "ro");
+
+    const event = Calendar.createEventAsync.mock.calls[0][1];
+    expect(event.allDay).toBe(true);
+    expect(event.startDate.getTime()).toBe(new Date(2026, 5, 1, 0, 0, 0, 0).getTime());
   });
 });

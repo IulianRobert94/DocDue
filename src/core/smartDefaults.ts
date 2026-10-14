@@ -65,6 +65,8 @@ const SUBTYPE_DEFAULTS: Record<string, SmartDefault> = {
   "Domeniu web": { recurrence: "annual" },
   "Hosting": { recurrence: "monthly" },
   "Licență software": { recurrence: "annual" },
+  // A warranty ends once — no recurrence
+  "Garanție produs": { recurrence: "none" },
 
   // Financiar
   "Certificat înregistrare": { recurrence: "none" },
@@ -92,6 +94,21 @@ export function getSmartDefaults(subtype: string): SmartDefault | null {
 }
 
 /**
+ * Recurrence to use when the form's document type changes — whether the user
+ * picked it, or it was pre-filled (category default, title detection, scan).
+ * The type's smart default applies unless the user chose a recurrence
+ * themselves; types without a default keep the current value.
+ */
+export function resolveRecurrenceForType(
+  type: string,
+  currentRec: RecurrenceValue,
+  userChoseRec: boolean,
+): RecurrenceValue {
+  if (userChoseRec) return currentRec;
+  return getSmartDefaults(type)?.recurrence ?? currentRec;
+}
+
+/**
  * Auto-detect category and type from a document title.
  * Example: "RCA Ford Focus" → { cat: 'vehicule', type: 'RCA' }
  */
@@ -101,6 +118,9 @@ export function autoCategorize(title: string): { cat?: CategoryId; type?: string
 
   // Check common abbreviations first (higher priority, more precise)
   const KEYWORD_MAP: Record<string, { cat: CategoryId; type: string }> = {
+    // First: "Garanție apartament / căști" must not match 'apa' / 'cas' below
+    'garantie': { cat: 'casa', type: 'Garanție produs' },
+    'warranty': { cat: 'casa', type: 'Garanție produs' },
     'rca': { cat: 'vehicule', type: 'RCA' },
     'itp': { cat: 'vehicule', type: 'ITP' },
     'casco': { cat: 'vehicule', type: 'CASCO' },

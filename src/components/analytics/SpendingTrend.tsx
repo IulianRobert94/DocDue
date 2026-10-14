@@ -26,9 +26,6 @@ interface MonthPoint {
 export function SpendingTrend({ months }: { months: MonthPoint[] }) {
   const theme = useTheme();
   const lang = useLanguage();
-  const currency = useCurrency();
-  const { width: screenWidth } = useWindowDimensions();
-  const chartWidth = screenWidth - 40; // 20px padding each side
 
   if (months.length < 2) {
     return (
@@ -39,6 +36,17 @@ export function SpendingTrend({ months }: { months: MonthPoint[] }) {
       </FadeInView>
     );
   }
+  // Separate component: its hooks must not sit after the early return above
+  // (the number of months can change while the screen is open).
+  return <TrendChart months={months} />;
+}
+
+function TrendChart({ months }: { months: MonthPoint[] }) {
+  const theme = useTheme();
+  const lang = useLanguage();
+  const currency = useCurrency();
+  const { width: screenWidth } = useWindowDimensions();
+  const chartWidth = screenWidth - 40; // 20px padding each side
 
   const maxAmount = Math.max(...months.map((m) => m.amount), 1);
   const points = months.map((m, i) => ({
