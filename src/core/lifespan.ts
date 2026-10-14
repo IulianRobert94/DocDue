@@ -26,8 +26,12 @@ export interface ItemStats {
   avgKm: number | null;
   totalCost: number;
   brokeCount: number;
-  /** current.start + average lifespan — only once something was replaced */
+  /** current.start + typical (median) lifespan — only once something was replaced */
   estimatedNext: string | null;
+  /** Odometer reading for the next replacement: installation km + typical km */
+  estimatedKm: number | null;
+  /** Based on at least two finished periods — one alone can be a fluke */
+  estimateReliable: boolean;
   /** Last ended install when nothing is in use */
   lastEnded: ItemInstall | null;
 }
@@ -47,6 +51,14 @@ export function installDurationKm(install: ItemInstall): number | null {
 const average = (values: number[]): number | null =>
   values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : null;
 
+// The typical value: one defect that lasted 2 months doesn't drag it down
+const median = (values: number[]): number | null => {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+};
+
 export function getItemStats(item: TrackedItem, today: string): ItemStats {
   const installs = item.installs;
   const last = installs[installs.length - 1];
@@ -56,6 +68,8 @@ export function getItemStats(item: TrackedItem, today: string): ItemStats {
   const endedDays = ended.map((i) => installDurationDays(i, today));
   const endedKm = ended.map(installDurationKm).filter((km): km is number => km !== null);
   const avgDays = average(endedDays);
+  const typicalDays = median(endedDays);
+  const typicalKm = median(endedKm);
 
   return {
     current,
@@ -68,7 +82,9 @@ export function getItemStats(item: TrackedItem, today: string): ItemStats {
     avgKm: average(endedKm),
     totalCost: installs.reduce((sum, i) => sum + (typeof i.cost === "number" ? i.cost : 0), 0),
     brokeCount: ended.filter((i) => i.endReason === "broke").length,
-    estimatedNext: current && avgDays !== null ? addDaysToDate(current.start, Math.round(avgDays)) : null,
+    estimatedNext: current && typicalDays !== null ? addDaysToDate(current.start, Math.round(typicalDays)) : null,
+    estimatedKm: current && typeof current.startKm === "number" && typicalKm !== null ? Math.round(current.startKm + typicalKm) : null,
+    estimateReliable: ended.length >= 2,
     lastEnded: current ? null : ended[ended.length - 1] ?? null,
   };
 }

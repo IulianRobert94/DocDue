@@ -117,7 +117,8 @@ function ItemRow({ item, today, theme, language, onPress }: {
   let right: { text: string; color: string } | null = null;
   if (!stats.isInUse && item.installs.length > 0) {
     right = { text: t(language, 'journal_to_replace'), color: '#FF3B30' };
-  } else if (stats.estimatedNext) {
+  } else if (stats.estimatedNext && stats.estimateReliable) {
+    // One replacement alone can be a fluke: the list shows the estimate from two on
     const daysAway = daysBetween(today, stats.estimatedNext);
     const color = daysAway < 0 ? '#FF3B30' : daysAway <= 30 ? '#FF9500' : theme.textSecondary;
     right = { text: formatEstimateWhen(daysAway, language, { compact: true }), color };

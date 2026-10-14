@@ -30,7 +30,8 @@ export function JournalHomeCard() {
     for (const item of items) {
       const stats = getItemStats(item, today);
       if (!stats.isInUse && item.installs.length > 0) toReplace++;
-      if (stats.estimatedNext && (!next || stats.estimatedNext < next.date)) {
+      // Only estimates based on at least two replacements — one alone can be a fluke
+      if (stats.estimatedNext && stats.estimateReliable && (!next || stats.estimatedNext < next.date)) {
         next = { name: item.name, date: stats.estimatedNext };
       }
     }

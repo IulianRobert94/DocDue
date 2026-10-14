@@ -82,6 +82,30 @@ describe("getItemStats", () => {
     expect(getItemStats(battery, TODAY).estimatedNext).toBe("2027-12-01");
   });
 
+  it("uses the typical (median) lifespan, so one early failure doesn't drag the estimate down", () => {
+    const lights: TrackedItem = {
+      ...battery,
+      installs: [
+        { id: "a", start: "2015-01-01", end: "2020-01-01" }, // 1826 days
+        { id: "b", start: "2020-01-01", end: "2024-12-31" }, // 1826 days
+        { id: "c", start: "2024-12-31", end: "2025-03-02", endReason: "broke" }, // 61 days, a defect
+        { id: "d", start: "2025-03-02" },
+      ],
+    };
+    expect(getItemStats(lights, TODAY).estimatedNext).toBe("2030-03-02");
+  });
+
+  it("an estimate needs at least two finished periods to be shown on home / in the list", () => {
+    expect(getItemStats(battery, TODAY).estimateReliable).toBe(true);
+    const once: TrackedItem = { ...battery, installs: battery.installs.slice(1) };
+    expect(getItemStats(once, TODAY).estimateReliable).toBe(false);
+  });
+
+  it("estimates the odometer reading too when km were recorded", () => {
+    // 140,000 at installation + typical 40,000 km
+    expect(getItemStats(battery, TODAY).estimatedKm).toBe(180000);
+  });
+
   it("gives no estimate before anything has been replaced", () => {
     const fresh: TrackedItem = { ...battery, installs: [{ id: "c", start: "2025-05-01" }] };
     const stats = getItemStats(fresh, TODAY);

@@ -214,7 +214,9 @@ export default function ItemDetailScreen() {
                   theme={theme}
                 />
                 <Text style={[s.estimateWhen, { color: daysToEstimate < 0 ? '#FF3B30' : daysToEstimate <= 30 ? '#FF9500' : theme.textSecondary }]}>
-                  {formatEstimateWhen(daysToEstimate, language)} · {tp(language, 'journal_based_on', stats.completed)}
+                  {formatEstimateWhen(daysToEstimate, language)}
+                  {stats.estimatedKm !== null ? ` · ${t(language, 'journal_estimate_km', { km: formatKm(stats.estimatedKm, language) })}` : ''}
+                  {' · '}{tp(language, 'journal_based_on', stats.completed)}
                 </Text>
                 <View style={{ paddingHorizontal: 16, paddingBottom: 14 }}>
                   <SecondaryButton label={t(language, 'journal_add_reminder')} icon="notifications-outline" onPress={addReminder} theme={theme} />
