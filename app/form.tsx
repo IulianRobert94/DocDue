@@ -8,7 +8,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TextInput, Alert,
   Platform, Keyboard, InputAccessoryView, BackHandler,
-  ActivityIndicator, Modal, KeyboardAvoidingView, Animated, Linking,
+  ActivityIndicator, Modal, KeyboardAvoidingView, Animated, Linking, ActionSheetIOS,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -21,12 +21,12 @@ import { useDocumentStore, useEnrichedDocument } from '../src/stores/useDocument
 import { t, tp, translateSubtype } from '../src/core/i18n';
 import { parseLocalDate, addDaysToDate, addMonthsKeepingDay, getTodayString } from '../src/core/dateUtils';
 import { formatDate, getRecurrenceLabel } from '../src/core/formatters';
-import { CATEGORIES, RECURRENCE_QUICK, RECURRENCE_OPTIONS } from '../src/core/constants';
+import { CATEGORIES, RECURRENCE_QUICK, RECURRENCE_OPTIONS, MAX_ATTACHMENTS } from '../src/core/constants';
 import type { CategoryId, RecurrenceValue, RawDocument, Attachment } from '../src/core/constants';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AnimatedPressable, FadeInView, useReduceMotion } from '../src/components/AnimatedUI';
 import { RowDivider } from '../src/components/settings/SettingsUI';
-import { AttachmentPicker, deleteAttachmentFiles } from '../src/components/AttachmentPicker';
+import { AttachmentPicker, deleteAttachmentFiles, saveImageAttachment } from '../src/components/AttachmentPicker';
 import { autoCategorize, resolveRecurrenceForType } from '../src/core/smartDefaults';
 import { getAutoReminderDays } from '../src/core/enrichment';
 import { findDuplicate, isAtFreeLimit, countTowardFreeLimit } from '../src/core/helpers';
@@ -135,6 +135,9 @@ export default function FormScreen() {
   // Cars / homes already used, offered as one-tap choices
   const assetSuggestions = useMemo(() => knownAssets(useDocumentStore.getState().documents), []);
   const [assetKey, setAssetKey] = useState(0);
+  // The text fields are uncontrolled (Fabric): a scan that fills them remounts them
+  const [amtKey, setAmtKey] = useState(0);
+  const [titleKey, setTitleKey] = useState(0);
   // Reminders can't arrive: notifications off in the app, or denied in system settings
   const notificationsEnabled = useSettingsStore((s) => s.settings.notificationsEnabled);
   const [permDenied, setPermDenied] = useState(false);
@@ -314,30 +317,59 @@ export default function FormScreen() {
     applyTypeDefaults(sub);
   };
 
-  const handleScan = async () => {
+  /** Camera or gallery (a screenshot of a PDF works too), then read the document */
+  const handleScan = () => {
     if (!isOcrAvailable()) {
       showToast(t(language, 'scan_unavailable'), 'info');
       return;
     }
+    const options = [t(language, 'confirm_cancel'), t(language, 'from_camera'), t(language, 'from_gallery')];
+    const pick = (fromCamera: boolean) => { scanFrom(fromCamera).catch(() => {}); };
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        { options, cancelButtonIndex: 0, title: t(language, 'scan_btn') },
+        (idx) => { if (idx === 1) pick(true); else if (idx === 2) pick(false); },
+      );
+    } else {
+      Alert.alert(t(language, 'scan_btn'), undefined, [
+        { text: options[0], style: 'cancel' },
+        { text: options[1], onPress: () => pick(true) },
+        { text: options[2], onPress: () => pick(false) },
+      ]);
+    }
+  };
+
+  const scanFrom = async (fromCamera: boolean) => {
     try {
-      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      const { status } = fromCamera
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        showToast(t(language, 'camera_permission'), 'error');
+        showToast(t(language, fromCamera ? 'camera_permission' : 'photo_permission'), 'error');
         return;
       }
-      const result = await ImagePicker.launchCameraAsync({ quality: 0.8, allowsEditing: false });
+      const result = fromCamera
+        ? await ImagePicker.launchCameraAsync({ quality: 0.8, allowsEditing: false })
+        : await ImagePicker.launchImageLibraryAsync({ quality: 0.8, allowsEditing: false });
       if (result.canceled || !result.assets?.[0]) return;
 
       setScanning(true);
-      const imageUri = result.assets[0].uri;
-      const ocrResult = await scanDocument(imageUri);
+      const asset = result.assets[0];
+      const ocrResult = await scanDocument(asset.uri);
 
-      // Auto-fill form fields from OCR result
-      if (ocrResult.category) { setCat(ocrResult.category); manualCatRef.current = false; }
-      if (ocrResult.type) { setType(ocrResult.type); applyTypeDefaults(ocrResult.type); }
-      if (ocrResult.title) { titleRef.current = ocrResult.title; setTitle(ocrResult.title); }
+      // Keep the photo with the document — no need to take it twice
+      if (attachments.length < MAX_ATTACHMENTS) {
+        saveImageAttachment(asset, editId).then((att) => setAttachments((prev) => [...prev, att])).catch(() => {});
+      }
+
+      // Editing (renewal): only the new date and amount; a new document gets everything
+      if (!effectiveEdit) {
+        if (ocrResult.category) { setCat(ocrResult.category); catLockedRef.current = false; }
+        if (ocrResult.type) { setType(ocrResult.type); applyTypeDefaults(ocrResult.type); }
+        if (ocrResult.title) { titleRef.current = ocrResult.title; setTitle(ocrResult.title); setTitleKey((k) => k + 1); }
+      }
       if (ocrResult.date) { dueTouchedRef.current = true; setDueSource('user'); setDue(ocrResult.date); setPickerDate(stringToDate(ocrResult.date)); }
-      if (ocrResult.amount != null) { amtRef.current = String(ocrResult.amount); setAmt(String(ocrResult.amount)); }
+      if (ocrResult.amount != null) { amtRef.current = String(ocrResult.amount); setAmt(String(ocrResult.amount)); setAmtKey((k) => k + 1); }
 
       // Don't claim success when the photo yielded nothing to fill in
       if (!hasExtractedData(ocrResult)) {
@@ -345,7 +377,13 @@ export default function FormScreen() {
         return;
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      showToast(t(language, 'scan_success'));
+      // Say exactly what was filled in, so the user checks it
+      const filled = [
+        !effectiveEdit && ocrResult.type ? translateSubtype(ocrResult.type, language) : null,
+        ocrResult.date ? formatDate(ocrResult.date, language) : null,
+        ocrResult.amount != null ? `${ocrResult.amount} ${currency}` : null,
+      ].filter(Boolean).join(' · ');
+      showToast(filled ? t(language, 'scan_filled', { fields: filled }) : t(language, 'scan_success'));
     } catch {
       showToast(t(language, 'scan_error'), 'error');
     } finally {
@@ -529,20 +567,7 @@ export default function FormScreen() {
               <Text style={[s.headerTitle, { color: theme.text }]}>
                 {effectiveEdit ? t(language, 'form_edit_title') : t(language, 'form_add_title')}
               </Text>
-              {!effectiveEdit ? (
-                <AnimatedPressable
-                  onPress={handleScan}
-                  hapticStyle="light"
-                  style={{ width: 60, alignItems: 'flex-end' }}
-                  accessibilityLabel={t(language, 'scan_btn')}
-                  disabled={scanning}
-                  hitSlop={12}
-                >
-                  <Ionicons name="scan-outline" size={22} color={theme.primary} />
-                </AnimatedPressable>
-              ) : (
-                <View style={{ width: 60 }} />
-              )}
+              <View style={{ width: 60 }} />
             </FadeInView>
 
             {/* Category */}
@@ -590,6 +615,21 @@ export default function FormScreen() {
             <FadeInView delay={200}>
               <Text style={[s.sectionHeader, { color: theme.textSecondary }]}>{t(language, 'settings_general')}</Text>
               <View style={[s.group, { backgroundColor: theme.card }]}>
+                {/* Scan — fills the form from a photo (a new policy when renewing, too) */}
+                <AnimatedPressable style={s.inputRow} onPress={handleScan} disabled={scanning} hapticStyle="light"
+                  accessibilityRole="button" accessibilityLabel={t(language, 'scan_btn')}>
+                  {scanning
+                    ? <ActivityIndicator size="small" color={theme.primary} style={{ marginRight: 10 }} />
+                    : <Ionicons name="scan-outline" size={20} color={theme.primary} style={{ marginRight: 10 }} />}
+                  <View style={{ flex: 1, paddingVertical: 8 }}>
+                    <Text style={{ fontSize: 17, fontFamily: fonts.regular, color: theme.primaryText }}>{t(language, 'scan_btn')}</Text>
+                    <Text style={{ fontSize: 12, fontFamily: fonts.regular, color: theme.textMuted, marginTop: 1 }}>
+                      {t(language, effectiveEdit ? 'scan_hint_edit' : 'scan_hint')}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
+                </AnimatedPressable>
+                <View style={s.dividerWrap}><View style={[s.divider, { backgroundColor: theme.divider }]} /></View>
                 {/* Type row — tappable, opens modal */}
                 <AnimatedPressable style={s.inputRow} onPress={() => { setTypeSearch(''); setShowTypePicker(true); }} haptic={false} accessibilityLabel={t(language, 'form_type')} accessibilityRole="button"
                   accessibilityValue={{ text: type === 'Altele' ? (customType.trim() || translateSubtype('Altele', language)) : (type ? translateSubtype(type, language) : '') }}>
@@ -605,7 +645,7 @@ export default function FormScreen() {
 
                 <View style={s.inputRow}>
                   <Text style={[s.inputLabel, { color: theme.textSecondary }]}>{t(language, 'form_title')}</Text>
-                  <TextInput style={[s.inputField, { color: theme.text }]} defaultValue={title}
+                  <TextInput key={`title-${titleKey}`} style={[s.inputField, { color: theme.text }]} defaultValue={title}
                     onChangeText={(v) => { titleRef.current = v; }}
                     onBlur={() => {
                       setTitle(titleRef.current); clearError('title');
@@ -707,7 +747,7 @@ export default function FormScreen() {
 
                 <View style={s.inputRow}>
                   <Text style={[s.inputLabel, { color: theme.textSecondary }]}>{t(language, 'form_amount')}</Text>
-                  <TextInput style={[s.inputField, { color: theme.text }]} defaultValue={amt}
+                  <TextInput key={`amt-${amtKey}`} style={[s.inputField, { color: theme.text }]} defaultValue={amt}
                     onChangeText={(v) => { amtRef.current = v; }}
                     onBlur={() => { setAmt(amtRef.current); clearError('amt'); }}
                     placeholder="0" placeholderTextColor={theme.textDim} keyboardType="decimal-pad"

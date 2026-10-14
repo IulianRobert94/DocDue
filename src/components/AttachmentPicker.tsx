@@ -73,6 +73,15 @@ interface AttachmentPickerProps {
   documentId?: string;
 }
 
+/** Copy a picked / scanned photo into the app's attachments folder */
+export async function saveImageAttachment(asset: ImagePicker.ImagePickerAsset, documentId?: string): Promise<Attachment> {
+  const id = generateId();
+  const ext = getExtension(asset.uri) || "jpg";
+  const fileName = `${documentId || "new"}_${id}.${ext}`;
+  const uri = await copyToAttachments(asset.uri, fileName);
+  return { id, uri, name: asset.fileName || fileName, type: "image", size: asset.fileSize };
+}
+
 export function AttachmentPicker({
   attachments,
   onAdd,
@@ -141,18 +150,7 @@ export function AttachmentPicker({
 
   const processImage = async (asset: ImagePicker.ImagePickerAsset) => {
     try {
-      const id = generateId();
-      const ext = getExtension(asset.uri) || "jpg";
-      const fileName = `${documentId || "new"}_${id}.${ext}`;
-      const uri = await copyToAttachments(asset.uri, fileName);
-      const attachment: Attachment = {
-        id,
-        uri,
-        name: asset.fileName || fileName,
-        type: "image",
-        size: asset.fileSize,
-      };
-      onAdd(attachment);
+      onAdd(await saveImageAttachment(asset, documentId));
     } catch {
       Alert.alert(t(language, "attachment_error"));
     }

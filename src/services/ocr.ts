@@ -9,7 +9,8 @@
 
 import { CATEGORIES } from "../core/constants";
 import type { CategoryId } from "../core/constants";
-import { parseLocalDate } from "../core/dateUtils";
+import { parseLocalDate, getTodayString } from "../core/dateUtils";
+import { containsWords, normalizeText, TYPE_KEYWORDS } from "../core/smartDefaults";
 
 // ─── Types ──────────────────────────────────────────────
 
@@ -69,6 +70,12 @@ export async function scanDocument(imageUri: string): Promise<OcrResult> {
 
 // ─── Date Extraction ────────────────────────────────────
 
+// Words printed before an expiry or due date ("Valabilă până la", "Data scadenței")
+const DUE_KEYWORDS = [
+  "valabil", "valabilitate", "expira", "expirare", "expirarii", "scadent", "termen",
+  "pana la", "valid until", "valid to", "expiry", "expires", "due date",
+];
+
 /**
  * Extract the most likely due/expiry date from OCR text.
  * Handles Romanian date formats: DD.MM.YYYY, DD/MM/YYYY, DD-MM-YYYY
@@ -76,7 +83,7 @@ export async function scanDocument(imageUri: string): Promise<OcrResult> {
 export function extractDate(text: string): string | null {
   // Pattern: DD.MM.YYYY or DD/MM/YYYY or DD-MM-YYYY
   const dateRegex = /\b(\d{1,2})[./-](\d{1,2})[./-](\d{4})\b/g;
-  const matches: { date: string; original: string }[] = [];
+  const matches: { date: string; flagged: boolean }[] = [];
 
   let match;
   while ((match = dateRegex.exec(text)) !== null) {
@@ -92,24 +99,26 @@ export function extractDate(text: string): string | null {
     if (month >= 1 && month <= 12 && day >= 1 && day <= maxDay && year >= currentYear - 5 && year <= currentYear + 30) {
       const mm = String(month).padStart(2, "0");
       const dd = String(day).padStart(2, "0");
-      matches.push({ date: `${year}-${mm}-${dd}`, original: match[0] });
+      // An expiry / due-date keyword a few words earlier on the same line
+      const lineStart = text.lastIndexOf("\n", match.index) + 1;
+      const before = normalizeText(text.slice(Math.max(lineStart, match.index - 40), match.index));
+      const flagged = DUE_KEYWORDS.some((keyword) => containsWords(before, keyword));
+      matches.push({ date: `${year}-${mm}-${dd}`, flagged });
     }
   }
 
   if (matches.length === 0) return null;
 
-  // Prefer future dates, or the latest date found
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  const futureDates = matches.filter((m) => parseLocalDate(m.date) >= now);
+  // 1. Dates printed after "valabil până la / expiră / scadență…": the latest of them
+  const flagged = matches.filter((m) => m.flagged).map((m) => m.date).sort();
+  if (flagged.length > 0) return flagged[flagged.length - 1];
 
-  if (futureDates.length > 0) {
-    // Return the nearest future date
-    futureDates.sort((a, b) => parseLocalDate(a.date).getTime() - parseLocalDate(b.date).getTime());
-    return futureDates[0].date;
-  }
+  // 2. Otherwise the nearest date after today — today is usually the issue date
+  const today = getTodayString();
+  const ahead = matches.map((m) => m.date).filter((date) => date > today).sort();
+  if (ahead.length > 0) return ahead[0];
 
-  // No future dates — return the latest past date, but only if within 1 year
+  // 3. Only past dates: the latest, but only if within the last year
   // (older dates are likely irrelevant and would confuse the user)
   const oneYearAgo = new Date();
   oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
@@ -178,60 +187,54 @@ export function parseRomanianNumber(str: string): number | null {
 
 // ─── Document Type Matching ─────────────────────────────
 
+// Phrases printed on Romanian documents, checked before the type names
+const DOCUMENT_PHRASES: readonly (readonly [string, CategoryId, string])[] = [
+  ["polita rca", "vehicule", "RCA"],
+  ["asigurare obligatorie", "vehicule", "RCA"],
+  ["inspectie tehnica", "vehicule", "ITP"],
+  ["permis de conducere", "personal", "Permis conducere"],
+  ["energie electrica", "casa", "Curent electric"],
+  ["energie activa", "casa", "Curent electric"],
+  ["gaze naturale", "casa", "Gaz"],
+  ["apa canal", "casa", "Apă"],
+  ["impozit pe venit", "financiar", "Impozit venit"],
+  ["proces verbal", "financiar", "Amendă"],
+];
+
+// Last resort: the category is clear, the exact kind may not be
+const FALLBACK_PHRASES: readonly (readonly [string, CategoryId, string | null])[] = [
+  ["credit", "financiar", "Rată credit"],
+  ["impozit", "financiar", "Impozit ANAF"],
+  ["factura", "casa", null],
+];
+
+// Type names, longest first ("Verificare gaze" before "Gaz")
+const SUBTYPE_WORDS = Object.entries(CATEGORIES)
+  .flatMap(([catId, cat]) => cat.subtypes
+    .filter((subtype) => subtype !== "Altele")
+    .map((subtype) => ({ cat: catId as CategoryId, subtype, words: normalizeText(subtype) })))
+  .sort((a, b) => b.words.length - a.words.length);
+
 /**
- * Match OCR text against known document categories and subtypes.
+ * Match OCR text against known document categories and subtypes — whole words
+ * only, so "TVA" on an invoice isn't a TV subscription.
  */
 export function matchDocumentType(text: string): { category: CategoryId | null; type: string | null } {
-  const upperText = text.toUpperCase();
+  const normalized = normalizeText(text);
+  if (!normalized) return { category: null, type: null };
 
-  // Build a flat list of keywords → (category, subtype)
-  const keywords: { keyword: string; cat: CategoryId; subtype: string }[] = [];
-
-  for (const [catId, cat] of Object.entries(CATEGORIES)) {
-    for (const subtype of cat.subtypes) {
-      keywords.push({
-        keyword: subtype.toUpperCase(),
-        cat: catId as CategoryId,
-        subtype,
-      });
-    }
+  for (const [phrase, cat, type] of DOCUMENT_PHRASES) {
+    if (containsWords(normalized, phrase)) return { category: cat, type };
   }
-
-  // Sort by keyword length descending (prefer longer matches)
-  keywords.sort((a, b) => b.keyword.length - a.keyword.length);
-
-  for (const { keyword, cat, subtype } of keywords) {
-    if (upperText.includes(keyword)) {
-      return { category: cat, type: subtype };
-    }
+  for (const { cat, subtype, words } of SUBTYPE_WORDS) {
+    if (containsWords(normalized, words)) return { category: cat, type: subtype };
   }
-
-  // Try common abbreviations
-  const ABBREVIATIONS: Record<string, { cat: CategoryId; type: string }> = {
-    "POLITA RCA": { cat: "vehicule", type: "RCA" },
-    "POLIȚA RCA": { cat: "vehicule", type: "RCA" },
-    "ASIGURARE AUTO": { cat: "vehicule", type: "RCA" },
-    "INSPECTIE TEHNICA": { cat: "vehicule", type: "ITP" },
-    "INSPECȚIE TEHNICĂ": { cat: "vehicule", type: "ITP" },
-    "FACTURA": { cat: "casa", type: "Factură" },
-    "FACTURĂ": { cat: "casa", type: "Factură" },
-    "CARTE DE IDENTITATE": { cat: "personal", type: "Carte de identitate" },
-    "PASAPORT": { cat: "personal", type: "Pașaport" },
-    "PAȘAPORT": { cat: "personal", type: "Pașaport" },
-    "PERMIS DE CONDUCERE": { cat: "personal", type: "Permis conducere" },
-    "LEASING": { cat: "financiar", type: "Rată leasing" },
-    "CREDIT": { cat: "financiar", type: "Rată credit" },
-    "IMPOZIT": { cat: "financiar", type: "Impozit ANAF" },
-    "AMENDA": { cat: "financiar", type: "Amendă" },
-    "AMENDĂ": { cat: "financiar", type: "Amendă" },
-  };
-
-  for (const [abbr, result] of Object.entries(ABBREVIATIONS)) {
-    if (upperText.includes(abbr)) {
-      return { category: result.cat, type: result.type };
-    }
+  for (const [keyword, cat, type] of TYPE_KEYWORDS) {
+    if (containsWords(normalized, keyword)) return { category: cat, type };
   }
-
+  for (const [phrase, cat, type] of FALLBACK_PHRASES) {
+    if (containsWords(normalized, phrase)) return { category: cat, type };
+  }
   return { category: null, type: null };
 }
 

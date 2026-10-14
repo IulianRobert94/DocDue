@@ -192,6 +192,29 @@ describe("extractAmount", () => {
 
 // ─── matchDocumentType ──────────────────────────────────
 
+describe("extractDate picks the expiry, not the issue date", () => {
+  const fmt = (d: Date) => `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${d.getFullYear()}`;
+  const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const today = new Date();
+  const inAYear = new Date(today.getFullYear() + 1, today.getMonth(), today.getDate() - 1);
+
+  it("a policy scanned the day it was bought: the date after 'Valabilă până la'", () => {
+    expect(extractDate(`Data emiterii: ${fmt(today)}   Valabilă până la: ${fmt(inAYear)}`)).toBe(iso(inAYear));
+  });
+
+  it("without keywords, today's date (the issue date) is not the due date", () => {
+    expect(extractDate(`Emisă ${fmt(today)}\nPerioada ${fmt(today)} ${fmt(inAYear)}`)).toBe(iso(inAYear));
+  });
+
+  it("a validity range: its end", () => {
+    expect(extractDate("Valabilitate: 01.11.2035 - 31.10.2036")).toBe("2036-10-31");
+  });
+
+  it("an invoice: the due date, not the billing period", () => {
+    expect(extractDate("Perioada facturare 01.09.2035 - 30.09.2035\nData scadenței: 15.10.2035\nEmisă la 01.10.2035")).toBe("2035-10-15");
+  });
+});
+
 describe("matchDocumentType", () => {
   it("matches RCA document", () => {
     const result = matchDocumentType("POLIȚA DE ASIGURARE RCA");
@@ -244,6 +267,16 @@ describe("matchDocumentType", () => {
   it("matches PERMIS DE CONDUCERE", () => {
     const result = matchDocumentType("PERMIS DE CONDUCERE CATEGORIA B");
     expect(result.category).toBe("personal");
+  });
+
+  it("VAT on an invoice is not a TV subscription", () => {
+    const result = matchDocumentType("FACTURĂ FISCALĂ\nTVA 19%: 47,50 lei");
+    expect(result.category).toBe("casa");
+    expect(result.type).not.toBe("TV");
+  });
+
+  it("an electricity invoice is an electricity bill", () => {
+    expect(matchDocumentType("FACTURĂ\nEnergie electrică activă 312 kWh")).toEqual({ category: "casa", type: "Curent electric" });
   });
 
   it("returns null for unrecognized text", () => {
