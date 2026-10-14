@@ -26,8 +26,9 @@ import type {
 } from "../core/constants";
 import { enrichDocument, stripEnrichedFields } from "../core/enrichment";
 import { generateId, isDemoDocument, countTowardFreeLimit } from "../core/helpers";
-import { addDaysToDate, addMonthsKeepingDay, getTodayString } from "../core/dateUtils";
-import { getRecurrenceDays } from "../core/formatters";
+import { getTodayString } from "../core/dateUtils";
+import { applyPayAction, defaultPayAction } from "../core/payment";
+import type { PayAction } from "../core/payment";
 import { createDemoDocuments } from "../core/demo";
 import { migrateData } from "../core/migration";
 import { useSettingsStore } from "./useSettingsStore";
@@ -74,7 +75,18 @@ interface DocumentsState {
   updateDocument: (data: Partial<RawDocument> & { id: string }) => void;
   deleteDocument: (id: string) => void;
   undoDelete: () => void;
+  /** One tap, no questions (see defaultPayAction). The pay sheet uses applyPayment. */
   markAsPaid: (doc: EnrichedDocument) => "paid_next" | "resolved";
+  /**
+   * Paid / renewed / closed as chosen in the pay sheet. The previous version is
+   * kept for a few seconds so the toast's "Anulează" can bring it back.
+   */
+  applyPayment: (id: string, action: PayAction) => boolean;
+  undoPayment: () => void;
+  /** Bring an archived document back to the active list */
+  restoreFromArchive: (id: string) => void;
+  /** Remove a payment recorded by mistake */
+  deletePaymentRecord: (id: string, index: number) => void;
   resetToDemo: () => void;
   /** Remove only the example documents — the user's own documents stay. */
   removeDemoDocuments: () => void;
@@ -138,9 +150,11 @@ function persistDocs(documents: RawDocument[]) {
 
 /**
  * Editing or paying an example document means the user is using it for real:
- * from then on it notifies, counts and survives "Șterge exemplele".
+ * from then on it notifies, counts and survives "Șterge exemplele". Its sample
+ * payments were never theirs, so they go.
  */
 function adoptIfExample(doc: RawDocument): Partial<RawDocument> {
+  if (isDemoDocument(doc)) return { userEdited: true, paymentHistory: [] };
   return doc.id.startsWith(DEMO_ID_PREFIX) && !doc.userEdited ? { userEdited: true } : {};
 }
 
@@ -160,6 +174,23 @@ let _undoBuffer: { doc: RawDocument; timer: ReturnType<typeof setTimeout> } | nu
 // Pending attachment cleanup timers — survive undo buffer replacement
 // so that files are only deleted after their undo window expires
 const _pendingCleanups = new Map<string, ReturnType<typeof setTimeout>>();
+
+// ─── Undo payment buffer ────────────────────────────────
+
+let _payUndo: { before: RawDocument; timer: ReturnType<typeof setTimeout> } | null = null;
+
+function keepForPayUndo(before: RawDocument) {
+  if (_payUndo) clearTimeout(_payUndo.timer);
+  _payUndo = { before, timer: setTimeout(() => { _payUndo = null; }, 5500) };
+}
+
+/** A later change to the same document wins over undoing its payment */
+function dropPayUndo(id?: string) {
+  if (_payUndo && (id === undefined || _payUndo.before.id === id)) {
+    clearTimeout(_payUndo.timer);
+    _payUndo = null;
+  }
+}
 
 function flushUndoBuffer() {
   if (_undoBuffer) {
@@ -303,6 +334,7 @@ export const useDocumentStore = create<DocumentsState>()((set, get) => ({
   },
 
   updateDocument: (data) => {
+    dropPayUndo(data.id);
     set((state) => ({
       documents: state.documents.map((d) =>
         d.id === data.id ? stripEnrichedFields({ ...d, ...data, ...adoptIfExample(d) }) : d
@@ -314,6 +346,7 @@ export const useDocumentStore = create<DocumentsState>()((set, get) => ({
   deleteDocument: (id) => {
     const toDelete = get().documents.find((d) => d.id === id);
     if (!toDelete) return;
+    dropPayUndo(id);
     // Discard previous undo reference (its cleanup timer stays alive)
     flushUndoBuffer();
     // Schedule attachment cleanup after undo window expires
@@ -344,60 +377,51 @@ export const useDocumentStore = create<DocumentsState>()((set, get) => ({
   },
 
   markAsPaid: (doc) => {
-    // Safety: fetch fresh state to prevent stale-doc double-tap
+    // Fresh state: a stale double tap must not pay the same period twice
     const fresh = get().documents.find((d) => d.id === doc.id);
     if (!fresh) return "resolved";
+    const action = defaultPayAction(fresh, getTodayString());
+    get().applyPayment(fresh.id, action);
+    return action.kind === "close" ? "resolved" : "paid_next";
+  },
 
-    // Snapshot the payment before advancing/deleting
-    const payment = { date: getTodayString(), dueDate: fresh.due, amt: fresh.amt };
-    const history = [...(fresh.paymentHistory || []), payment];
+  applyPayment: (id, action) => {
+    const before = get().documents.find((d) => d.id === id);
+    if (!before) return false;
+    const updated = applyPayAction(before, action, getTodayString());
+    keepForPayUndo(before);
+    set((state) => ({ documents: state.documents.map((d) => (d.id === id ? updated : d)) }));
+    afterMutation(get().documents, true);
+    dismissDeliveredForDocument(id).catch(() => {});
+    if (action.kind !== "close") maybeRequestReview(countTowardFreeLimit(get().documents)).catch(() => {});
+    return true;
+  },
 
-    const recDays = getRecurrenceDays(fresh.rec);
-    if (recDays > 0) {
-      const MONTH_MAP: Record<string, number> = {
-        monthly: 1, quarterly: 3, biannual: 6, annual: 12,
-        "2years": 24, "5years": 60, "10years": 120,
-      };
-      const months = MONTH_MAP[fresh.rec];
-      const today = getTodayString();
-      // The day of month the user picked, re-applied (clamped) every period so
-      // a 31st doesn't drift to the 28th after February
-      const anchorDay = Number.isInteger(fresh.dueDay) ? (fresh.dueDay as number) : Number(fresh.due.slice(8, 10));
-      const advance = (from: string) => months
-        ? addMonthsKeepingDay(from, months, anchorDay)
-        : addDaysToDate(from, recDays);
-      let nextDue = advance(fresh.due);
-      // Catch up an overdue recurring document to its next genuinely-future due
-      // date in a single tap, instead of advancing one period and staying expired
-      // (which forced repeated taps + bogus payment records). ISO dates compare
-      // lexicographically, so this string comparison is timezone-safe.
-      let guard = 0;
-      while (nextDue < today && guard < 1000) {
-        nextDue = advance(nextDue);
-        guard++;
-      }
-      set((state) => ({
-        documents: state.documents.map((d) =>
-          d.id === doc.id
-            ? { ...d, ...adoptIfExample(d), due: nextDue, paymentHistory: history, ...(months ? { dueDay: anchorDay } : {}) }
-            : d
-        ),
-      }));
-      afterMutation(get().documents, true);
-      dismissDeliveredForDocument(doc.id).catch(() => {});
-      maybeRequestReview(countTowardFreeLimit(get().documents)).catch(() => {});
-      return "paid_next";
-    } else {
-      // Non-recurring: mark as resolved (keep for analytics history)
-      set((state) => ({
-        documents: state.documents.map((d) =>
-          d.id === doc.id ? { ...d, ...adoptIfExample(d), paymentHistory: history, resolved: getTodayString() } : d
-        ),
-      }));
-      afterMutation(get().documents, true);
-      dismissDeliveredForDocument(doc.id).catch(() => {});
-      return "resolved";
-    }
+  undoPayment: () => {
+    if (!_payUndo) return;
+    const { before } = _payUndo;
+    dropPayUndo();
+    if (!get().documents.some((d) => d.id === before.id)) return;
+    set((state) => ({ documents: state.documents.map((d) => (d.id === before.id ? before : d)) }));
+    afterMutation(get().documents, true);
+  },
+
+  restoreFromArchive: (id) => {
+    if (!get().documents.some((d) => d.id === id && d.resolved)) return;
+    dropPayUndo(id);
+    set((state) => ({
+      documents: state.documents.map((d) => (d.id === id ? { ...d, resolved: undefined } : d)),
+    }));
+    afterMutation(get().documents, true);
+  },
+
+  deletePaymentRecord: (id, index) => {
+    const doc = get().documents.find((d) => d.id === id);
+    if (!doc?.paymentHistory || index < 0 || index >= doc.paymentHistory.length) return;
+    dropPayUndo(id);
+    const paymentHistory = doc.paymentHistory.filter((_, i) => i !== index);
+    set((state) => ({ documents: state.documents.map((d) => (d.id === id ? { ...d, paymentHistory } : d)) }));
+    afterMutation(get().documents);
   },
 
   resetToDemo: () => {
@@ -433,6 +457,7 @@ export const useDocumentStore = create<DocumentsState>()((set, get) => ({
     }
     // A pending undo would re-insert a document from the old set
     flushUndoBuffer();
+    dropPayUndo();
     set({ documents: docs });
     afterMutation(docs, true);
   },
@@ -455,6 +480,7 @@ export function clearPendingCleanups() {
     clearTimeout(_undoBuffer.timer);
     _undoBuffer = null;
   }
+  dropPayUndo();
   if (_rescheduleTimer) {
     clearTimeout(_rescheduleTimer);
     _rescheduleTimer = null;
@@ -489,40 +515,49 @@ export function useEnrichedDocument(id: string | undefined): EnrichedDocument | 
   }, [doc, today]);
 }
 
-export function useGlobalStats(enriched: EnrichedDocument[]): GlobalStats {
-  // Enriched docs are passed in (callers already hold them) so we never run a
-  // second enrichment pass here — on the home screen this avoids enriching 3x/render.
-  return useMemo(() => {
-    let expired = 0, warning = 0, ok = 0, totalDue = 0;
-    for (const d of enriched) {
-      if (d._status === "expired") expired++;
-      else if (d._status === "warning") warning++;
-      else ok++;
-      if (d._daysUntil >= 0 && d._daysUntil <= PAYMENT_WINDOW_DAYS && d.amt) {
-        totalDue += d.amt || 0;
-      }
+/**
+ * Counts and money due for the dashboard. Example documents are left out —
+ * every number reflects only the user's own documents (same set as reminders).
+ */
+export function computeGlobalStats(enriched: EnrichedDocument[]): GlobalStats {
+  let expired = 0, warning = 0, ok = 0, totalDue = 0;
+  for (const d of enriched) {
+    if (isDemoDocument(d)) continue;
+    if (d._status === "expired") expired++;
+    else if (d._status === "warning") warning++;
+    else ok++;
+    if (d._daysUntil >= 0 && d._daysUntil <= PAYMENT_WINDOW_DAYS && d.amt) {
+      totalDue += d.amt || 0;
     }
-    return { expired, warning, ok, totalDue, urgentCount: expired + warning };
-  }, [enriched]);
+  }
+  return { expired, warning, ok, totalDue, urgentCount: expired + warning };
+}
+
+export function computeCategoryStats(enriched: EnrichedDocument[]): Record<CategoryId, CategoryStats> {
+  const result = {} as Record<CategoryId, CategoryStats>;
+  (Object.keys(CATEGORIES) as CategoryId[]).forEach((catId) => {
+    result[catId] = { total: 0, expired: 0, warning: 0, ok: 0, totalDue: 0 };
+  });
+  for (const d of enriched) {
+    const cat = result[d.cat];
+    if (!cat || isDemoDocument(d)) continue;
+    cat.total++;
+    if (d._status === "expired") cat.expired++;
+    else if (d._status === "warning") cat.warning++;
+    else cat.ok++;
+    if (d._daysUntil >= 0 && d._daysUntil <= PAYMENT_WINDOW_DAYS && d.amt) {
+      cat.totalDue += d.amt || 0;
+    }
+  }
+  return result;
+}
+
+// Enriched docs are passed in (callers already hold them) so we never run a
+// second enrichment pass here — on the home screen this avoids enriching 3x/render.
+export function useGlobalStats(enriched: EnrichedDocument[]): GlobalStats {
+  return useMemo(() => computeGlobalStats(enriched), [enriched]);
 }
 
 export function useCategoryStats(enriched: EnrichedDocument[]): Record<CategoryId, CategoryStats> {
-  return useMemo(() => {
-    const result = {} as Record<CategoryId, CategoryStats>;
-    (Object.keys(CATEGORIES) as CategoryId[]).forEach((catId) => {
-      result[catId] = { total: 0, expired: 0, warning: 0, ok: 0, totalDue: 0 };
-    });
-    for (const d of enriched) {
-      const cat = result[d.cat];
-      if (!cat) continue;
-      cat.total++;
-      if (d._status === "expired") cat.expired++;
-      else if (d._status === "warning") cat.warning++;
-      else cat.ok++;
-      if (d._daysUntil >= 0 && d._daysUntil <= PAYMENT_WINDOW_DAYS && d.amt) {
-        cat.totalDue += d.amt || 0;
-      }
-    }
-    return result;
-  }, [enriched]);
+  return useMemo(() => computeCategoryStats(enriched), [enriched]);
 }

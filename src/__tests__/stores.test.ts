@@ -75,7 +75,7 @@ jest.mock("react-native-iap", () => ({
 // ─── Imports ────────────────────────────────────────────
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useDocumentStore, clearPendingCleanups } from "../stores/useDocumentStore";
+import { useDocumentStore, clearPendingCleanups, computeGlobalStats, computeCategoryStats } from "../stores/useDocumentStore";
 import { useSettingsStore } from "../stores/useSettingsStore";
 import type { RawDocument, EnrichedDocument } from "../core/constants";
 import { addDaysToDate, getTodayString } from "../core/dateUtils";
@@ -429,6 +429,8 @@ describe("useDocumentStore", () => {
       // today is pinned to 2026-01-01; this monthly bill is several periods overdue.
       useDocumentStore.getState().addDocument(makeDoc({
         title: "Overdue monthly",
+        cat: "casa",
+        type: "Curent electric",
         due: "2025-08-15",
         rec: "monthly",
       }));
@@ -583,6 +585,123 @@ describe("useDocumentStore", () => {
     });
   });
 
+  describe("editing an example", () => {
+    it("drops its sample payment history — the payments weren't the user's", () => {
+      const example = createDemoDocuments("ro").find((d) => (d.paymentHistory?.length ?? 0) > 0)!;
+      useDocumentStore.setState({ documents: [example], _hydrated: true });
+      useDocumentStore.getState().updateDocument({ id: example.id, amt: 310 });
+      const doc = useDocumentStore.getState().documents[0];
+      expect(doc.userEdited).toBe(true);
+      expect(doc.paymentHistory ?? []).toEqual([]);
+    });
+
+    it("keeps the history of a document that is already the user's", () => {
+      const example = createDemoDocuments("ro").find((d) => (d.paymentHistory?.length ?? 0) > 0)!;
+      const adopted = { ...example, userEdited: true };
+      useDocumentStore.setState({ documents: [adopted], _hydrated: true });
+      useDocumentStore.getState().updateDocument({ id: adopted.id, amt: 310 });
+      expect(useDocumentStore.getState().documents[0].paymentHistory).toEqual(example.paymentHistory);
+    });
+  });
+
+  describe("markAsPaid on renewals", () => {
+    it("a lapsed annual policy restarts a year from the day it's renewed", () => {
+      // today is pinned to 2026-01-01
+      useDocumentStore.getState().addDocument(makeDoc({ title: "RCA", due: "2025-12-01", rec: "annual" }));
+      const doc = useDocumentStore.getState().documents[0];
+      useDocumentStore.getState().markAsPaid(enrichDocument(doc));
+      expect(useDocumentStore.getState().documents[0].due).toBe("2027-01-01");
+    });
+  });
+
+  describe("applyPayment + undoPayment", () => {
+    const addRent = () => {
+      useDocumentStore.getState().addDocument(makeDoc({
+        title: "Rent", cat: "casa", type: "Contract chirie", rec: "monthly", due: "2025-11-10", amt: 2000,
+      }));
+      return useDocumentStore.getState().documents[0].id;
+    };
+
+    it("applies the chosen action and can be undone", () => {
+      const id = addRent();
+      expect(useDocumentStore.getState().applyPayment(id, { kind: "pay", nextDue: "2026-01-10", amount: 2000, periods: 2 })).toBe(true);
+      let doc = useDocumentStore.getState().documents[0];
+      expect(doc.due).toBe("2026-01-10");
+      expect(doc.paymentHistory).toHaveLength(2);
+
+      useDocumentStore.getState().undoPayment();
+      doc = useDocumentStore.getState().documents[0];
+      expect(doc.due).toBe("2025-11-10");
+      expect(doc.paymentHistory ?? []).toHaveLength(0);
+    });
+
+    it("undo brings back a document that was archived", () => {
+      useDocumentStore.getState().addDocument(makeDoc({ title: "Fine", cat: "financiar", type: "Amendă", rec: "none" }));
+      const id = useDocumentStore.getState().documents[0].id;
+      useDocumentStore.getState().applyPayment(id, { kind: "close", amount: 500 });
+      expect(useDocumentStore.getState().documents[0].resolved).toBe("2026-01-01");
+      useDocumentStore.getState().undoPayment();
+      expect(useDocumentStore.getState().documents[0].resolved).toBeUndefined();
+    });
+
+    it("undo expires after the toast window", () => {
+      const id = addRent();
+      useDocumentStore.getState().applyPayment(id, { kind: "pay", nextDue: "2025-12-10", amount: 2000, periods: 1 });
+      jest.advanceTimersByTime(6000);
+      useDocumentStore.getState().undoPayment();
+      expect(useDocumentStore.getState().documents[0].due).toBe("2025-12-10");
+    });
+
+    it("editing the document after paying drops the undo (the edit wins)", () => {
+      const id = addRent();
+      useDocumentStore.getState().applyPayment(id, { kind: "pay", nextDue: "2025-12-10", amount: 2000, periods: 1 });
+      useDocumentStore.getState().updateDocument({ id, title: "Chirie" });
+      useDocumentStore.getState().undoPayment();
+      const doc = useDocumentStore.getState().documents[0];
+      expect(doc.title).toBe("Chirie");
+      expect(doc.due).toBe("2025-12-10");
+    });
+
+    it("undo leaves the other documents alone", () => {
+      const rentId = addRent();
+      useDocumentStore.getState().addDocument(makeDoc({ title: "Other" }));
+      const otherId = useDocumentStore.getState().documents[1].id;
+      useDocumentStore.getState().applyPayment(rentId, { kind: "pay", nextDue: "2025-12-10", amount: 2000, periods: 1 });
+      useDocumentStore.getState().updateDocument({ id: otherId, title: "Other edited" });
+      useDocumentStore.getState().undoPayment();
+      const docs = useDocumentStore.getState().documents;
+      expect(docs.find((d) => d.id === rentId)!.due).toBe("2025-11-10");
+      expect(docs.find((d) => d.id === otherId)!.title).toBe("Other edited");
+    });
+
+    it("returns false for a document that no longer exists", () => {
+      expect(useDocumentStore.getState().applyPayment("missing", { kind: "close", amount: null })).toBe(false);
+    });
+  });
+
+  describe("archive and payment records", () => {
+    it("restoreFromArchive makes an archived document active again", () => {
+      useDocumentStore.getState().addDocument(makeDoc({ title: "Old", rec: "none", resolved: "2025-12-01" }));
+      const id = useDocumentStore.getState().documents[0].id;
+      useDocumentStore.getState().restoreFromArchive(id);
+      expect(useDocumentStore.getState().documents[0].resolved).toBeUndefined();
+    });
+
+    it("deletePaymentRecord removes only the chosen record", () => {
+      useDocumentStore.getState().addDocument(makeDoc({
+        title: "Bill",
+        paymentHistory: [
+          { date: "2025-10-01", dueDate: "2025-10-01", amt: 100 },
+          { date: "2025-11-01", dueDate: "2025-11-01", amt: 999 },
+          { date: "2025-12-01", dueDate: "2025-12-01", amt: 100 },
+        ],
+      }));
+      const id = useDocumentStore.getState().documents[0].id;
+      useDocumentStore.getState().deletePaymentRecord(id, 1);
+      expect(useDocumentStore.getState().documents[0].paymentHistory!.map((p) => p.amt)).toEqual([100, 100]);
+    });
+  });
+
   describe("resetToDemo", () => {
     it("replaces documents with demo data", () => {
       useDocumentStore.getState().addDocument(makeDoc({ title: "Custom" }));
@@ -724,18 +843,22 @@ describe("computed stats logic", () => {
       { id: "2", cat: "casa", type: "Gaz", title: "Warning", due: addDaysToDate(getTodayString(), 3), amt: 100, rec: "monthly" },
       { id: "3", cat: "personal", type: "Pașaport", title: "OK", due: addDaysToDate(getTodayString(), 200), amt: null, rec: "none" },
     ];
-    const enriched = docs.map((d) => enrichDocument(d));
+    const stats = computeGlobalStats(docs.map((d) => enrichDocument(d)));
 
-    let expired = 0, warning = 0, ok = 0;
-    for (const d of enriched) {
-      if (d._status === "expired") expired++;
-      else if (d._status === "warning") warning++;
-      else ok++;
-    }
+    expect(stats.expired).toBe(1);
+    expect(stats.warning).toBe(1);
+    expect(stats.ok).toBe(1);
+    expect(stats.urgentCount).toBe(2);
+  });
 
-    expect(expired).toBe(1);
-    expect(warning).toBe(1);
-    expect(ok).toBe(1);
+  it("leaves example documents out of every number", () => {
+    const examples = createDemoDocuments("ro").map((d) => enrichDocument(d));
+    const own = enrichDocument({ id: "own", cat: "casa", type: "Gaz", title: "Gaz", due: addDaysToDate(getTodayString(), 3), amt: 100, rec: "monthly" });
+
+    expect(computeGlobalStats([...examples, own])).toEqual({ expired: 0, warning: 1, ok: 0, totalDue: 100, urgentCount: 1 });
+    const cats = computeCategoryStats([...examples, own]);
+    expect(cats.vehicule.total).toBe(0);
+    expect(cats.casa).toEqual({ total: 1, expired: 0, warning: 1, ok: 0, totalDue: 100 });
   });
 
   it("calculates category stats correctly", () => {
