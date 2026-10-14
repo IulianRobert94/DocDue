@@ -11,7 +11,11 @@ npx expo start --android      # Android emulator
 npx tsc --noEmit              # Type-check (no output files)
 npx jest                      # Run all tests
 npx jest --testPathPattern=core  # Run specific test file
+npm run lint                  # ESLint (eslint-config-expo); errors fail CI
+npm run verify                # typecheck + lint + tests — same as CI (.github/workflows/ci.yml)
 ```
+
+ESLint warnings left on purpose: 19 `react-hooks/exhaustive-deps` (each needs a behavior review before changing deps). `src/widgets/**` is excluded from lint and tsc (planned feature, packages not installed).
 
 ## Architecture
 

@@ -128,7 +128,7 @@ export default function DocumentDetailScreen() {
     );
   };
 
-  const infoRows: Array<{ label: string; value: string; bold?: boolean }> = [
+  const infoRows: { label: string; value: string; bold?: boolean }[] = [
     { label: t(language, 'detail_due'), value: formatDate(doc.due, language) },
     ...(doc.asset ? [{ label: t(language, 'form_asset'), value: doc.asset }] : []),
     ...(doc.amt ? [{ label: t(language, 'detail_amount'), value: formatMoney(doc.amt, currency, language), bold: true }] : []),
@@ -366,7 +366,7 @@ export default function DocumentDetailScreen() {
                   } else {
                     showToast(t(language, 'cal_error'), 'error');
                   }
-                } catch (e) {
+                } catch {
                   showToast(t(language, 'cal_error'), 'error');
                 } finally {
                   setCalendarLoading(false);

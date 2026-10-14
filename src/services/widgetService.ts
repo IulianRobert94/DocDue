@@ -23,6 +23,8 @@ export function updateWidgetData(documents: RawDocument[]): void {
   if (!hasWidgetModule) return;
 
   try {
+    // Not installed yet (widgets are planned) — required lazily, only when the native module exists
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const WidgetModule = require("expo-widgets");
     if (!WidgetModule?.reloadAllTimelines) return;
 

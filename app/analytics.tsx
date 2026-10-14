@@ -4,7 +4,7 @@
  */
 
 import React, { useMemo } from 'react';
-import { View, Text, ScrollView, StyleSheet, useWindowDimensions } from 'react-native';
+import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';

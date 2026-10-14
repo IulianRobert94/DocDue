@@ -24,8 +24,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { generateId } from "../core/helpers";
 import { t } from "../core/i18n";
 import { MAX_ATTACHMENTS } from "../core/constants";
-import type { Attachment } from "../core/constants";
-import type { LanguageCode } from "../core/constants";
+import type { Attachment, LanguageCode } from "../core/constants";
 import type { AppTheme } from "../theme/colors";
 import { AnimatedPressable } from "./AnimatedUI";
 import { fonts } from "../theme/typography";
@@ -154,7 +153,7 @@ export function AttachmentPicker({
         size: asset.fileSize,
       };
       onAdd(attachment);
-    } catch (e) {
+    } catch {
       Alert.alert(t(language, "attachment_error"));
     }
   };
@@ -179,7 +178,7 @@ export function AttachmentPicker({
         size: file.size ?? undefined,
       };
       onAdd(attachment);
-    } catch (e) {
+    } catch {
       Alert.alert(t(language, "attachment_error"));
     }
   };

@@ -15,7 +15,7 @@ import { t, tp } from '../../core/i18n';
 import { restoreAttachmentFiles, resolveRestoredAttachments } from '../../services/backupRestore';
 import { useItemStore } from '../../stores/useItemStore';
 import { isValidItem } from '../../core/lifespan';
-import { DATA_VERSION, MAX_IMPORT_LIMIT, DEFAULT_SETTINGS, VALID_RECURRENCE_VALUES } from '../../core/constants';
+import { DATA_VERSION, MAX_IMPORT_LIMIT, VALID_RECURRENCE_VALUES } from '../../core/constants';
 import type { RawDocument, AppSettings, LanguageCode, CurrencyCode, ThemeMode } from '../../core/constants';
 import type { AppTheme } from '../../theme/colors';
 import { AnimatedPressable } from '../AnimatedUI';
@@ -256,7 +256,7 @@ export function BackupRestoreSection({
           },
         ]
       );
-    } catch (e) {
+    } catch {
       Alert.alert(t(language, 'restore_error'));
     }
   };

@@ -80,8 +80,6 @@ import { useSettingsStore } from "../stores/useSettingsStore";
 import type { RawDocument, EnrichedDocument } from "../core/constants";
 import { addDaysToDate, getTodayString } from "../core/dateUtils";
 import { enrichDocument } from "../core/enrichment";
-import { getRecurrenceDays } from "../core/formatters";
-import { addMonthsToDate } from "../core/dateUtils";
 import { createDemoDocuments } from "../core/demo";
 import { isDemoDocument } from "../core/helpers";
 import * as FileSystem from "expo-file-system/legacy";

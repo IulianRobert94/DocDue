@@ -31,7 +31,7 @@ import {
 } from '../../src/stores/useSettingsStore';
 import { useDocumentStore } from '../../src/stores/useDocumentStore';
 import { t } from '../../src/core/i18n';
-import { CURRENCY_OPTIONS, CATEGORIES, FREE_DOCUMENT_LIMIT } from '../../src/core/constants';
+import { CURRENCY_OPTIONS, FREE_DOCUMENT_LIMIT } from '../../src/core/constants';
 import { countTowardFreeLimit } from '../../src/core/helpers';
 import { biometricSecurityLevel } from '../../src/services/biometric';
 import {

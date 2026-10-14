@@ -29,7 +29,7 @@ export function hasExtractedData(result: OcrResult): boolean {
 
 // ─── OCR Engine ─────────────────────────────────────────
 
-let MlkitOcr: { detectFromUri: (uri: string) => Promise<Array<{ text: string }>> } | null = null;
+let MlkitOcr: { detectFromUri: (uri: string) => Promise<{ text: string }[]> } | null = null;
 
 /**
  * Check if the native OCR module is available.
@@ -38,6 +38,8 @@ let MlkitOcr: { detectFromUri: (uri: string) => Promise<Array<{ text: string }>>
 export function isOcrAvailable(): boolean {
   try {
     if (!MlkitOcr) {
+      // Optional native module (absent in Expo Go) — loaded lazily so a missing module can't crash startup
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       MlkitOcr = require("react-native-mlkit-ocr").default;
     }
     return !!MlkitOcr;

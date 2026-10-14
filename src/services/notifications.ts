@@ -9,7 +9,6 @@
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import type { RawDocument, LanguageCode } from "../core/constants";
-import { CATEGORIES } from "../core/constants";
 import { t, tp } from "../core/i18n";
 import { parseLocalDate } from "../core/dateUtils";
 import { formatDate } from "../core/formatters";

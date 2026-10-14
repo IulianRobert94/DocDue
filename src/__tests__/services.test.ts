@@ -77,9 +77,8 @@ jest.mock("expo-file-system/legacy", () => ({
 import { generateId } from "../core/helpers";
 import { enrichDocument } from "../core/enrichment";
 import { addDaysToDate, getTodayString, calculateDaysUntil } from "../core/dateUtils";
-import type { RawDocument, EnrichedDocument, Attachment } from "../core/constants";
+import type { RawDocument, Attachment } from "../core/constants";
 import * as FileSystem from "expo-file-system/legacy";
-import { calculateHealthScore } from "../core/healthScore";
 import * as Notifications from "expo-notifications";
 
 // ─── generateId ─────────────────────────────────────────

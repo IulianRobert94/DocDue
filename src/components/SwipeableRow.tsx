@@ -105,7 +105,7 @@ export const SwipeableRow = React.memo(function SwipeableRow({
   }, [secondaryAction]);
 
   // Build accessibility actions so VoiceOver/TalkBack users can trigger actions without swiping
-  const a11yActions: Array<{ name: string; label: string }> = [
+  const a11yActions: { name: string; label: string }[] = [
     { name: 'delete', label: deleteLabel || 'Delete' },
   ];
   if (secondaryAction) {

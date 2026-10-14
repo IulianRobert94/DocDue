@@ -12,7 +12,7 @@
  */
 
 let _locked: boolean | null = null; // null = gate hasn't reported yet
-let _deferred: Array<() => void> = [];
+let _deferred: (() => void)[] = [];
 const _listeners = new Set<(locked: boolean) => void>();
 
 /**

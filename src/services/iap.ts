@@ -122,7 +122,7 @@ export async function initializeIAP(): Promise<void> {
     registerPurchaseListeners(iap);
     _initialized = true;
     if (__DEV__) console.log("DocDue: IAP connected to store");
-  } catch (e) {
+  } catch {
     // Expected in Expo Go or when store is unavailable
     if (__DEV__) console.log("DocDue: IAP not available — IAP module not available (Expo Go or store unavailable)");
   }

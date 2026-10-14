@@ -12,6 +12,8 @@
 
 // ─── Timing & Config ────────────────────────────────────
 
+import type { IconName } from "../types";
+
 export const DATA_VERSION = 12;
 export const MS_PER_DAY = 86_400_000;
 export const DEFAULT_WARNING_DAYS = 14;
@@ -44,8 +46,6 @@ export type LanguageCode = "ro" | "en";
 export type ThemeMode = "dark";
 
 export type CategoryId = "vehicule" | "personal" | "casa" | "financiar";
-
-import type { IconName } from "../types";
 export type { IconName };
 
 export interface RecurrenceOption {

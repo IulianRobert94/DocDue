@@ -9,6 +9,16 @@ import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
+
+import { t, tp, translateSubtype } from '../../core/i18n';
+import { useItemStore } from '../../stores/useItemStore';
+import { parseImportedRows } from '../../core/importParser';
+import { CATEGORIES, FREE_DOCUMENT_LIMIT, MAX_IMPORT_LIMIT } from '../../core/constants';
+import type { RawDocument, AppSettings } from '../../core/constants';
+import type { AppTheme } from '../../theme/colors';
+import { AnimatedPressable } from '../AnimatedUI';
+import { RowDivider } from './SettingsUI';
+import { fonts } from '../../theme/typography';
 // Lazy-loaded to save ~1MB from initial bundle
 let _xlsx: typeof import('xlsx') | null = null;
 async function getXLSX() {
@@ -21,16 +31,6 @@ async function getXLSX() {
   }
   return _xlsx;
 }
-
-import { t, tp, translateSubtype } from '../../core/i18n';
-import { useItemStore } from '../../stores/useItemStore';
-import { parseImportedRows } from '../../core/importParser';
-import { CATEGORIES, FREE_DOCUMENT_LIMIT, MAX_IMPORT_LIMIT } from '../../core/constants';
-import type { RawDocument, AppSettings } from '../../core/constants';
-import type { AppTheme } from '../../theme/colors';
-import { AnimatedPressable } from '../AnimatedUI';
-import { RowDivider } from './SettingsUI';
-import { fonts } from '../../theme/typography';
 
 interface DataSectionProps {
   theme: AppTheme;
@@ -191,7 +191,7 @@ export function DataSection({
           },
         ]
       );
-    } catch (e) {
+    } catch {
       Alert.alert(t(language, 'settings_import_error'));
     } finally {
       setIsLoading(false);

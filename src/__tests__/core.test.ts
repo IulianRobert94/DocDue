@@ -12,10 +12,13 @@ import {
   addDaysToDate,
   addMonthsToDate,
   getTodayString,
+  parseImportedDate,
+  addMonthsKeepingDay,
+  toDateString,
 } from "../core/dateUtils";
 
-import { validateDocument } from "../core/validators";
-import { enrichDocument, stripEnrichedFields, sortDocumentsByField } from "../core/enrichment";
+import { validateDocument, parseOptionalNumber } from "../core/validators";
+import { enrichDocument, stripEnrichedFields, sortDocumentsByField, getWarningDaysForRecurrence, getAutoReminderDays, getEffectiveReminderDays } from "../core/enrichment";
 import { migrateData } from "../core/migration";
 import { formatDate, formatMoney, formatDaysRemaining, getRecurrenceDays } from "../core/formatters";
 import type { RawDocument, EnrichedDocument } from "../core/constants";
@@ -336,14 +339,13 @@ describe("getRecurrenceDays", () => {
 
 // ─── i18n Completeness ──────────────────────────────────
 
-import { t, translateSubtype, TRANSLATIONS } from "../core/i18n";
-import { getWarningDaysForRecurrence } from "../core/enrichment";
+import { t, translateSubtype, TRANSLATIONS, pluralCategory, tp } from "../core/i18n";
 
 // Mock react-native Alert for confirmActions tests
 jest.mock("react-native", () => ({
   Alert: { alert: jest.fn() },
 }));
-import { buildMarkAsPaidAction } from "../core/confirmActions";
+import { buildMarkAsPaidAction, deleteWithUndo } from "../core/confirmActions";
 
 describe("i18n completeness", () => {
   // Gather all keys used by t() in both languages
@@ -431,7 +433,7 @@ describe("PaymentRecord in RawDocument", () => {
 
 import { createDemoDocuments } from "../core/demo";
 import { calculateHealthScore, getHealthScoreColor, getHealthScoreLabel } from "../core/healthScore";
-import { getSmartDefaults, autoCategorize } from "../core/smartDefaults";
+import { getSmartDefaults, autoCategorize, resolveRecurrenceForType } from "../core/smartDefaults";
 
 describe("demo data", () => {
   it("creates documents with valid structure", () => {
@@ -1475,7 +1477,7 @@ describe("enrich-strip round-trip", () => {
 
 // ─── Constants Integrity ────────────────────────────────
 
-import { CATEGORIES, RECURRENCE_OPTIONS, CURRENCY_OPTIONS, STATUS_DISPLAY } from "../core/constants";
+import { CATEGORIES, RECURRENCE_OPTIONS, CURRENCY_OPTIONS, STATUS_DISPLAY, RECURRENCE_QUICK, VALID_RECURRENCE_VALUES, FREE_DOCUMENT_LIMIT } from "../core/constants";
 
 describe("constants integrity", () => {
   it("CATEGORIES has exactly 4 entries", () => {
@@ -1616,7 +1618,6 @@ describe("migration recurrence upgrade", () => {
 
 // ─── Smart Reminders ───────────────────────────────────
 
-import { getAutoReminderDays, getEffectiveReminderDays } from "../core/enrichment";
 
 describe("getAutoReminderDays", () => {
   it("returns short reminders for weekly recurrence", () => {
@@ -1677,7 +1678,6 @@ describe("getEffectiveReminderDays", () => {
 
 // ─── Extended Recurrence ────────────────────────────────
 
-import { RECURRENCE_QUICK } from "../core/constants";
 
 describe("RECURRENCE_QUICK", () => {
   it("has exactly 3 quick options", () => {
@@ -1825,7 +1825,6 @@ describe("i18n — new recurrence keys", () => {
 
 // ─── VALID_RECURRENCE_VALUES Constant ───────────────────
 
-import { VALID_RECURRENCE_VALUES } from "../core/constants";
 
 describe("VALID_RECURRENCE_VALUES", () => {
   it("contains all 10 recurrence values", () => {
@@ -1910,7 +1909,6 @@ describe("evaluateStreak", () => {
 
 // ─── deleteWithUndo Helper ──────────────────────────────
 
-import { deleteWithUndo } from "../core/confirmActions";
 
 describe("deleteWithUndo", () => {
   it("calls deleteDocument with the correct id", () => {
@@ -2083,8 +2081,7 @@ describe("cross-module consistency", () => {
   });
 });
 
-import { isAtFreeLimit } from "../core/helpers";
-import { FREE_DOCUMENT_LIMIT } from "../core/constants";
+import { isAtFreeLimit, countTowardFreeLimit, isDemoDocument } from "../core/helpers";
 
 describe("isAtFreeLimit (free-tier gate)", () => {
   it("blocks a non-PRO user at or above the limit", () => {
@@ -2103,7 +2100,6 @@ describe("isAtFreeLimit (free-tier gate)", () => {
   });
 });
 
-import { countTowardFreeLimit, isDemoDocument } from "../core/helpers";
 
 describe("isDemoDocument", () => {
   it("an untouched example is an example", () => {
@@ -2143,7 +2139,6 @@ describe("countTowardFreeLimit", () => {
 
 // ─── parseImportedDate (Excel import) ────────────────────
 
-import { parseImportedDate } from "../core/dateUtils";
 
 describe("parseImportedDate", () => {
   it("parses a JS Date object to YYYY-MM-DD", () => {
@@ -2429,7 +2424,6 @@ describe("source scan: text colors use primaryText, not primary", () => {
 
 // ─── resolveRecurrenceForType (form auto-recurrence) ─────
 
-import { resolveRecurrenceForType } from "../core/smartDefaults";
 
 describe("resolveRecurrenceForType", () => {
   it("applies the type's default when the type was pre-filled (RCA → annual)", () => {
@@ -2455,7 +2449,6 @@ describe("resolveRecurrenceForType", () => {
 
 // ─── Romanian plurals ────────────────────────────────────
 
-import { pluralCategory, tp } from "../core/i18n";
 
 describe("pluralCategory (CLDR rules)", () => {
   it.each([
@@ -2555,7 +2548,6 @@ describe("detectDeviceDefaults", () => {
 
 // ─── addMonthsKeepingDay (month-end due dates) ───────────
 
-import { addMonthsKeepingDay } from "../core/dateUtils";
 
 describe("addMonthsKeepingDay", () => {
   it.each([
@@ -2573,8 +2565,6 @@ describe("addMonthsKeepingDay", () => {
 
 // ─── parseOptionalNumber (journal km / cost fields) ──────
 
-import { parseOptionalNumber } from "../core/validators";
-import { toDateString } from "../core/dateUtils";
 
 describe("parseOptionalNumber", () => {
   const km = { decimals: 0, max: 9_999_999 };

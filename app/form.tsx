@@ -20,17 +20,16 @@ import { useTheme, useLanguage, useCurrency, useSettingsStore } from '../src/sto
 import { useDocumentStore, useEnrichedDocument } from '../src/stores/useDocumentStore';
 import { t, translateSubtype } from '../src/core/i18n';
 import { parseLocalDate } from '../src/core/dateUtils';
-import { formatDate, formatMoney } from '../src/core/formatters';
+import { formatDate } from '../src/core/formatters';
 import { CATEGORIES, RECURRENCE_QUICK, RECURRENCE_OPTIONS } from '../src/core/constants';
 import type { CategoryId, RecurrenceValue, RawDocument, Attachment } from '../src/core/constants';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AnimatedPressable, FadeInView, useReduceMotion } from '../src/components/AnimatedUI';
-import { SegmentedControl, RowDivider } from '../src/components/settings/SettingsUI';
+import { RowDivider } from '../src/components/settings/SettingsUI';
 import { AttachmentPicker, deleteAttachmentFiles } from '../src/components/AttachmentPicker';
 import { autoCategorize, resolveRecurrenceForType } from '../src/core/smartDefaults';
 import { getAutoReminderDays } from '../src/core/enrichment';
 import { findDuplicate, isAtFreeLimit, countTowardFreeLimit } from '../src/core/helpers';
-import { FREE_DOCUMENT_LIMIT } from '../src/core/constants';
 import { validateDocument } from '../src/core/validators';
 import { fonts } from '../src/theme/typography';
 import { isOcrAvailable, scanDocument, hasExtractedData } from '../src/services/ocr';
@@ -79,7 +78,6 @@ export default function FormScreen() {
   // If editing a document that no longer exists, fall back to add mode
   const effectiveEdit = isEdit && !!existingDoc;
 
-  const todayStr = dateToString(new Date());
 
   const [cat, setCat] = useState<CategoryId>(existingDoc?.cat || (dupCat as CategoryId) || (catParam as CategoryId) || 'vehicule');
   const initCat = existingDoc?.cat || (catParam as CategoryId) || 'vehicule';
@@ -304,7 +302,7 @@ export default function FormScreen() {
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       showToast(t(language, 'scan_success'));
-    } catch (e) {
+    } catch {
       showToast(t(language, 'scan_error'), 'error');
     } finally {
       setScanning(false);

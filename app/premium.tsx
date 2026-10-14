@@ -25,7 +25,7 @@ import {
 import type { IconName } from '../src/types';
 import { fonts } from '../src/theme/typography';
 
-const PRO_FEATURES: ReadonlyArray<{ icon: IconName; color: string; key: string }> = [
+const PRO_FEATURES: readonly { icon: IconName; color: string; key: string }[] = [
   { icon: 'documents', color: '#0A79F1', key: 'premium_feature_unlimited' },
   { icon: 'bar-chart', color: '#34C759', key: 'premium_feature_analytics' },
   { icon: 'cloud-upload', color: '#5856D6', key: 'premium_feature_backup' },

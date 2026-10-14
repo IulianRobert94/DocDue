@@ -27,7 +27,7 @@ import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { useTheme, useLanguage, useSettingsStore } from "../../src/stores/useSettingsStore";
+import { useTheme, useLanguage } from "../../src/stores/useSettingsStore";
 import {
   useEnrichedDocuments,
   useGlobalStats,
@@ -38,7 +38,7 @@ import { t, tp } from "../../src/core/i18n";
 import { CATEGORIES, QUICK_PREVIEW_LIMIT } from "../../src/core/constants";
 import type { CategoryId } from "../../src/core/constants";
 import { formatDaysRemaining, getCategoryLabel } from "../../src/core/formatters";
-import { AnimatedPressable, AnimatedSection, AnimatedCounter, AnimatedBar, useReduceMotion } from "../../src/components/AnimatedUI";
+import { AnimatedPressable, AnimatedSection, AnimatedCounter, useReduceMotion } from "../../src/components/AnimatedUI";
 import { CircularProgress } from "../../src/components/CircularProgress";
 import { Celebration } from "../../src/components/Celebration";
 import { calculateHealthScore, getHealthScoreColor } from "../../src/core/healthScore";
@@ -65,7 +65,6 @@ export default function HomeScreen() {
   const enriched = useEnrichedDocuments();
   const stats = useGlobalStats(enriched);
   const catStats = useCategoryStats(enriched);
-  const streakDays = useSettingsStore((s) => s.settings.streakDays ?? 0);
   const urgentDocs = useMemo(
     () => enriched.filter((d) => d._status === "expired" || d._status === "warning"),
     [enriched]

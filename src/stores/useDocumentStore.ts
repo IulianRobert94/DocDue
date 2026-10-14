@@ -36,6 +36,11 @@ import { updateWidgetData } from "../services/widgetService";
 import { maybeRequestReview } from "../services/reviewPrompt";
 import { readStorageKey } from "../services/storage";
 
+// ─── Computed Selectors (memoized for performance) ──────
+
+import { useMemo } from "react";
+import { useToday } from "./useClockStore";
+
 // ─── Types ──────────────────────────────────────────────
 
 export interface CategoryStats {
@@ -459,11 +464,6 @@ export function clearPendingCleanups() {
     _retryTimer = null;
   }
 }
-
-// ─── Computed Selectors (memoized for performance) ──────
-
-import { useMemo } from "react";
-import { useToday } from "./useClockStore";
 
 // `today` is a dependency so days remaining / status recompute when the date
 // changes (midnight, or the app resumed the next day) — not only on edits.
