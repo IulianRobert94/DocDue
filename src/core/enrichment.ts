@@ -133,7 +133,11 @@ export function sortDocumentsByField(
     case "date":
       return sorted.sort((a, b) => dir * (a._daysUntil - b._daysUntil));
     case "amount":
-      return sorted.sort((a, b) => dir * ((a.amt ?? 0) - (b.amt ?? 0)));
+      // Documents without an amount always go last, whichever the direction
+      return sorted.sort((a, b) => {
+        if (a.amt == null || b.amt == null) return (a.amt == null ? 1 : 0) - (b.amt == null ? 1 : 0);
+        return dir * (a.amt - b.amt);
+      });
     case "name":
       return sorted.sort((a, b) => dir * (a.title || "").localeCompare(b.title || "", lang));
     default:

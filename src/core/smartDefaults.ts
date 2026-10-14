@@ -109,53 +109,93 @@ export function resolveRecurrenceForType(
   return getSmartDefaults(type)?.recurrence ?? currentRec;
 }
 
+/** Lowercase, no diacritics, punctuation as spaces: "Factură apă!" → "factura apa" */
+export function normalizeText(text: string): string {
+  return text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+// Romanian endings, so "curentul", "chiria", "rovinietei" still match their
+// keyword — but a different word that merely starts the same ("rataxat") doesn't
+const SHORT_ENDINGS = ["", "ul", "ului"];
+const LONG_ENDINGS = ["", "ul", "ului", "a", "ei", "ele", "e", "i", "ii", "le", "lor", "uri", "urile"];
+
+function wordMatches(token: string, word: string): boolean {
+  if (word.length <= 3) return SHORT_ENDINGS.some((end) => token === word + end);
+  const stems = /[aei]$/.test(word) ? [word, word.slice(0, -1)] : [word];
+  return stems.some((stem) => LONG_ENDINGS.some((end) => token === stem + end));
+}
+
+/** True when `phrase` (normalized words) appears as whole words in the normalized text */
+export function containsWords(normalized: string, phrase: string): boolean {
+  const tokens = normalized.split(" ");
+  const words = phrase.split(" ");
+  for (let i = 0; i + words.length <= tokens.length; i++) {
+    if (words.every((word, j) => wordMatches(tokens[i + j], word))) return true;
+  }
+  return false;
+}
+
 /**
- * Auto-detect category and type from a document title.
+ * Words people use for a type, diacritics-free — checked before the type names
+ * themselves. Order matters: the first match wins ("Garanție apartament" is a
+ * warranty; "Impozit casă" is the property tax, not CAS).
+ */
+export const TYPE_KEYWORDS: readonly (readonly [string, CategoryId, string])[] = [
+  ["garantie", "casa", "Garanție produs"],
+  ["warranty", "casa", "Garanție produs"],
+  ["impozit casa", "casa", "Impozit locuință"],
+  ["impozit locuinta", "casa", "Impozit locuință"],
+  ["impozit cladire", "casa", "Impozit locuință"],
+  ["impozit apartament", "casa", "Impozit locuință"],
+  ["impozit masina", "vehicule", "Impozit auto"],
+  ["impozit auto", "vehicule", "Impozit auto"],
+  ["asigurare casa", "casa", "Asigurare facultativă"],
+  ["asigurare locuinta", "casa", "Asigurare facultativă"],
+  ["asigurare apartament", "casa", "Asigurare facultativă"],
+  ["pad", "casa", "Asigurare PAD"],
+  ["rca", "vehicule", "RCA"],
+  ["itp", "vehicule", "ITP"],
+  ["casco", "vehicule", "CASCO"],
+  ["rovigneta", "vehicule", "Rovignetă"],
+  ["rovinieta", "vehicule", "Rovignetă"],
+  ["vigneta", "vehicule", "Rovignetă"],
+  ["carte verde", "vehicule", "Carte verde"],
+  ["tahograf", "vehicule", "Tahograf calibrare"],
+  ["curent", "casa", "Curent electric"],
+  ["gaz", "casa", "Gaz"],
+  ["apa", "casa", "Apă"],
+  ["internet", "casa", "Internet"],
+  ["chirie", "casa", "Contract chirie"],
+  ["intretinere", "casa", "Întreținere"],
+  ["pasaport", "personal", "Pașaport"],
+  ["buletin", "personal", "Carte de identitate"],
+  ["permis", "personal", "Permis conducere"],
+  ["amenda", "financiar", "Amendă"],
+  ["rata", "financiar", "Rată credit"],
+  ["leasing", "financiar", "Rată leasing"],
+  ["anaf", "financiar", "Impozit ANAF"],
+  ["cas", "financiar", "CAS/CASS"],
+  ["cass", "financiar", "CAS/CASS"],
+];
+
+/**
+ * Auto-detect category and type from a document title, matching whole words.
  * Example: "RCA Ford Focus" → { cat: 'vehicule', type: 'RCA' }
  */
 export function autoCategorize(title: string): { cat?: CategoryId; type?: string } | null {
   if (!title || title.length < 2) return null;
-  const lower = title.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const normalized = normalizeText(title);
+  if (!normalized) return null;
 
-  // Check common abbreviations first (higher priority, more precise)
-  const KEYWORD_MAP: Record<string, { cat: CategoryId; type: string }> = {
-    // First: "Garanție apartament / căști" must not match 'apa' / 'cas' below
-    'garantie': { cat: 'casa', type: 'Garanție produs' },
-    'warranty': { cat: 'casa', type: 'Garanție produs' },
-    'rca': { cat: 'vehicule', type: 'RCA' },
-    'itp': { cat: 'vehicule', type: 'ITP' },
-    'casco': { cat: 'vehicule', type: 'CASCO' },
-    'rovigneta': { cat: 'vehicule', type: 'Rovignetă' },
-    'rovinieta': { cat: 'vehicule', type: 'Rovignetă' },
-    'carte verde': { cat: 'vehicule', type: 'Carte verde' },
-    'tahograf': { cat: 'vehicule', type: 'Tahograf calibrare' },
-    'curent': { cat: 'casa', type: 'Curent electric' },
-    'gaz': { cat: 'casa', type: 'Gaz' },
-    'apa': { cat: 'casa', type: 'Apă' },
-    'internet': { cat: 'casa', type: 'Internet' },
-    'chirie': { cat: 'casa', type: 'Contract chirie' },
-    'intretinere': { cat: 'casa', type: 'Întreținere' },
-    'pasaport': { cat: 'personal', type: 'Pașaport' },
-    'buletin': { cat: 'personal', type: 'Carte de identitate' },
-    'permis': { cat: 'personal', type: 'Permis conducere' },
-    'amenda': { cat: 'financiar', type: 'Amendă' },
-    'rata': { cat: 'financiar', type: 'Rată credit' },
-    'leasing': { cat: 'financiar', type: 'Rată leasing' },
-    'anaf': { cat: 'financiar', type: 'Impozit ANAF' },
-    'cas': { cat: 'financiar', type: 'CAS/CASS' },
-    'cass': { cat: 'financiar', type: 'CAS/CASS' },
-  };
-
-  for (const [keyword, result] of Object.entries(KEYWORD_MAP)) {
-    if (lower.includes(keyword)) return result;
+  for (const [keyword, cat, type] of TYPE_KEYWORDS) {
+    if (containsWords(normalized, keyword)) return { cat, type };
   }
 
-  // Check each category's subtypes for keyword match
+  // Then the type names themselves ("Verificare gaze", "Revizie centrală"…)
   for (const [catId, cat] of Object.entries(CATEGORIES)) {
     for (const subtype of cat.subtypes) {
-      if (subtype === 'Altele') continue;
-      const subtypeLower = subtype.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      if (lower.includes(subtypeLower)) {
+      if (subtype === "Altele") continue;
+      if (containsWords(normalized, normalizeText(subtype))) {
         return { cat: catId as CategoryId, type: subtype };
       }
     }

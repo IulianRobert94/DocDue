@@ -23,6 +23,7 @@ import { usePaySheet } from '../../src/components/PaySheet';
 import { ExamplePill } from '../../src/components/ExamplePill';
 import { showToast } from '../../src/stores/useToastStore';
 import { sortDocumentsByField } from '../../src/core/enrichment';
+import { matchesSearch } from '../../src/core/search';
 import { STATUS_DISPLAY, CATEGORIES } from '../../src/core/constants';
 import type { CategoryId, DocumentStatus, SortField } from '../../src/core/constants';
 import Reanimated, { FadeInDown, FadeOut } from 'react-native-reanimated';
@@ -139,19 +140,10 @@ export default function SearchScreen() {
       if (scopeFilter !== 'all' && doc.cat !== scopeFilter) return false;
       return true;
     });
-    if (debouncedQuery.length === 0) return baseDocs;
-    const query = debouncedQuery.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-    const normalize = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-    return baseDocs.filter((doc) => {
-      const subName = normalize(translateSubtype(doc.type, language));
-      return (
-        normalize(doc.title).includes(query) ||
-        subName.includes(query) ||
-        (doc.asset && normalize(doc.asset).includes(query)) ||
-        (doc.notes && normalize(doc.notes).includes(query))
-      );
-    });
-  }, [enrichedDocs, archivedDocs, statusFilter, scopeFilter, debouncedQuery, language]);
+    if (debouncedQuery.trim().length === 0) return baseDocs;
+    // Every word, any order; no diacritics; everyday words ("buletin"); plates with or without dashes
+    return baseDocs.filter((doc) => matchesSearch(doc, debouncedQuery));
+  }, [enrichedDocs, archivedDocs, statusFilter, scopeFilter, debouncedQuery]);
 
   const sortedDocs = useMemo(() =>
     // The archive keeps its newest-archived-first order

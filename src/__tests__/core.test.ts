@@ -236,6 +236,12 @@ describe("sortDocumentsByField", () => {
     expect(sorted[0].amt).toBe(300);
     expect(sorted[2].amt).toBe(50);
   });
+
+  it.each(["asc", "desc"] as const)("documents without an amount always go last (%s)", (dir) => {
+    const docs = [...makeDocs(), { ...makeDocs()[0], id: "4", title: "No amount", amt: null }];
+    const sorted = sortDocumentsByField(docs, "amount", dir);
+    expect(sorted[sorted.length - 1].id).toBe("4");
+  });
 });
 
 // ─── Migration ──────────────────────────────────────────
@@ -1110,8 +1116,9 @@ describe("sortDocumentsByField additional", () => {
       { id: "2", cat: "vehicule", type: "ITP", title: "B", due: "2024-06-01", amt: 100, rec: "none", _daysUntil: 10, _status: "ok" },
     ];
     const sorted = sortDocumentsByField(docs, "amount", "asc");
-    expect(sorted[0].amt).toBe(null);
-    expect(sorted[1].amt).toBe(100);
+    // No amount = unknown, not zero: it goes after the documents that have one
+    expect(sorted[0].amt).toBe(100);
+    expect(sorted[1].amt).toBe(null);
   });
 
   it("does not mutate original array", () => {
@@ -2629,6 +2636,28 @@ describe("toDateString", () => {
   it("formats the local calendar date", () => {
     expect(toDateString(new Date(2026, 0, 5, 23, 30))).toBe("2026-01-05");
   });
+});
+
+describe("autoCategorize matches whole words, not pieces of words", () => {
+  it.each([
+    ["Impozit casă", { cat: "casa", type: "Impozit locuință" }],
+    ["Impozit mașină", { cat: "vehicule", type: "Impozit auto" }],
+    ["Asigurare apartament", { cat: "casa", type: "Asigurare facultativă" }],
+    ["Verificare gaze", { cat: "casa", type: "Verificare gaze" }],
+    ["Curentul Enel", { cat: "casa", type: "Curent electric" }],
+    ["Factură apă", { cat: "casa", type: "Apă" }],
+    ["Rovinieta Logan", { cat: "vehicule", type: "Rovignetă" }],
+    ["Buletinul meu", { cat: "personal", type: "Carte de identitate" }],
+    ["RCA Logan", { cat: "vehicule", type: "RCA" }],
+    ["Contribuții CAS", { cat: "financiar", type: "CAS/CASS" }],
+  ] as const)("'%s' → %j", (title, expected) => {
+    expect(autoCategorize(title)).toEqual(expected);
+  });
+
+  it.each(["Apartament Titan", "TVA trimestrial", "Casa de vacanță", "Rataxat"])(
+    "'%s' doesn't guess from a piece of a word", (title) => {
+      expect(autoCategorize(title)).toBeNull();
+    });
 });
 
 describe("warranty documents", () => {
