@@ -22,6 +22,11 @@ export interface OcrResult {
   title: string | null;       // Best guess for title
 }
 
+/** True when a scan produced at least one field the form can fill in. */
+export function hasExtractedData(result: OcrResult): boolean {
+  return !!(result.date || result.amount != null || result.type || result.title);
+}
+
 // ─── OCR Engine ─────────────────────────────────────────
 
 let MlkitOcr: { detectFromUri: (uri: string) => Promise<Array<{ text: string }>> } | null = null;

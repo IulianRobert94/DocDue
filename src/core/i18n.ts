@@ -558,6 +558,8 @@ export const TRANSLATIONS: Record<string, Record<string, string>> = {
     scan_btn: "Scanează",
     scan_success: "Date extrase cu succes",
     scan_error: "Nu s-au putut extrage date",
+    scan_nothing_found: "N-am găsit date în poză. Încearcă o fotografie mai clară sau completează manual.",
+    camera_permission: "Permite accesul la cameră din Setări pentru a scana documente.",
     scan_unavailable: "Disponibil în versiunea de producție",
 
     // Quick Actions
@@ -1120,6 +1122,8 @@ export const TRANSLATIONS: Record<string, Record<string, string>> = {
     scan_processing: "Analyzing...",
     scan_success: "Data extracted successfully",
     scan_error: "Could not extract data",
+    scan_nothing_found: "No details found in the photo. Try a clearer picture or fill it in manually.",
+    camera_permission: "Please allow camera access in Settings to scan documents.",
     scan_unavailable: "Available in production build",
 
     // Quick Actions

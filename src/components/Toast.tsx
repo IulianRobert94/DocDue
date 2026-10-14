@@ -5,7 +5,7 @@
  */
 
 import React, { useEffect, useCallback } from "react";
-import { Text, Pressable, StyleSheet } from "react-native";
+import { Text, Pressable, StyleSheet, AccessibilityInfo } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -44,6 +44,8 @@ export function Toast() {
 
   useEffect(() => {
     if (visible) {
+      // Screen readers don't notice a view sliding in — say it (incl. "Undo")
+      AccessibilityInfo.announceForAccessibility(action ? `${message}. ${action.label}` : message);
       // Slide in with spring, then auto-dismiss after duration
       translateY.value = withSpring(0, { damping: 20, stiffness: 300 }, (finished) => {
         if (finished) {

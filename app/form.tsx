@@ -33,7 +33,7 @@ import { findDuplicate, isAtFreeLimit, countTowardFreeLimit } from '../src/core/
 import { FREE_DOCUMENT_LIMIT } from '../src/core/constants';
 import { validateDocument } from '../src/core/validators';
 import { fonts } from '../src/theme/typography';
-import { isOcrAvailable, scanDocument } from '../src/services/ocr';
+import { isOcrAvailable, scanDocument, hasExtractedData } from '../src/services/ocr';
 import * as ImagePicker from 'expo-image-picker';
 import { showToast } from '../src/stores/useToastStore';
 import { getNotificationPermissionStatus, requestNotificationPermission, syncAllNotifications } from '../src/services/notifications';
@@ -280,7 +280,7 @@ export default function FormScreen() {
     try {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== 'granted') {
-        showToast(t(language, 'photo_permission'), 'error');
+        showToast(t(language, 'camera_permission'), 'error');
         return;
       }
       const result = await ImagePicker.launchCameraAsync({ quality: 0.8, allowsEditing: false });
@@ -297,6 +297,11 @@ export default function FormScreen() {
       if (ocrResult.date) { dueTouchedRef.current = true; setDue(ocrResult.date); setPickerDate(stringToDate(ocrResult.date)); }
       if (ocrResult.amount != null) { amtRef.current = String(ocrResult.amount); setAmt(String(ocrResult.amount)); }
 
+      // Don't claim success when the photo yielded nothing to fill in
+      if (!hasExtractedData(ocrResult)) {
+        showToast(t(language, 'scan_nothing_found'), 'info');
+        return;
+      }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       showToast(t(language, 'scan_success'));
     } catch (e) {
@@ -450,7 +455,7 @@ export default function FormScreen() {
           >
             {/* Modal header — Cancel | title | scan */}
             <FadeInView delay={0} style={s.modalHeader}>
-              <AnimatedPressable onPress={handleCancel} haptic={false} accessibilityLabel={t(language, 'a11y_cancel')}>
+              <AnimatedPressable onPress={handleCancel} haptic={false} accessibilityLabel={t(language, 'a11y_cancel')} hitSlop={12}>
                 <Text style={[s.cancelText, { color: theme.primaryText }]}>{t(language, 'confirm_cancel')}</Text>
               </AnimatedPressable>
               <Text style={[s.headerTitle, { color: theme.text }]}>
@@ -463,6 +468,7 @@ export default function FormScreen() {
                   style={{ width: 60, alignItems: 'flex-end' }}
                   accessibilityLabel={t(language, 'scan_btn')}
                   disabled={scanning}
+                  hitSlop={12}
                 >
                   <Ionicons name="scan-outline" size={22} color={theme.primary} />
                 </AnimatedPressable>

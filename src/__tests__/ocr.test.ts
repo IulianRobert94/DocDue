@@ -6,6 +6,7 @@
  */
 
 import {
+  hasExtractedData,
   extractDate,
   extractAmount,
   parseRomanianNumber,
@@ -316,5 +317,23 @@ describe("extractTitle", () => {
     const text = `${longLine}\nNormal Title`;
     const result = extractTitle(text, null);
     expect(result).toBe("Normal Title");
+  });
+});
+
+describe("hasExtractedData", () => {
+  const empty = { rawText: "", date: null, amount: null, category: null, type: null, title: null };
+
+  it("is false when the scan found nothing usable (no false 'success')", () => {
+    expect(hasExtractedData(empty)).toBe(false);
+    expect(hasExtractedData({ ...empty, rawText: "lorem ipsum" })).toBe(false);
+  });
+
+  it.each([
+    ["a date", { date: "2026-05-01" }],
+    ["an amount", { amount: 0 }],
+    ["a document type", { type: "RCA" }],
+    ["a title", { title: "Poliță RCA" }],
+  ])("is true when it found %s", (_label, found) => {
+    expect(hasExtractedData({ ...empty, ...found })).toBe(true);
   });
 });
