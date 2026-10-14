@@ -3,10 +3,10 @@
  * Animated grouped list with premium feel
  */
 
-import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, SectionList } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, Text, StyleSheet, SectionList, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useTheme, useLanguage, useCurrency } from '../../src/stores/useSettingsStore';
@@ -20,6 +20,9 @@ import type { AlertGroupKey } from '../../src/core/alerts';
 import { isDemoDocument } from '../../src/core/helpers';
 import { usePaySheet } from '../../src/components/PaySheet';
 import { ExamplePill } from '../../src/components/ExamplePill';
+import { MonthCalendar } from '../../src/components/MonthCalendar';
+import { SegmentedControl } from '../../src/components/settings/SettingsUI';
+import { useToday } from '../../src/stores/useClockStore';
 import { formatDaysRemaining, formatMoney } from '../../src/core/formatters';
 import { STATUS_DISPLAY, CATEGORIES } from '../../src/core/constants';
 import type { IconName } from '../../src/types';
@@ -38,12 +41,61 @@ export default function AlertsScreen() {
   const undoDelete = useDocumentStore((s) => s.undoDelete);
   const stats = useGlobalStats(enrichedDocs);
   const { openPaySheet, paySheet } = usePaySheet();
+  const today = useToday();
+  // `?view=calendar` opens the month calendar directly
+  const { view: viewParam } = useLocalSearchParams<{ view?: string }>();
+  const [view, setView] = useState<'list' | 'calendar'>(viewParam === 'calendar' ? 'calendar' : 'list');
 
   // Late / next 7 days / next 30 days / later — each with the money it needs
   const sections = useMemo(() => groupAlerts(enrichedDocs, currency).map((group) => ({
     ...group,
     title: t(language, `alerts_group_${group.key}`),
   })), [enrichedDocs, language, currency]);
+
+  const header = (
+    <>
+      <FadeInView delay={0} style={s.titleContainer}>
+        <Text style={[s.largeTitle, { color: theme.text }]} accessibilityRole="header">
+          {t(language, 'nav_alerts')}
+        </Text>
+        {stats.soonCount > 0 && (
+          <View style={s.countBadge}>
+            <Text style={s.countText}>{stats.soonCount}</Text>
+          </View>
+        )}
+      </FadeInView>
+      <View style={s.viewToggle}>
+        <SegmentedControl
+          options={[
+            { value: 'list', label: t(language, 'alerts_view_list') },
+            { value: 'calendar', label: t(language, 'alerts_view_calendar') },
+          ]}
+          selected={view}
+          onSelect={(v) => setView(v as 'list' | 'calendar')}
+          theme={theme}
+          fullWidth
+        />
+      </View>
+    </>
+  );
+
+  if (view === 'calendar') {
+    return (
+      <View style={[s.container, { backgroundColor: theme.background }]}>
+        <ScrollView contentContainerStyle={{ paddingTop: insets.top + 12, paddingBottom: insets.bottom + 100 }}>
+          {header}
+          <MonthCalendar
+            docs={enrichedDocs}
+            today={today}
+            theme={theme}
+            language={language}
+            currency={currency}
+            onOpen={(doc) => router.push(`/document/${doc.id}`)}
+          />
+        </ScrollView>
+      </View>
+    );
+  }
 
   return (
     <View style={[s.container, { backgroundColor: theme.background }]}>
@@ -55,18 +107,7 @@ export default function AlertsScreen() {
         maxToRenderPerBatch={15}
         windowSize={7}
         removeClippedSubviews
-        ListHeaderComponent={
-          <FadeInView delay={0} style={s.titleContainer}>
-            <Text style={[s.largeTitle, { color: theme.text }]} accessibilityRole="header">
-              {t(language, 'nav_alerts')}
-            </Text>
-            {stats.soonCount > 0 && (
-              <View style={s.countBadge}>
-                <Text style={s.countText}>{stats.soonCount}</Text>
-              </View>
-            )}
-          </FadeInView>
-        }
+        ListHeaderComponent={header}
         renderSectionHeader={({ section: { title, key, data, totals } }) => (
           <View style={s.sectionHeader} accessibilityRole="header">
             <Ionicons name={GROUP_ICON[key].icon} size={14} color={GROUP_ICON[key].color ?? theme.textMuted} />
@@ -199,6 +240,7 @@ const GROUP_ICON: Record<AlertGroupKey, { icon: IconName; color?: string }> = {
 const s = StyleSheet.create({
   container: { flex: 1 },
   titleContainer: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 12, gap: 10 },
+  viewToggle: { paddingHorizontal: 16, paddingBottom: 8 },
   largeTitle: { fontSize: 34, letterSpacing: 0.37, fontFamily: fonts.bold },
   countBadge: { minWidth: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8, backgroundColor: '#FF3B30' },
   countText: { color: '#FFF', fontSize: 14, fontFamily: fonts.bold },

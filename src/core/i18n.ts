@@ -114,6 +114,12 @@ export const TRANSLATIONS: Record<string, Record<string, string>> = {
     // Archive
     search_archive: "Arhivă", archive_restore: "Restaurează",
     toast_restored: "Restaurat ✓",
+    // Calendar
+    month_1: "Ianuarie", month_2: "Februarie", month_3: "Martie", month_4: "Aprilie", month_5: "Mai", month_6: "Iunie", month_7: "Iulie", month_8: "August", month_9: "Septembrie", month_10: "Octombrie", month_11: "Noiembrie", month_12: "Decembrie",
+    weekday_short_1: "L", weekday_short_2: "Ma", weekday_short_3: "Mi", weekday_short_4: "J", weekday_short_5: "V", weekday_short_6: "S", weekday_short_7: "D",
+    calendar_prev: "Luna anterioară", calendar_next: "Luna următoare",
+    calendar_empty_day: "Nimic în ziua asta.", calendar_repeat: "se repetă",
+    alerts_view_list: "Listă", alerts_view_calendar: "Calendar",
     // Alerts groups + example tag
     alerts_group_overdue: "Întârziate", alerts_group_week: "Următoarele 7 zile",
     alerts_group_month: "Următoarele 30 de zile", alerts_group_later: "Mai târziu",
@@ -739,6 +745,12 @@ toast_demo_restored: "Date demo restaurate",
     // Archive
     search_archive: "Archive", archive_restore: "Restore",
     toast_restored: "Restored ✓",
+    // Calendar
+    month_1: "January", month_2: "February", month_3: "March", month_4: "April", month_5: "May", month_6: "June", month_7: "July", month_8: "August", month_9: "September", month_10: "October", month_11: "November", month_12: "December",
+    weekday_short_1: "M", weekday_short_2: "T", weekday_short_3: "W", weekday_short_4: "T", weekday_short_5: "F", weekday_short_6: "S", weekday_short_7: "S",
+    calendar_prev: "Previous month", calendar_next: "Next month",
+    calendar_empty_day: "Nothing on this day.", calendar_repeat: "repeats",
+    alerts_view_list: "List", alerts_view_calendar: "Calendar",
     // Alerts groups + example tag
     alerts_group_overdue: "Overdue", alerts_group_week: "Next 7 days",
     alerts_group_month: "Next 30 days", alerts_group_later: "Later",
