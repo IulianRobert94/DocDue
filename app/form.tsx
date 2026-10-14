@@ -31,6 +31,7 @@ import { autoCategorize, resolveRecurrenceForType } from '../src/core/smartDefau
 import { getAutoReminderDays } from '../src/core/enrichment';
 import { findDuplicate, isAtFreeLimit, countTowardFreeLimit } from '../src/core/helpers';
 import { autoTitle, companionTypes, dateShortcuts, knownAssets, legalDueDate, upcomingReminderDates } from '../src/core/formHelpers';
+import { matchesSearch } from '../src/core/search';
 import { validateDocument } from '../src/core/validators';
 import { fonts } from '../src/theme/typography';
 import { isOcrAvailable, scanDocument, hasExtractedData } from '../src/services/ocr';
@@ -151,6 +152,7 @@ export default function FormScreen() {
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
   const [showTypePicker, setShowTypePicker] = useState(false);
   const [typeSearch, setTypeSearch] = useState('');
+  const [typeSearchKey, setTypeSearchKey] = useState(0);
   const savingRef = useRef(false); // Guard against rapid double-taps
   const scrollRef = useRef<ScrollView>(null);
 
@@ -961,8 +963,9 @@ export default function FormScreen() {
                 <View style={[s.searchBarWrap, { backgroundColor: theme.inputFill }]}>
                   <Ionicons name="search" size={16} color={theme.textMuted} style={{ marginRight: 8 }} />
                   <TextInput
+                    key={`type-search-${typeSearchKey}`}
                     style={[s.searchInput, { color: theme.text }]}
-                    value={typeSearch}
+                    defaultValue=""
                     onChangeText={setTypeSearch}
                     placeholder={t(language, 'form_search_type')}
                     placeholderTextColor={theme.textDim}
@@ -970,7 +973,7 @@ export default function FormScreen() {
                     accessibilityLabel={t(language, 'form_search_type')}
                   />
                   {typeSearch.length > 0 && (
-                    <AnimatedPressable onPress={() => setTypeSearch('')} haptic={false}
+                    <AnimatedPressable onPress={() => { setTypeSearch(''); setTypeSearchKey((k) => k + 1); }} haptic={false}
                       accessibilityLabel={t(language, 'a11y_clear_search')} accessibilityRole="button">
                       <Ionicons name="close-circle" size={18} color={theme.textMuted} />
                     </AnimatedPressable>
@@ -980,13 +983,8 @@ export default function FormScreen() {
                 {/* Subtype list */}
                 <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
                   <View style={[s.group, { backgroundColor: theme.card, marginTop: 8 }]}>
-                    {subtypes.filter((sub) => {
-                      if (!typeSearch.trim()) return true;
-                      const q = typeSearch.toLowerCase();
-                      const translated = translateSubtype(sub, language).toLowerCase();
-                      const raw = sub.toLowerCase();
-                      return translated.includes(q) || raw.includes(q);
-                    }).map((sub, idx, arr) => (
+                    {/* No diacritics needed, everyday words work ("buletin", "pasaport", "rovinieta") */}
+                    {subtypes.filter((sub) => matchesSearch({ title: sub, type: sub }, typeSearch)).map((sub, idx, arr) => (
                       <React.Fragment key={sub}>
                         <AnimatedPressable
                           style={s.pickerRow}

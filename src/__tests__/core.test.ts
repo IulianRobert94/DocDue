@@ -401,9 +401,9 @@ describe("i18n completeness", () => {
     expect(translateSubtype("Curent electric", "en")).toBe("Electricity");
   });
 
-  it("translateSubtype returns original for Romanian", () => {
+  it("translateSubtype returns the stored name in Romanian (except official spellings)", () => {
     expect(translateSubtype("RCA", "ro")).toBe("RCA");
-    expect(translateSubtype("Rovignetă", "ro")).toBe("Rovignetă");
+    expect(translateSubtype("Carte de identitate", "ro")).toBe("Carte de identitate");
   });
 });
 
@@ -2635,6 +2635,27 @@ describe("parseOptionalNumber", () => {
 describe("toDateString", () => {
   it("formats the local calendar date", () => {
     expect(toDateString(new Date(2026, 0, 5, 23, 30))).toBe("2026-01-05");
+  });
+});
+
+describe("document types", () => {
+  it("shows the official spelling 'Rovinietă' (stored as before)", () => {
+    expect(translateSubtype("Rovignetă", "ro")).toBe("Rovinietă");
+    expect(translateSubtype("RCA", "ro")).toBe("RCA");
+  });
+
+  it.each([
+    ["vehicule", "Trusă medicală", "First aid kit"],
+    ["vehicule", "Extinctor", "Fire extinguisher"],
+    ["financiar", "Card bancar", "Bank card"],
+  ] as const)("%s has '%s' (%s)", (cat, type, en) => {
+    expect(CATEGORIES[cat].subtypes).toContain(type);
+    expect(translateSubtype(type, "en")).toBe(en);
+    expect(getSmartDefaults(type)).not.toBeNull();
+  });
+
+  it("a fire extinguisher is checked every year", () => {
+    expect(getSmartDefaults("Extinctor")!.recurrence).toBe("annual");
   });
 });
 

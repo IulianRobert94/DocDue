@@ -244,7 +244,7 @@ export const CATEGORIES: Record<CategoryId, Category> = {
     subtypes: [
       "RCA", "ITP", "CASCO", "Rovignetă", "Impozit auto", "Revizie service",
       "Carte verde", "Asigurare CMR", "Copie conformă",
-      "Tahograf calibrare", "Verificare ADR", "Altele",
+      "Tahograf calibrare", "Verificare ADR", "Trusă medicală", "Extinctor", "Altele",
     ],
   },
   personal: {
@@ -289,7 +289,7 @@ export const CATEGORIES: Record<CategoryId, Category> = {
       "Impozit ANAF", "CAS/CASS", "Impozit venit", "Declarație unică",
       "Contract client", "Contract furnizor", "Asigurare profesională",
       "Autorizație", "Certificat înregistrare", "Licență transport",
-      "Certificat competență", "Altele",
+      "Certificat competență", "Card bancar", "Altele",
     ],
   },
 };

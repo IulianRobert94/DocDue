@@ -1270,10 +1270,14 @@ toast_demo_restored: "Demo data restored",
  * În engleză, avem traduceri specifice.
  */
 const SUBTYPE_TRANSLATIONS: Record<string, Record<string, string>> = {
+  // Romanian display names that differ from the stored value
+  ro: {
+    "Rovignetă": "Rovinietă",
+  },
   en: {
     // Vehicule
     "RCA": "Liability insurance (RCA)", "ITP": "Technical inspection (ITP)", "CASCO": "Comprehensive insurance",
-    "Rovignetă": "Road vignette", "Impozit auto": "Vehicle tax", "Revizie service": "Service check",
+    "Rovignetă": "Road vignette", "Trusă medicală": "First aid kit", "Extinctor": "Fire extinguisher", "Impozit auto": "Vehicle tax", "Revizie service": "Service check",
     "Tahograf calibrare": "Tachograph calibration", "Licență transport": "Transport license",
     "Copie conformă": "Certified copy", "Verificare ADR": "ADR inspection",
     "Asigurare CMR": "CMR cargo insurance", "Carte verde": "Green card",
@@ -1294,7 +1298,7 @@ const SUBTYPE_TRANSLATIONS: Record<string, Record<string, string>> = {
     "Contract de muncă": "Employment contract",
     // Firmă
     "Certificat înregistrare": "Registration certificate",
-    "Certificat competență": "Competence certificate", "Autorizație": "Authorization",
+    "Certificat competență": "Competence certificate", "Card bancar": "Bank card", "Autorizație": "Authorization",
     "Asigurare profesională": "Professional insurance", "Contract client": "Client contract",
     "Contract furnizor": "Supplier contract",
     // Abonamente
@@ -1364,6 +1368,5 @@ export function tp(lang: LanguageCode, key: string, n: number, params?: Record<s
  * În engleză caută traducerea; dacă nu există, returnează textul original.
  */
 export function translateSubtype(subtype: string, lang: LanguageCode): string {
-  if (lang === "ro" || !SUBTYPE_TRANSLATIONS[lang]) return subtype;
-  return SUBTYPE_TRANSLATIONS[lang][subtype] || subtype;
+  return SUBTYPE_TRANSLATIONS[lang]?.[subtype] || subtype;
 }

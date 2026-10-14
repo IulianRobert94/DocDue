@@ -21,6 +21,7 @@ const MONTHS: Partial<Record<RecurrenceValue, number>> = {
 const CASA_RENEWALS = new Set(["Asigurare PAD", "Asigurare facultativă", "Revizie centrală", "Verificare gaze"]);
 const FINANCIAR_RENEWALS = new Set([
   "Asigurare profesională", "Autorizație", "Certificat înregistrare", "Licență transport", "Certificat competență",
+  "Card bancar",
 ]);
 const RENEWAL_BY_CATEGORY: Record<CategoryId, (type: string) => boolean> = {
   personal: () => true,

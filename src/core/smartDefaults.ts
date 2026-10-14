@@ -29,6 +29,9 @@ const SUBTYPE_DEFAULTS: Record<string, SmartDefault> = {
   "Verificare ADR": { recurrence: "annual" },
   "Asigurare CMR": { recurrence: "annual" },
   "Carte verde": { recurrence: "annual" },
+  // Required in the car: the kit has an expiry date, the extinguisher a yearly check
+  "Trusă medicală": { recurrence: "none" },
+  "Extinctor": { recurrence: "annual" },
 
   // Personal — IDs are renewed for 10 years; "10years" also starts the warning
   // 6 months ahead, enough time to book an appointment
@@ -73,6 +76,7 @@ const SUBTYPE_DEFAULTS: Record<string, SmartDefault> = {
   "Certificat înregistrare": { recurrence: "none" },
   "Licență transport": { recurrence: "annual" },
   "Certificat competență": { recurrence: "none" },
+  "Card bancar": { recurrence: "none" },
   "Autorizație": { recurrence: "annual" },
   "Asigurare profesională": { recurrence: "annual" },
   "Contract client": { recurrence: "annual" },
