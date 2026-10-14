@@ -2608,6 +2608,13 @@ describe("computeAnalytics — honest totals", () => {
     expect(Math.round(r.avgMonthly)).toBe(203); // 2,030 lei over January–October
   });
 
+  it("charts are in the app currency; other currencies are listed apart, never added", () => {
+    const docs = [doc({ type: "Contract chirie", due: "2026-10-20", amt: 400, currency: "EUR" }), doc({ due: "2026-10-25", amt: 310, rec: "none" })];
+    const r = computeAnalytics(docs.map((d) => enrichDocument(d)), docs, "ro", now, "RON");
+    expect(r.forecastTotal).toBe(310);
+    expect(r.otherForecast).toEqual({ EUR: 12 * 400 });
+  });
+
   it("example documents never count", () => {
     const r = run(createDemoDocuments("ro"));
     expect(r.total30 + r.overdueTotal + r.forecastTotal + r.totalPaid).toBe(0);

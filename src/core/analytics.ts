@@ -6,11 +6,13 @@
  */
 
 import { CATEGORIES } from "./constants";
-import type { CategoryId, Category, EnrichedDocument, LanguageCode, RawDocument } from "./constants";
+import type { CategoryId, Category, CurrencyCode, EnrichedDocument, LanguageCode, RawDocument } from "./constants";
 import { addDaysToDate, toDateString } from "./dateUtils";
 import { t } from "./i18n";
 import { isDemoDocument } from "./helpers";
 import { planPayment, projectOccurrences } from "./payment";
+import { docCurrency } from "./money";
+import type { CurrencyTotals } from "./money";
 
 export interface CategoryBar {
   id: CategoryId;
@@ -40,6 +42,8 @@ export interface Analytics {
   overdueCount: number;
   /** Everything due in this month and the next 11 */
   forecastTotal: number;
+  /** The same 12 months for documents in other currencies (never added to the above) */
+  otherForecast: CurrencyTotals;
   /** The 12-month forecast by category */
   catBars: CategoryBar[];
   /** The 12-month forecast, month by month */
@@ -60,13 +64,15 @@ function monthsSpanned(fromKey: string, toKey: string): number {
  * @param active   Enriched, non-archived documents (forecast + categories)
  * @param allDocs  Every stored document — history includes archived one-time
  *                 documents, whose payments are part of what was spent
- * Example documents are left out everywhere.
+ * Example documents are left out everywhere. Figures are in `currency`;
+ * documents in another currency only appear in `otherForecast`.
  */
 export function computeAnalytics(
   active: EnrichedDocument[],
   allDocs: RawDocument[],
   language: LanguageCode,
   now: Date = new Date(),
+  currency: CurrencyCode = "RON",
 ): Analytics {
   const today = toDateString(now);
   const in30 = addDaysToDate(today, 30);
@@ -77,7 +83,7 @@ export function computeAnalytics(
   let totalPayments = 0;
   const historyMonthMap = new Map<string, number>();
   for (const doc of allDocs) {
-    if (isDemoDocument(doc)) continue;
+    if (isDemoDocument(doc) || docCurrency(doc, currency) !== currency) continue;
     for (const p of doc.paymentHistory || []) {
       if (p.amt == null) continue;
       totalPaid += p.amt;
@@ -100,10 +106,17 @@ export function computeAnalytics(
   let overdueTotal = 0;
   let overdueCount = 0;
   let forecastTotal = 0;
+  const otherForecast: CurrencyTotals = {};
 
   for (const doc of active) {
     if (isDemoDocument(doc) || !doc.amt) continue;
     const amt = doc.amt;
+    const code = docCurrency(doc, currency);
+    if (code !== currency) {
+      const due = projectOccurrences(doc, today, forecastEnd).length;
+      if (due > 0) otherForecast[code] = (otherForecast[code] ?? 0) + amt * due;
+      continue;
+    }
 
     if (doc.due < today) {
       // A late bill owes every missed period (all before today — the one
@@ -151,6 +164,6 @@ export function computeAnalytics(
 
   return {
     totalPaid, totalPayments, avgMonthly, monthCount, total30, count30,
-    overdueTotal, overdueCount, forecastTotal, catBars, monthBars, trendMonths,
+    overdueTotal, overdueCount, forecastTotal, otherForecast, catBars, monthBars, trendMonths,
   };
 }

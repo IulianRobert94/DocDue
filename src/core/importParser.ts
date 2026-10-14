@@ -6,8 +6,8 @@
  * to "today" — so the user can be told exactly how many rows were dropped.
  */
 
-import { CATEGORIES, VALID_RECURRENCE_VALUES } from "./constants";
-import type { CategoryId, LanguageCode, RawDocument, RecurrenceValue } from "./constants";
+import { CATEGORIES, CURRENCY_OPTIONS, VALID_RECURRENCE_VALUES } from "./constants";
+import type { CategoryId, CurrencyCode, LanguageCode, RawDocument, RecurrenceValue } from "./constants";
 import { t } from "./i18n";
 import { parseImportedDate } from "./dateUtils";
 
@@ -47,7 +47,10 @@ export function parseImportedRows(
       }
     }
     const type = String(row.Type || row.type || row.Tip || "");
-    const asset = String(row["Associated with"] || row.asset || row.Asset || row.Asociat || row["Asociat cu"] || "");
+    // "Pentru" / "For" is what DocDue exports now; the rest are older exports
+    const asset = String(row.Pentru || row.For || row["Associated with"] || row.asset || row.Asset || row.Asociat || row["Asociat cu"] || "");
+    const rawCurrency = String(row["Monedă"] || row.Moneda || row.Currency || row.currency || "").toUpperCase();
+    const currency = CURRENCY_OPTIONS.some((c) => c.value === rawCurrency) ? (rawCurrency as CurrencyCode) : undefined;
     const rawAmt = row.Amount ?? row.amount ?? row.Suma ?? row["Sumă"] ?? row["Suma"];
     const amt = rawAmt !== undefined && rawAmt !== null && rawAmt !== "" ? Number(rawAmt) : null;
     const rec = String(row.Recurrence || row.recurrence || row.rec || row.Recurenta || row["Recurență"] || "none") as RecurrenceValue;
@@ -60,6 +63,7 @@ export function parseImportedRows(
       asset: asset || undefined,
       due,
       amt: amt !== null && !isNaN(amt) ? amt : null,
+      currency,
       rec: VALID_RECURRENCE_VALUES.has(rec) ? rec : "none",
       notes: notes || undefined,
     });

@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme, useLanguage, useSettingsStore } from '../src/stores/useSettingsStore';
 import { useEnrichedDocuments, useDocumentStore } from '../src/stores/useDocumentStore';
 import { computeAnalytics } from '../src/core/analytics';
+import { formatTotals } from '../src/core/money';
 import { t } from '../src/core/i18n';
 import { formatMoney, getCategoryLabel } from '../src/core/formatters';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -32,8 +33,8 @@ export default function AnalyticsScreen() {
   // History includes archived one-time documents (their payments count)
   const allDocs = useDocumentStore((s) => s.documents);
   const analytics = useMemo(
-    () => computeAnalytics(enriched, allDocs, language),
-    [enriched, allDocs, language]
+    () => computeAnalytics(enriched, allDocs, language, new Date(), currency),
+    [enriched, allDocs, language, currency]
   );
 
   const hasData = analytics.totalPaid > 0 || analytics.total30 > 0 || analytics.overdueTotal > 0 || analytics.forecastTotal > 0;
@@ -158,6 +159,11 @@ export default function AnalyticsScreen() {
                 <Text style={[s.sectionHeader, { color: theme.textSecondary }]}>
                   {t(language, 'analytics_next_12').toUpperCase()} · {formatMoney(analytics.forecastTotal, currency, language)}
                 </Text>
+                {formatTotals(analytics.otherForecast, language) !== '' && (
+                  <Text style={[s.otherCurrencies, { color: theme.textMuted }]}>
+                    {t(language, 'analytics_other_currencies', { amount: formatTotals(analytics.otherForecast, language) })}
+                  </Text>
+                )}
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.monthGrid}>
                   {analytics.monthBars.map((month, i) => (
                     <View key={i} style={s.monthCol}>
@@ -218,6 +224,7 @@ const s = StyleSheet.create({
   monthGrid: { flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: 20, gap: 12 },
   monthCol: { width: 64, alignItems: 'center' },
   heroOverdue: { fontSize: 15, fontFamily: fonts.semiBold, marginTop: 6 },
+  otherCurrencies: { fontSize: 13, fontFamily: fonts.regular, paddingHorizontal: 20, marginTop: -4, marginBottom: 8 },
   monthAmount: { fontSize: 12, fontWeight: '600', fontFamily: fonts.semiBold, marginBottom: 8, textAlign: 'center' },
   monthBarTrack: { width: '100%', height: 80, borderRadius: 4, overflow: 'hidden', justifyContent: 'flex-end' },
   monthBarFill: { width: '100%', borderRadius: 4 },

@@ -14,6 +14,7 @@ import { t, tp, translateSubtype } from '../../core/i18n';
 import { useItemStore } from '../../stores/useItemStore';
 import { parseImportedRows } from '../../core/importParser';
 import { isDemoDocument, countTowardFreeLimit } from '../../core/helpers';
+import { docCurrency } from '../../core/money';
 import { CATEGORIES, FREE_DOCUMENT_LIMIT, MAX_IMPORT_LIMIT } from '../../core/constants';
 import type { RawDocument, AppSettings } from '../../core/constants';
 import type { AppTheme } from '../../theme/colors';
@@ -78,13 +79,14 @@ export function DataSection({
         [t(language, 'form_asset')]: doc.asset || '',
         [t(language, 'form_due')]: doc.due,
         [t(language, 'form_amount')]: doc.amt ?? '',
+        [t(language, 'form_currency')]: doc.amt ? docCurrency(doc, settings.currency) : '',
         [t(language, 'form_recurrence')]: doc.rec,
         [t(language, 'form_notes')]: doc.notes || '',
       }));
       const ws = XLSX.utils.json_to_sheet(rows);
       ws['!cols'] = [
         { wch: 18 }, { wch: 22 }, { wch: 30 }, { wch: 20 },
-        { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 30 },
+        { wch: 12 }, { wch: 10 }, { wch: 8 }, { wch: 12 }, { wch: 30 },
       ];
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Documents');

@@ -18,6 +18,7 @@ import { daysBetween } from "../core/dateUtils";
 import { payKind, planPayment } from "../core/payment";
 import type { PayAction, PayKind } from "../core/payment";
 import { parseOptionalNumber } from "../core/validators";
+import { docCurrency } from "../core/money";
 import { subscribeLockState } from "../core/lockState";
 import { useDocumentStore } from "../stores/useDocumentStore";
 import { useTheme, useLanguage, useCurrency } from "../stores/useSettingsStore";
@@ -94,6 +95,7 @@ function PaySheet({ docId, options, visible, onClose }: {
 
   if (!doc || !plan) return null;
 
+  const docCur = docCurrency(doc, currency);
   const multiple = mode === "pay" && plan.periodsAll > 1;
   const periods = multiple && coverAll ? plan.periodsAll : 1;
   const parsedAmount = parseOptionalNumber(amount, AMOUNT_LIMITS);
@@ -229,7 +231,7 @@ function PaySheet({ docId, options, visible, onClose }: {
                   placeholder={t(language, "journal_optional")}
                   keyboardType="decimal-pad"
                   maxLength={12}
-                  suffix={currency}
+                  suffix={docCur}
                   theme={theme}
                 />
               </Card>
@@ -237,7 +239,7 @@ function PaySheet({ docId, options, visible, onClose }: {
 
               {multiple && coverAll && typeof parsedAmount === "number" && !Number.isNaN(parsedAmount) && parsedAmount > 0 && (
                 <Text style={[s.note, { color: theme.textMuted }]}>
-                  {t(language, "pay_total", { total: formatMoney(parsedAmount * periods, currency, language) })}
+                  {t(language, "pay_total", { total: formatMoney(parsedAmount * periods, docCur, language) })}
                 </Text>
               )}
               {mode === "pay" && plan.renewal && plan.overdue && (

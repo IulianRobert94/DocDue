@@ -643,6 +643,20 @@ describe("review prompt conditions", () => {
 
 // ─── Excel Import Date Parsing ──────────────────────────
 
+describe("excel import columns", () => {
+  it("reads the columns DocDue exports today ('Pentru', 'Monedă') and the older ones", () => {
+    const { parseImportedRows } = require("../core/importParser");
+    const { docs } = parseImportedRows([
+      { Titlu: "Chirie", "Scadență": "2026-11-10", "Sumă": 400, "Monedă": "EUR", Pentru: "Apartament" },
+      { Title: "RCA", "Due date": "2026-12-01", Amount: 1450, Currency: "RON", For: "Logan" },
+      { Titlu: "Vechi", "Scadență": "2026-12-01", "Asociat cu": "Duster", "Monedă": "XYZ" },
+    ], "ro");
+    expect(docs.map((d: RawDocument) => [d.asset, d.currency])).toEqual([
+      ["Apartament", "EUR"], ["Logan", "RON"], ["Duster", undefined],
+    ]);
+  });
+});
+
 describe("excel import date parsing", () => {
   // Replicate the parseDateValue logic from DataSection
   function parseDateValue(raw: unknown): string {

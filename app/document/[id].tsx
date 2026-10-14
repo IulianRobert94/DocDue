@@ -25,6 +25,7 @@ import { deleteWithUndo } from '../../src/core/confirmActions';
 import { isDemoDocument, isAtFreeLimit, countTowardFreeLimit } from '../../src/core/helpers';
 import { usePaySheet, payButtonKey } from '../../src/components/PaySheet';
 import { ExamplePill } from '../../src/components/ExamplePill';
+import { docCurrency } from '../../src/core/money';
 import { SwipeableRow } from '../../src/components/SwipeableRow';
 import { fonts } from '../../src/theme/typography';
 import { ImageViewer } from '../../src/components/ImageViewer';
@@ -115,6 +116,8 @@ export default function DocumentDetailScreen() {
   }
 
   const category = CATEGORIES[doc.cat];
+  // Every amount of this document is in its own currency (rent in EUR, bills in lei)
+  const docCur = docCurrency(doc, currency);
   const statusConfig = STATUS_DISPLAY[doc._status] || { color: '#999', labelKey: 'status_ok' };
 
   const handleDelete = () => {
@@ -148,7 +151,7 @@ export default function DocumentDetailScreen() {
     { label: t(language, 'detail_due'), value: formatDate(doc.due, language) },
     // Tapping what it's for lists every document for that car / home
     ...(doc.asset ? [{ label: t(language, 'form_asset'), value: doc.asset, onPress: () => router.push(`/search?q=${encodeURIComponent(doc.asset ?? '')}`) }] : []),
-    ...(doc.amt ? [{ label: t(language, 'detail_amount'), value: formatMoney(doc.amt, currency, language), bold: true }] : []),
+    ...(doc.amt ? [{ label: t(language, 'detail_amount'), value: formatMoney(doc.amt, docCur, language), bold: true }] : []),
     { label: t(language, 'detail_recurrence'), value: getRecurrenceLabel(doc.rec, language) },
     ...(nextReminder ? [{ label: t(language, 'detail_next_reminder'), value: formatDate(nextReminder, language) }] : []),
   ];
@@ -358,7 +361,7 @@ export default function DocumentDetailScreen() {
                         {formatDate(payment.date, language)}
                       </Text>
                       <Text style={[s.infoValue, { color: theme.text }]}>
-                        {payment.amt != null ? formatMoney(payment.amt, currency, language) : '—'}
+                        {payment.amt != null ? formatMoney(payment.amt, docCur, language) : '—'}
                       </Text>
                     </View>
                   </SwipeableRow>
@@ -381,7 +384,7 @@ export default function DocumentDetailScreen() {
                     <Text style={[s.infoValue, { color: theme.text, fontWeight: '700', fontFamily: fonts.bold }]}>
                       {formatMoney(
                         doc.paymentHistory.reduce((sum, p) => sum + (p.amt || 0), 0),
-                        currency,
+                        docCur,
                         language,
                       )}
                     </Text>
@@ -454,7 +457,7 @@ export default function DocumentDetailScreen() {
             </View>
             <AnimatedPressable
               style={s.actionRow}
-              onPress={() => router.push(`/form?dupCat=${doc.cat}&dupType=${encodeURIComponent(doc.type)}&dupTitle=${encodeURIComponent(doc.title)}&dupAsset=${encodeURIComponent(doc.asset || '')}&dupAmt=${encodeURIComponent(String(doc.amt || ''))}&dupRec=${encodeURIComponent(doc.rec)}&dupNotes=${encodeURIComponent(doc.notes || '')}`)}
+              onPress={() => router.push(`/form?dupCat=${doc.cat}&dupType=${encodeURIComponent(doc.type)}&dupTitle=${encodeURIComponent(doc.title)}&dupAsset=${encodeURIComponent(doc.asset || '')}&dupAmt=${encodeURIComponent(String(doc.amt || ''))}&dupRec=${encodeURIComponent(doc.rec)}&dupNotes=${encodeURIComponent(doc.notes || '')}&dupCur=${doc.currency ?? ''}`)}
               accessibilityLabel={t(language, 'detail_duplicate')}
             >
               <Ionicons name="copy-outline" size={18} color={theme.primary} style={{ marginRight: 6 }} />
@@ -470,7 +473,7 @@ export default function DocumentDetailScreen() {
                 const summary = t(language, 'share_summary', {
                   title: doc.title,
                   due: formatDate(doc.due, language),
-                  amount: doc.amt ? formatMoney(doc.amt, currency, language) : '—',
+                  amount: doc.amt ? formatMoney(doc.amt, docCur, language) : '—',
                   recurrence: getRecurrenceLabel(doc.rec, language),
                   category: catLabel,
                   type: translateSubtype(doc.type, language),

@@ -21,8 +21,9 @@ import { useDocumentStore, useEnrichedDocument } from '../src/stores/useDocument
 import { t, tp, translateSubtype } from '../src/core/i18n';
 import { parseLocalDate, addDaysToDate, addMonthsKeepingDay, getTodayString } from '../src/core/dateUtils';
 import { formatDate, getRecurrenceLabel } from '../src/core/formatters';
-import { CATEGORIES, RECURRENCE_QUICK, RECURRENCE_OPTIONS, MAX_ATTACHMENTS } from '../src/core/constants';
-import type { CategoryId, RecurrenceValue, RawDocument, Attachment } from '../src/core/constants';
+import { CATEGORIES, RECURRENCE_QUICK, RECURRENCE_OPTIONS, MAX_ATTACHMENTS, CURRENCY_OPTIONS } from '../src/core/constants';
+import type { CategoryId, RecurrenceValue, RawDocument, Attachment, CurrencyCode } from '../src/core/constants';
+import { docCurrency } from '../src/core/money';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AnimatedPressable, FadeInView, useReduceMotion } from '../src/components/AnimatedUI';
 import { RowDivider } from '../src/components/settings/SettingsUI';
@@ -64,9 +65,9 @@ export default function FormScreen() {
   const language = useLanguage();
   const currency = useCurrency();
 
-  const { editId, cat: catParam, dupCat, dupType, dupTitle, dupAsset, dupAmt, dupRec, dupNotes, prefillTitle, prefillDue, prefillAsset, prefillType } = useLocalSearchParams<{
+  const { editId, cat: catParam, dupCat, dupType, dupTitle, dupAsset, dupAmt, dupRec, dupNotes, dupCur, prefillTitle, prefillDue, prefillAsset, prefillType } = useLocalSearchParams<{
     editId?: string; cat?: string;
-    dupCat?: string; dupType?: string; dupTitle?: string; dupAsset?: string; dupAmt?: string; dupRec?: string; dupNotes?: string;
+    dupCat?: string; dupType?: string; dupTitle?: string; dupAsset?: string; dupAmt?: string; dupRec?: string; dupNotes?: string; dupCur?: string;
     prefillTitle?: string; prefillDue?: string; prefillAsset?: string; prefillType?: string;
   }>();
   const existingDoc = useEnrichedDocument(editId);
@@ -106,6 +107,9 @@ export default function FormScreen() {
   const [dueSource, setDueSource] = useState<'default' | 'legal' | 'user'>(
     existingDoc?.due || defaultDue !== addDaysToDate(getTodayString(), 30) ? 'user' : 'default');
   const [amt, setAmt] = useState<string>(existingDoc?.amt ? String(existingDoc.amt) : (dupAmt || ''));
+  // Each document has its own currency (rent in EUR, bills in lei)
+  const [docCur, setDocCur] = useState<CurrencyCode>(
+    docCurrency(existingDoc ?? { currency: dupCur as CurrencyCode | undefined }, currency));
   const [rec, setRec] = useState<RecurrenceValue>(existingDoc?.rec || (dupRec as RecurrenceValue) || 'none');
   const [showRecPicker, setShowRecPicker] = useState(false);
   const isCustomRec = rec !== 'none' && rec !== 'monthly' && rec !== 'annual';
@@ -508,6 +512,7 @@ export default function FormScreen() {
       cat, type: finalType, title: finalTitle,
       asset: assetRef.current.trim() || undefined, due,
       amt: amtRef.current.trim() ? Number(amtRef.current.trim().replace(',', '.')) : null, rec: finalRec,
+      currency: amtRef.current.trim() ? docCur : undefined,
       notes: notesRef.current.trim() || undefined,
       attachments: attachments.length > 0 ? attachments : undefined,
       reminderDays: customReminders || undefined,
@@ -764,7 +769,19 @@ export default function FormScreen() {
                     inputAccessoryViewID={Platform.OS === 'ios' ? 'amtKeyboardDone' : undefined}
                     accessibilityLabel={t(language, 'form_amount')}
                     aria-invalid={!!errors.amt} />
-                  <Text style={{ fontSize: 15, fontFamily: fonts.regular, color: theme.textMuted, marginLeft: 6 }}>{currency}</Text>
+                  <AnimatedPressable
+                    onPress={() => {
+                      const i = CURRENCY_OPTIONS.findIndex((c) => c.value === docCur);
+                      setDocCur(CURRENCY_OPTIONS[(i + 1) % CURRENCY_OPTIONS.length].value);
+                    }}
+                    hapticStyle="selection"
+                    style={[s.currencyChip, { backgroundColor: theme.inputFill }]}
+                    accessibilityRole="button"
+                    accessibilityLabel={t(language, 'form_currency_a11y', { currency: docCur })}
+                  >
+                    <Text style={{ fontSize: 15, fontFamily: fonts.semiBold, color: theme.primaryText }}>{docCur}</Text>
+                    <Ionicons name="swap-horizontal" size={13} color={theme.textMuted} />
+                  </AnimatedPressable>
                 </View>
                 {errors.amt ? <Text style={s.errorText} accessibilityLiveRegion="polite" accessibilityRole="alert">{errors.amt}</Text> : null}
                 <View style={s.dividerWrap}><View style={[s.divider, { backgroundColor: theme.divider }]} /></View>
@@ -1172,6 +1189,7 @@ export default function FormScreen() {
 }
 
 const s = StyleSheet.create({
+  currencyChip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, marginLeft: 6 },
   dateExtras: { paddingHorizontal: 16, paddingBottom: 10, gap: 6 },
   shortcutChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14 },
   shortcutText: { fontSize: 13, fontFamily: fonts.medium },

@@ -17,6 +17,7 @@ import { buildMarkAsPaidAction, deleteWithUndo, showDocumentMenu } from '../../s
 import { isDemoDocument, isAtFreeLimit, countTowardFreeLimit } from '../../src/core/helpers';
 import { usePaySheet } from '../../src/components/PaySheet';
 import { ExamplePill } from '../../src/components/ExamplePill';
+import { docCurrency } from '../../src/core/money';
 import { formatDate, formatMoney, formatDaysRemaining } from '../../src/core/formatters';
 import { sortDocumentsByField } from '../../src/core/enrichment';
 import { CATEGORIES, STATUS_DISPLAY, SORT_OPTIONS } from '../../src/core/constants';
@@ -223,7 +224,7 @@ export default function CategoryDetailScreen() {
                         <Ionicons name={STATUS_DISPLAY[item._status]?.icon || 'ellipse'} size={13} color={statusColor} />
                         <Text style={[s.rowDays, { color: statusColor }]}>{formatDaysRemaining(item._daysUntil, language)}</Text>
                       </View>
-                      {item.amt ? <Text style={[s.rowAmt, { color: theme.textMuted }]}>{formatMoney(item.amt, currency, language)}</Text> : null}
+                      {item.amt ? <Text style={[s.rowAmt, { color: theme.textMuted }]}>{formatMoney(item.amt, docCurrency(item, currency), language)}</Text> : null}
                     </View>
                     <Ionicons name="chevron-forward" size={14} color={theme.textDim} style={{ marginLeft: 4 }} />
                   </View>

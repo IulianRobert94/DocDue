@@ -114,6 +114,8 @@ export interface RawDocument {
   /** Day of month the user picked (1–31); monthly-type due dates return to it after short months */
   dueDay?: number;
   amt: number | null;
+  /** Currency of `amt`; absent on older documents, which use the app currency */
+  currency?: CurrencyCode;
   rec: RecurrenceValue;
   notes?: string;
   attachments?: Attachment[];

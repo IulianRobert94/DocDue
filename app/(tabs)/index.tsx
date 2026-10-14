@@ -46,6 +46,7 @@ import { isDemoDocument } from "../../src/core/helpers";
 import { useClockStore } from "../../src/stores/useClockStore";
 import { JournalHomeCard } from "../../src/components/journal/JournalHomeCard";
 import { ExamplePill } from "../../src/components/ExamplePill";
+import { docCurrency } from "../../src/core/money";
 import { fonts } from "../../src/theme/typography";
 
 const COLLAPSE_START = 30;
@@ -413,7 +414,7 @@ export default function HomeScreen() {
                           {formatDaysRemaining(doc._daysUntil, lang)}
                         </Text>
                         {doc.amt ? (
-                          <Text style={[styles.docAmount, { color: theme.textMuted }]}>{formatMoney(doc.amt, currency, lang)}</Text>
+                          <Text style={[styles.docAmount, { color: theme.textMuted }]}>{formatMoney(doc.amt, docCurrency(doc, currency), lang)}</Text>
                         ) : null}
                       </View>
                       <Ionicons name="chevron-forward" size={13} color={theme.textDim} style={{ marginLeft: 4 }} />

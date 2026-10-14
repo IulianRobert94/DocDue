@@ -24,6 +24,7 @@ import { ExamplePill } from '../../src/components/ExamplePill';
 import { showToast } from '../../src/stores/useToastStore';
 import { sortDocumentsByField } from '../../src/core/enrichment';
 import { matchesSearch } from '../../src/core/search';
+import { docCurrency } from '../../src/core/money';
 import { STATUS_DISPLAY, CATEGORIES } from '../../src/core/constants';
 import type { CategoryId, DocumentStatus, SortField } from '../../src/core/constants';
 import Reanimated, { FadeInDown, FadeOut } from 'react-native-reanimated';
@@ -426,7 +427,7 @@ export default function SearchScreen() {
                         {item.resolved ? formatDate(item.resolved, language) : formatDaysRemaining(item._daysUntil, language)}
                       </Text>
                     </View>
-                    {item.amt ? <Text style={[s.rowAmt, { color: theme.textMuted }]}>{formatMoney(item.amt, currency, language)}</Text> : null}
+                    {item.amt ? <Text style={[s.rowAmt, { color: theme.textMuted }]}>{formatMoney(item.amt, docCurrency(item, currency), language)}</Text> : null}
                   </View>
                   <Ionicons name="chevron-forward" size={14} color={theme.textDim} style={{ marginLeft: 4 }} />
                 </View>

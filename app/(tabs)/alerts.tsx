@@ -15,6 +15,7 @@ import { t, translateSubtype } from '../../src/core/i18n';
 import { SwipeableRow } from '../../src/components/SwipeableRow';
 import { buildMarkAsPaidAction, deleteWithUndo, showDocumentMenu } from '../../src/core/confirmActions';
 import { groupAlerts } from '../../src/core/alerts';
+import { docCurrency, formatTotals } from '../../src/core/money';
 import type { AlertGroupKey } from '../../src/core/alerts';
 import { isDemoDocument } from '../../src/core/helpers';
 import { usePaySheet } from '../../src/components/PaySheet';
@@ -39,10 +40,10 @@ export default function AlertsScreen() {
   const { openPaySheet, paySheet } = usePaySheet();
 
   // Late / next 7 days / next 30 days / later — each with the money it needs
-  const sections = useMemo(() => groupAlerts(enrichedDocs).map((group) => ({
+  const sections = useMemo(() => groupAlerts(enrichedDocs, currency).map((group) => ({
     ...group,
     title: t(language, `alerts_group_${group.key}`),
-  })), [enrichedDocs, language]);
+  })), [enrichedDocs, language, currency]);
 
   return (
     <View style={[s.container, { backgroundColor: theme.background }]}>
@@ -66,14 +67,14 @@ export default function AlertsScreen() {
             )}
           </FadeInView>
         }
-        renderSectionHeader={({ section: { title, key, data, total } }) => (
+        renderSectionHeader={({ section: { title, key, data, totals } }) => (
           <View style={s.sectionHeader} accessibilityRole="header">
             <Ionicons name={GROUP_ICON[key].icon} size={14} color={GROUP_ICON[key].color ?? theme.textMuted} />
             <Text style={[s.sectionTitle, { color: theme.textSecondary }]}>
               {title} ({data.length})
             </Text>
-            {total > 0 && (
-              <Text style={[s.sectionTotal, { color: theme.textSecondary }]}>{formatMoney(total, currency, language)}</Text>
+            {formatTotals(totals, language) !== '' && (
+              <Text style={[s.sectionTotal, { color: theme.textSecondary }]}>{formatTotals(totals, language)}</Text>
             )}
           </View>
         )}
@@ -139,7 +140,7 @@ export default function AlertsScreen() {
                       </View>
                       {item.amt ? (
                         <Text style={[s.rowAmount, { color: theme.textMuted }]}>
-                          {formatMoney(item.amt, currency, language)}
+                          {formatMoney(item.amt, docCurrency(item, currency), language)}
                         </Text>
                       ) : null}
                     </View>
