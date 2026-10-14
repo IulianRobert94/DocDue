@@ -1821,7 +1821,7 @@ describe("i18n — new recurrence keys", () => {
   });
 
   it("form reminder keys exist in both languages", () => {
-    const keys = ["form_reminder", "form_reminder_auto", "form_reminder_days_suffix", "form_reminder_reset"];
+    const keys = ["form_reminder", "form_reminder_reset", "form_reminder_before", "form_reminder_when", "form_reminder_when_none", "reminder_chip_one"];
     for (const key of keys) {
       expect(t("ro", key)).not.toBe(key);
       expect(t("en", key)).not.toBe(key);

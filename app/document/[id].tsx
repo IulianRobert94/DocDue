@@ -3,7 +3,7 @@
  * Modal with animated entrance, premium info card
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet, Alert, Image, Share, ActivityIndicator, Animated, Platform, ActionSheetIOS } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { showToast } from '../../src/stores/useToastStore';
@@ -17,6 +17,8 @@ import { useTheme, useLanguage, useCurrency, useSettingsStore } from '../../src/
 import { useEnrichedDocument, useDocumentStore } from '../../src/stores/useDocumentStore';
 import { t, translateSubtype } from '../../src/core/i18n';
 import { formatDate, formatMoney, formatDaysRemaining, getRecurrenceLabel } from '../../src/core/formatters';
+import { addDaysToDate, getTodayString } from '../../src/core/dateUtils';
+import { getScheduledReminderOffsets } from '../../src/core/enrichment';
 import { CATEGORIES, STATUS_DISPLAY } from '../../src/core/constants';
 import { AnimatedPressable, FadeInView, useReduceMotion } from '../../src/components/AnimatedUI';
 import { deleteWithUndo } from '../../src/core/confirmActions';
@@ -41,7 +43,18 @@ export default function DocumentDetailScreen() {
   const restoreFromArchive = useDocumentStore((s) => s.restoreFromArchive);
   const deletePaymentRecord = useDocumentStore((s) => s.deletePaymentRecord);
   const isPremium = useSettingsStore((s) => s.settings.isPremium);
+  const notificationsEnabled = useSettingsStore((s) => s.settings.notificationsEnabled);
   const { openPaySheet, paySheet } = usePaySheet();
+
+  // When the next reminder for this document arrives (advance, due day or follow-up)
+  const nextReminder = useMemo(() => {
+    if (!doc || doc.resolved || isDemoDocument(doc) || !notificationsEnabled) return null;
+    const today = getTodayString();
+    return getScheduledReminderOffsets(doc)
+      .map((offset) => addDaysToDate(doc.due, -offset))
+      .filter((date) => date > today)
+      .sort()[0] ?? null;
+  }, [doc, notificationsEnabled]);
   const [viewImage, setViewImage] = useState<string | null>(null);
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [showCongrats, setShowCongrats] = useState(false);
@@ -130,12 +143,14 @@ export default function DocumentDetailScreen() {
     showToast(t(language, 'toast_restored'));
   };
 
-  const infoRows: { label: string; value: string; bold?: boolean }[] = [
+  const infoRows: { label: string; value: string; bold?: boolean; onPress?: () => void }[] = [
     ...(doc.resolved ? [{ label: t(language, 'status_archived'), value: formatDate(doc.resolved, language) }] : []),
     { label: t(language, 'detail_due'), value: formatDate(doc.due, language) },
-    ...(doc.asset ? [{ label: t(language, 'form_asset'), value: doc.asset }] : []),
+    // Tapping what it's for lists every document for that car / home
+    ...(doc.asset ? [{ label: t(language, 'form_asset'), value: doc.asset, onPress: () => router.push(`/search?q=${encodeURIComponent(doc.asset ?? '')}`) }] : []),
     ...(doc.amt ? [{ label: t(language, 'detail_amount'), value: formatMoney(doc.amt, currency, language), bold: true }] : []),
     { label: t(language, 'detail_recurrence'), value: getRecurrenceLabel(doc.rec, language) },
+    ...(nextReminder ? [{ label: t(language, 'detail_next_reminder'), value: formatDate(nextReminder, language) }] : []),
   ];
 
   return (
@@ -195,14 +210,16 @@ export default function DocumentDetailScreen() {
         <FadeInView delay={200} style={[s.group, { backgroundColor: theme.card }]}>
           {infoRows.map((row, i) => (
             <View key={i}>
-              <View style={s.infoRow}>
+              <AnimatedPressable style={s.infoRow} onPress={row.onPress} disabled={!row.onPress} haptic={false}
+                accessibilityRole={row.onPress ? 'button' : undefined} accessibilityLabel={`${row.label}: ${row.value}`}>
                 <Text style={[s.infoLabel, { color: theme.textSecondary }]}>{row.label}</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 }}>
-                  <Text style={[s.infoValue, { color: theme.text }, row.bold && { fontWeight: '700', fontFamily: fonts.bold }]} numberOfLines={2}>
+                  <Text style={[s.infoValue, { color: row.onPress ? theme.primaryText : theme.text }, row.bold && { fontWeight: '700', fontFamily: fonts.bold }]} numberOfLines={2}>
                     {row.value}
                   </Text>
+                  {row.onPress && <Ionicons name="chevron-forward" size={14} color={theme.textDim} />}
                 </View>
-              </View>
+              </AnimatedPressable>
               {i < infoRows.length - 1 && (
                 <View style={{ paddingLeft: 16 }}>
                   <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: theme.divider }} />

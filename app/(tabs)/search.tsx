@@ -43,7 +43,7 @@ export default function SearchScreen() {
   const archivedDocs = useArchivedDocuments();
   const router = useRouter();
   const navigation = useNavigation();
-  const { status: statusParam } = useLocalSearchParams<{ status?: string }>();
+  const { status: statusParam, q: queryParam } = useLocalSearchParams<{ status?: string; q?: string }>();
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [isFocused, setIsFocused] = useState(false);
@@ -89,6 +89,16 @@ export default function SearchScreen() {
     });
     return unsubscribe;
   }, [navigation]);
+
+  // Opened with a query (e.g. a car from the document detail): search for it
+  useEffect(() => {
+    if (typeof queryParam === 'string' && queryParam.trim()) {
+      setSearchQuery(queryParam);
+      setDebouncedQuery(queryParam);
+      setStatusFilter('all');
+      setScopeFilter('all');
+    }
+  }, [queryParam]);
 
   // The archive chip disappears once the archive is empty — don't stay on it
   useEffect(() => {
@@ -182,10 +192,11 @@ export default function SearchScreen() {
             <Ionicons name="search" size={16} color={theme.textMuted} style={{ marginRight: 6 }} />
             <TextInput
               ref={inputRef}
+              key={queryParam || 'search'}
               style={[s.searchInput, { color: theme.text }]}
               placeholder={t(language, 'search_placeholder')}
               placeholderTextColor={theme.textMuted}
-              defaultValue=""
+              defaultValue={queryParam || ''}
               onChangeText={setSearchQuery}
               onFocus={handleFocus}
               autoCapitalize="none"
