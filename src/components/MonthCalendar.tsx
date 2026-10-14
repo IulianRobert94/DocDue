@@ -75,8 +75,10 @@ export function MonthCalendar({ docs, today, theme, language, currency, onOpen }
               const entries = days.get(date) ?? [];
               const isSelected = date === selected;
               const isToday = date === today;
+              // The column is a plain View: AnimatedPressable doesn't pass `flex` to its outer layer
               return (
-                <AnimatedPressable key={date} style={s.cell} onPress={() => setSelected(date)} haptic={false}
+                <View key={date} style={s.cell}>
+                <AnimatedPressable style={s.cellPress} onPress={() => setSelected(date)} haptic={false}
                   accessibilityRole="button"
                   accessibilityState={{ selected: isSelected }}
                   accessibilityLabel={`${formatDate(date, language)}${entries.length ? `, ${entries.length}` : ""}`}>
@@ -97,6 +99,7 @@ export function MonthCalendar({ docs, today, theme, language, currency, onOpen }
                     ))}
                   </View>
                 </AnimatedPressable>
+                </View>
               );
             })}
           </View>
@@ -148,7 +151,8 @@ const s = StyleSheet.create({
   card: { marginHorizontal: 16, borderRadius: 12, overflow: "hidden", paddingVertical: 6 },
   week: { flexDirection: "row" },
   weekday: { flex: 1, textAlign: "center", fontSize: 12, fontFamily: fonts.medium, paddingVertical: 6 },
-  cell: { flex: 1, alignItems: "center", paddingVertical: 4, minHeight: 48 },
+  cell: { flex: 1, minHeight: 48 },
+  cellPress: { alignItems: "center", paddingVertical: 4, width: "100%" },
   dayCircle: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
   dayText: { fontSize: 15, fontFamily: fonts.medium },
   dots: { flexDirection: "row", gap: 3, height: 6, marginTop: 3 },
