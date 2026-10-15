@@ -1,23 +1,27 @@
-REVIEW NOTES FOR APP STORE REVIEW TEAM:
+REVIEW NOTES FOR APP STORE REVIEW TEAM (version 1.1.0):
 
-DocDue is a fully offline document expiration tracker. Key points for review:
+DocDue is a fully offline tracker for documents and bills with due dates (car insurance, vehicle inspection, IDs, rent, utilities, taxes, warranties). Key points for review:
 
-1. NO LOGIN REQUIRED - The app has no accounts, no sign-up, no server. All data is stored locally on the device using AsyncStorage.
+1. NO LOGIN REQUIRED - No accounts, no sign-up, no server. All data is stored locally on the device.
 
-2. NO NETWORK REQUESTS - The app makes zero network calls for core functionality. OCR uses on-device ML Kit (no cloud). The only network calls are direct Apple StoreKit / Google Play Billing for in-app purchases.
+2. EXAMPLE DATA - On first launch the app shows 8 example documents (marked "Example") so the reviewer can see every screen right away. They can be removed with the "Remove examples" button on the home screen; documents the user adds are never touched.
 
-3. BIOMETRIC LOCK - The app includes optional Face ID/Touch ID lock (Settings > Biometric Lock). This is user-enabled and uses expo-local-authentication with device passcode fallback.
+3. NO NETWORK REQUESTS - Core functionality makes zero network calls. Document scanning (OCR) runs on-device with ML Kit. The only network calls are Apple StoreKit / Google Play Billing for the in-app purchase.
 
-4. IN-APP PURCHASES - PRO upgrade (one-time purchase, non-consumable) removes the 10-document limit and unlocks analytics, backup/restore, and Excel export. Direct Apple StoreKit / Google Play Billing via react-native-iap.
+4. IN-APP PURCHASE - "DocDue Pro" is a one-time, non-consumable purchase (no subscription). It removes the 10-document limit and unlocks analytics with a 12-month forecast, backup/restore and Excel export/import. "Restore purchase" is on the Pro screen (Settings > DocDue Pro).
 
-5. NOTIFICATIONS - Local push notifications only (no remote/server push). Scheduled for document reminders at 9:00 AM, morning digest, and weekly summary.
+5. NOTIFICATIONS - Local notifications only (no remote push). Reminders at 9:00 AM before the due date, on the due day and a few times after it until the user marks the item done; a morning summary only when something needs attention; a weekly summary. Notifications have quick actions ("Paid" / "Renewed") that open the document so the user can confirm the new date.
 
-6. OCR - Camera access is used to scan documents and auto-fill form fields. Processing is done entirely on-device using ML Kit text recognition. No images are uploaded.
+6. CAMERA / PHOTOS - Used only when the user taps "Scan" or attaches a photo to a document. Processing is on-device; no images are uploaded.
 
-7. CALENDAR - Optional calendar integration adds document due dates to the device calendar. Requires user permission.
+7. CALENDAR - Optional: adds a document's due date to the device calendar after the user grants permission.
 
-8. LANGUAGES - Romanian and English. User can switch in Settings.
+8. BIOMETRIC LOCK - Optional Face ID / Touch ID lock (Settings), with device passcode fallback. While locked, notification texts hide document details.
 
-9. PRIVACY - No data collection, no analytics, no tracking, no third-party data sharing. Privacy policy available in-app (Settings > Privacy Policy).
+9. MAINTENANCE LOG - A free section ("Maintenance log", on the home screen) where the user notes when a part is replaced (battery, tyres, filters) and sees how long it lasted.
+
+10. LANGUAGES - Romanian and English (follows the device language; can be changed in Settings).
+
+11. PRIVACY - No data collection, no analytics, no tracking, no third-party sharing. Privacy policy in-app (Settings > Privacy Policy) and at https://iulianrobert94.github.io/DocDue/privacy.html
 
 CONTACT: andreiiulianrobert@gmail.com

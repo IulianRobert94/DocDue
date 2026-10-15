@@ -1,40 +1,55 @@
-NUME APP: DocDue - Documente & Termene
+NUME (30): DocDue: RCA, ITP și Scadențe
 
-SUBTITLU (30 chars max):
-Urmareste Termene. Fii Pregatit.
+SUBTITLU (App Store, 30): Acte, facturi și termene la zi
 
-DESCRIERE SCURTA (Google Play, 80 chars):
-Urmareste termenele documentelor. Nu rata niciodata o scadenta.
+CUVINTE CHEIE (App Store, 100): rovinieta,asigurare,casco,buletin,pasaport,permis,impozit,chirie,expirare,reminder,garantie,plata
 
-DESCRIERE LUNGA:
+TEXT PROMOȚIONAL (App Store, 170 — se poate schimba fără versiune nouă):
+Te anunțăm înainte, în ziua scadenței și după — până rezolvi. RCA, ITP, rovinietă, buletin, facturi și impozite, toate într-un singur loc.
 
-Nu mai rata niciun termen. DocDue iti organizeaza toate datele de expirare ale documentelor importante intr-un singur loc — asigurari, acte de identitate, permise, facturi, contracte si multe altele.
+DESCRIERE SCURTĂ (Google Play, 80):
+RCA, ITP, rovinietă, buletin, facturi: te anunțăm înainte să expire.
 
-FUNCTII PRINCIPALE
+CE E NOU 1.1.0 (500):
+Cea mai mare actualizare de până acum:
+• Notificări și în ziua scadenței și după, până rezolvi
+• „Plătit / Reînnoit” îți arată noua dată, cu buton Anulează
+• Alerte grupate pe perioade, cu sume, plus calendar lunar
+• Adaugi mai repede: completare corectă, scurtături de dată, scanare din galerie
+• Arhivă, monedă pentru fiecare act, căutare mai deșteaptă
+• Reparat: „Șterge exemplele” nu mai atinge documentele tale
 
-- Alerte Inteligente: Primesti notificari cu zile inainte de expirarea oricarui document. Rezumat zilnic si saptamanal.
-- Patru Categorii: Organizeaza documentele pe Vehicule, Casa, Personal si Financiar — fiecare cu zeci de subtipuri predefinite.
-- Adaugare Rapida cu OCR: Fotografiezi documentul si DocDue completeaza automat data, suma si tipul folosind recunoastere text pe dispozitiv.
-- Urmarire Plati: Marcheaza documentele ca platite, urmareste istoricul platilor si vezi analize lunare.
-- Documente Recurente: Seteaza recurenta anuala, lunara sau saptamanala. Cand platesti, data scadenta avanseaza automat.
-- Scor Sanatate: Vezi starea generala a documentelor dintr-o privire — stii instant daca ceva necesita atentie.
-- Integrare Calendar: Adauga termenele direct in calendarul telefonului cu un singur tap.
-- Bilingv: Suport complet romana si engleza. Schimba oricand din setari.
-- Blocare Biometrica: Protejeaza documentele cu Face ID, Touch ID sau amprenta.
-- Backup & Restaurare: Exporta datele ca fisier backup. Importa pe orice dispozitiv.
-- Design Dark: Interfata eleganta dark inspirata de aplicatii fintech moderne.
+DESCRIERE (4000):
 
-CONFIDENTIALITATE
+Ți-a expirat vreodată RCA-ul fără să-ți dai seama? Ai uitat de ITP, de rovinietă sau de factura la curent?
 
-DocDue stocheaza totul pe dispozitivul tau. Fara conturi, fara cloud, fara urmarire, fara reclame. Datele tale nu parasesc niciodata telefonul.
+DocDue ține minte toate termenele pentru tine — acte de mașină, acte personale, facturi, chirie, impozite, garanții — și te anunță la timp.
 
-Gratuit cu pana la 10 documente. Treci la PRO (plata unica, fara abonament) pentru documente nelimitate, analize, backup/restaurare si export Excel. Fara reclame, niciodata.
+NIMIC NU MAI EXPIRĂ PE TĂCUTE
+• Te anunțăm înainte, în ziua scadenței și după ea — până marchezi că ai rezolvat.
+• Pentru buletin, pașaport și permis te avertizăm cu 6 luni înainte, ca să prinzi programare.
+• Numărul de pe iconiță îți arată câte acte au expirat.
 
----
+TOTUL ÎNTR-UN SINGUR LOC
+• Vehicule, Casă, Personal, Financiar — cu zeci de tipuri românești: RCA, ITP, CASCO, rovinietă, carte verde, impozit, asigurare PAD, CAS/CASS, rate, abonamente, garanții.
+• Alerte grupate: întârziate, următoarele 7 zile, următoarele 30 de zile — cu suma de plată la fiecare.
+• Calendar lunar cu toate scadențele.
 
-CUVINTE CHEIE:
-documente,termene,expirare,notificari,asigurare,scadenta,facturi,acte,pasaport,reinnoire
+SIMPLU DE FOLOSIT
+• Scrii „RCA Logan” și aplicația completează singură tipul și recurența.
+• Scanezi documentul cu camera sau din galerie — data de expirare și suma se completează automat (pe telefon, fără internet).
+• Scurtături de dată (+1 lună, +1 an) și termenele legale la impozite (31 martie).
+• Ai plătit sau ai reînnoit? Un tap: vezi noua dată și poți anula în 5 secunde.
+• Alegi mașina sau casa dintr-o listă și vezi toate actele ei.
 
-CATEGORIE: Utilitare
+BANII TĂI, LA VEDERE
+• Istoric de plăți, scor de sănătate al documentelor, monedă pentru fiecare act (lei, euro, dolari).
+• Analiză și prognoză pe 12 luni: cât ai de plătit și când (PRO).
 
-RATING VARSTA: 4+ (fara continut inadecvat)
+JURNAL DE ÎNTREȚINERE
+• Notezi când schimbi o piesă — baterie, plăcuțe, anvelope, filtru — și vezi cât a ținut, cât ai cheltuit și când urmează următoarea schimbare.
+
+100% PRIVAT
+Datele rămân pe telefonul tău. Fără cont, fără servere, fără reclame. Blocare cu Face ID sau amprentă; cu blocarea pornită, notificările nu arată detalii pe ecranul blocat.
+
+Gratuit pentru până la 10 documente. DocDue PRO — plată unică, fără abonament: documente nelimitate, analiză și prognoză, backup și export Excel.

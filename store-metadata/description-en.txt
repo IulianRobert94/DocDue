@@ -1,49 +1,55 @@
-APP NAME: DocDue - Document Tracker
+NAME (30): DocDue: Expiry & Bill Reminder
 
-SUBTITLE (30 chars max):
-Track Deadlines. Stay Ahead.
+SUBTITLE (App Store, 30): Track IDs, insurance, renewals
 
-SHORT DESCRIPTION (Google Play, 80 chars):
-Track document expiration dates. Never miss a deadline for insurance, IDs, bills.
+KEYWORDS (App Store, 100): document,tracker,expiration,deadline,passport,license,warranty,rent,tax,due,date,organizer,alert
 
-LONG DESCRIPTION:
+PROMOTIONAL TEXT (App Store, 170 — can change without a new version):
+Reminders before, on and after the due date — until it's done. Insurance, inspections, IDs, bills and taxes, all in one place.
 
-Never miss a deadline again. DocDue keeps track of all your important document expiration dates in one place — insurance policies, IDs, driver's licenses, utility bills, contracts, and more.
+SHORT DESCRIPTION (Google Play, 80):
+Insurance, IDs, bills and renewals: reminders before anything expires.
 
-KEY FEATURES
+WHAT'S NEW 1.1.0 (500):
+Our biggest update yet:
+• Reminders on the due day and after it, until it's done
+• "Paid / Renewed" shows the new date, with Undo
+• Alerts grouped by period with totals, plus a month calendar
+• Faster adding: smarter detection, date shortcuts, scan from the gallery
+• Archive, a currency per document, smarter search
+• Fixed: "Remove examples" no longer touches your own documents
 
-- Smart Reminders: Get notified days before any document expires. Morning digest and weekly summaries keep you informed.
-- Four Categories: Organize documents by Vehicle, Home, Personal, and Financial — each with dozens of preset subtypes.
-- Quick Add with OCR: Snap a photo and DocDue auto-fills the date, amount, and document type using on-device text recognition.
-- Payment Tracking: Mark documents as paid, track payment history, and see monthly spending analytics.
-- Recurring Documents: Set up annual, monthly, or weekly recurrence. When you pay, the due date automatically advances.
-- Health Score: See your overall document health at a glance — know instantly if anything needs attention.
-- Calendar Integration: Add due dates directly to your device calendar with one tap.
-- Bilingual: Full Romanian and English support. Switch anytime in settings.
-- Biometric Lock: Protect your documents with Face ID, Touch ID, or fingerprint.
-- Backup & Restore: Export your data as a backup file. Import it on any device.
-- Dark Design: Beautiful dark interface inspired by modern fintech apps.
+DESCRIPTION (4000):
 
-PRIVACY FIRST
+Ever discovered your car insurance expired last week? Or that your passport ran out just before a trip?
 
-DocDue stores everything on your device. No accounts, no cloud, no tracking, no ads. Your data never leaves your phone.
+DocDue remembers every deadline for you — car documents, IDs, bills, rent, taxes, warranties — and reminds you in time.
 
-Free with up to 10 documents. Upgrade to PRO (one-time purchase, no subscription) for unlimited documents, analytics, backup/restore, and Excel export. No ads, ever.
+NOTHING EXPIRES SILENTLY
+• Reminders before, on the due day and after it — until you mark it done.
+• IDs, passports and driving licences get a 6-month heads-up, so you can book an appointment.
+• The app icon badge shows how many documents have expired.
 
----
+EVERYTHING IN ONE PLACE
+• Vehicles, Home, Personal, Financial — with dozens of preset types: insurance, inspections, road vignette, taxes, loans, subscriptions, warranties.
+• Alerts grouped into overdue, next 7 days and next 30 days — with the amount due for each.
+• A month calendar with every due date.
 
-WHAT'S NEW (v1.0.0):
-Initial release.
+EASY TO USE
+• Type "Car insurance Logan" and the app fills in the type and recurrence.
+• Scan the document with the camera or from your gallery — the expiry date and amount fill in automatically (on-device, no internet).
+• Date shortcuts (+1 month, +1 year).
+• Paid or renewed? One tap: see the new date, undo within 5 seconds.
+• Pick the car or home from a list and see all its documents.
 
-KEYWORDS (100 chars max):
-document,tracker,expiration,reminder,insurance,deadline,bills,IDs,passport,renewal
+YOUR MONEY AT A GLANCE
+• Payment history, a document health score, a currency per document (lei, euro, dollars).
+• Analytics and a 12-month forecast of what's due (PRO).
 
-CATEGORY: Utilities
+MAINTENANCE LOG
+• Note when you replace a part — battery, brake pads, tyres, filters — and see how long it lasted, what it cost and when the next one is due.
 
-AGE RATING: 4+ (no objectionable content)
+100% PRIVATE
+Your data stays on your phone. No account, no servers, no ads. Face ID / fingerprint lock; with the lock on, notifications hide details on the lock screen.
 
-COPYRIGHT: 2026 DocDue
-
-SUPPORT URL: https://iulianrobert94.github.io/DocDue/support.html
-
-PRIVACY POLICY URL: https://iulianrobert94.github.io/DocDue/privacy.html
+Free for up to 10 documents. DocDue PRO — one-time purchase, no subscription: unlimited documents, analytics and forecast, backup and Excel export.
