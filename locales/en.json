@@ -1,8 +1,10 @@
 {
-  "NSCameraUsageDescription": "DocDue needs access to the camera to take photos for documents.",
-  "NSPhotoLibraryUsageDescription": "DocDue needs access to your photos to attach them to documents.",
-  "NSFaceIDUsageDescription": "DocDue uses Face ID to protect your documents.",
-  "NSCalendarsFullAccessUsageDescription": "DocDue can add document due dates to your calendar.",
-  "NSCalendarsWriteOnlyAccessUsageDescription": "DocDue can add document due dates to your calendar.",
-  "NSDocumentsFolderUsageDescription": "DocDue needs access to import Excel files with your documents."
+  "ios": {
+    "NSCameraUsageDescription": "DocDue needs access to the camera to take photos for documents.",
+    "NSPhotoLibraryUsageDescription": "DocDue needs access to your photos to attach them to documents.",
+    "NSFaceIDUsageDescription": "DocDue uses Face ID to protect your documents.",
+    "NSCalendarsFullAccessUsageDescription": "DocDue can add document due dates to your calendar.",
+    "NSCalendarsWriteOnlyAccessUsageDescription": "DocDue can add document due dates to your calendar.",
+    "NSDocumentsFolderUsageDescription": "DocDue needs access to import Excel files with your documents."
+  }
 }

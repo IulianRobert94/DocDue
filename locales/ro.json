@@ -1,8 +1,10 @@
 {
-  "NSCameraUsageDescription": "DocDue folosește camera ca să fotografiezi documentele.",
-  "NSPhotoLibraryUsageDescription": "DocDue are nevoie de acces la poze ca să le atașezi documentelor.",
-  "NSFaceIDUsageDescription": "DocDue folosește Face ID ca să-ți protejeze documentele.",
-  "NSCalendarsFullAccessUsageDescription": "DocDue poate adăuga scadențele documentelor în calendarul tău.",
-  "NSCalendarsWriteOnlyAccessUsageDescription": "DocDue poate adăuga scadențele documentelor în calendarul tău.",
-  "NSDocumentsFolderUsageDescription": "DocDue are nevoie de acces ca să importe fișiere Excel cu documentele tale."
+  "ios": {
+    "NSCameraUsageDescription": "DocDue folosește camera ca să fotografiezi documentele.",
+    "NSPhotoLibraryUsageDescription": "DocDue are nevoie de acces la poze ca să le atașezi documentelor.",
+    "NSFaceIDUsageDescription": "DocDue folosește Face ID ca să-ți protejeze documentele.",
+    "NSCalendarsFullAccessUsageDescription": "DocDue poate adăuga scadențele documentelor în calendarul tău.",
+    "NSCalendarsWriteOnlyAccessUsageDescription": "DocDue poate adăuga scadențele documentelor în calendarul tău.",
+    "NSDocumentsFolderUsageDescription": "DocDue are nevoie de acces ca să importe fișiere Excel cu documentele tale."
+  }
 }
