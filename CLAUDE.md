@@ -79,7 +79,7 @@ Single dark theme (no light mode). Defined in `src/theme/colors.ts` via `createT
 
 ### i18n
 
-Custom implementation in `src/core/i18n.ts`. No library — just a dictionary + `t(lang, key, params?)` function. Supports `{placeholder}` interpolation. Subtype translation via `translateSubtype(value, lang)`. Fallback chain: requested language → Romanian → raw key. Counts use `tp(lang, key, n)` with `key_one` / `key_few` / `key_other` forms (Romanian CLDR rules: "1 zi", "7 zile", "20 de zile"). The parity test compares the RO and EN dictionaries directly (keys and placeholders), so every key must exist in both. iOS permission prompts are localized via `locales/*.json` (app.json `locales`).
+Custom implementation in `src/core/i18n.ts`. No library — just a dictionary + `t(lang, key, params?)` function. Supports `{placeholder}` interpolation. Subtype translation via `translateSubtype(value, lang)`. Fallback chain: requested language → Romanian → raw key. Counts use `tp(lang, key, n)` with `key_one` / `key_few` / `key_other` forms (Romanian CLDR rules: "1 zi", "7 zile", "20 de zile"). The parity test compares the RO and EN dictionaries directly (keys and placeholders), so every key must exist in both. iOS permission prompts are localized via `locales/*.json` (app.json `locales`) — keep the keys under `"ios"`: Expo writes top-level keys to Android strings too, and the release lint (`ExtraTranslation`) fails the Android build.
 
 ### Date Handling
 
@@ -143,4 +143,6 @@ Custom implementation in `src/core/i18n.ts`. No library — just a dictionary + 
 - Tests live in `src/__tests__/` (~830 tests across 13 files: core, stores, services, ocr, hydration, lifespan, items, payment, alerts, search, money, formHelpers, calendarGrid). Node environment, no component tests — keep logic in `src/core` / stores where it can be tested
 - The repo lives on an iCloud-synced Desktop: if `tsc`/`jest` hang at 0% CPU, macOS has evicted `node_modules` files — run `npm ci` (or move the repo out of iCloud)
 - xlsx is lazy-loaded in `DataSection.tsx` via `getXLSX()` to save ~1MB from initial bundle — always use `const XLSX = await getXLSX()` instead of static import
+- Android `blockedPermissions` strips `READ_MEDIA_IMAGES` / `READ_MEDIA_VIDEO`: expo-screen-capture adds READ_MEDIA_IMAGES for screenshot *detection* (unused — we only call `preventScreenCaptureAsync`), and Google Play's photo/video policy rejects releases that request it. expo-image-picker uses the system photo picker on Android 13+ and needs no media permission
+- Releases: EAS builds both platforms; `eas submit` works for iOS (App Store Connect API key on EAS) but not Android (no Google service account) — the .aab is uploaded by hand in Play Console. Store texts live in `store-metadata/`
 - **Security**: When you find a security vulnerability, flag it immediately with a WARNING comment and suggest a secure alternative. Never implement insecure patterns even if asked
