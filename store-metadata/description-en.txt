@@ -36,7 +36,7 @@ EVERYTHING IN ONE PLACE
 • A month calendar with every due date.
 
 EASY TO USE
-• Type "Car insurance Logan" and the app fills in the type and recurrence.
+• Pick a type — insurance, inspection, ID, rent — and the recurrence and reminders are set for you.
 • Scan the document with the camera or from your gallery — the expiry date and amount fill in automatically (on-device, no internet).
 • Date shortcuts (+1 month, +1 year).
 • Paid or renewed? One tap: see the new date, undo within 5 seconds.

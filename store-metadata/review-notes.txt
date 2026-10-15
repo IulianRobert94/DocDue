@@ -1,27 +1,18 @@
-REVIEW NOTES FOR APP STORE REVIEW TEAM (version 1.1.0):
+REVIEW NOTES FOR APP STORE REVIEW TEAM (version 1.1.0, as sent in App Store Connect):
 
-DocDue is a fully offline tracker for documents and bills with due dates (car insurance, vehicle inspection, IDs, rent, utilities, taxes, warranties). Key points for review:
+CORE FLOW: Launch → 8 example documents (marked "Example") show every screen; "Remove examples" on Home deletes only them. Tap "+" → add a document (title, type, due date, amount) → save. Home shows the health score. Alerts tab: overdue / next 7 days / next 30 days with totals, plus a month calendar (List / Calendar switch). Open a document → "Paid" / "Renewed" sets the next due date (Undo for 5 seconds). Search filters by name and type; the "Archive" chip shows finished items. Maintenance log (card on Home): note when a part is replaced and see how long it lasted. Settings: language (RO/EN), notifications, Face ID, currency.
 
-1. NO LOGIN REQUIRED - No accounts, no sign-up, no server. All data is stored locally on the device.
+PRO: One-time purchase via Apple StoreKit (com.docdueapp.pro.lifetime), non-consumable, no subscription. Unlocks unlimited documents (free: 10), analytics with a 12-month forecast, backup/restore, Excel export/import. "Restore purchase" is on the Pro screen (Settings > DocDue Pro).
 
-2. EXAMPLE DATA - On first launch the app shows 8 example documents (marked "Example") so the reviewer can see every screen right away. They can be removed with the "Remove examples" button on the home screen; documents the user adds are never touched.
+SERVICES: Apple StoreKit (IAP), Google ML Kit OCR (on-device, no data sent). No backend, no accounts, no cloud, no ads, no tracking.
 
-3. NO NETWORK REQUESTS - Core functionality makes zero network calls. Document scanning (OCR) runs on-device with ML Kit. The only network calls are Apple StoreKit / Google Play Billing for the in-app purchase.
+NOTIFICATIONS: Local only, at 9 AM: before the due date, on the due day and several times after it until the item is marked done. Quick actions "Paid" / "Renewed" open the document to confirm. With the Face ID lock on, notifications hide document details.
 
-4. IN-APP PURCHASE - "DocDue Pro" is a one-time, non-consumable purchase (no subscription). It removes the 10-document limit and unlocks analytics with a 12-month forecast, backup/restore and Excel export/import. "Restore purchase" is on the Pro screen (Settings > DocDue Pro).
+REGIONAL: Bilingual (Romanian/English). No regional restrictions. Identical features worldwide.
 
-5. NOTIFICATIONS - Local notifications only (no remote push). Reminders at 9:00 AM before the due date, on the due day and a few times after it until the user marks the item done; a morning summary only when something needs attention; a weekly summary. Notifications have quick actions ("Paid" / "Renewed") that open the document so the user can confirm the new date.
+NOT a regulated industry. Personal document organizer only.
 
-6. CAMERA / PHOTOS - Used only when the user taps "Scan" or attaches a photo to a document. Processing is on-device; no images are uploaded.
+PERMISSIONS: Camera (scan documents), Photos (scan from gallery, attachments), Face ID (app lock), Calendar (add due dates), Notifications (reminders at 9 AM).
 
-7. CALENDAR - Optional: adds a document's due date to the device calendar after the user grants permission.
-
-8. BIOMETRIC LOCK - Optional Face ID / Touch ID lock (Settings), with device passcode fallback. While locked, notification texts hide document details.
-
-9. MAINTENANCE LOG - A free section ("Maintenance log", on the home screen) where the user notes when a part is replaced (battery, tyres, filters) and sees how long it lasted.
-
-10. LANGUAGES - Romanian and English (follows the device language; can be changed in Settings).
-
-11. PRIVACY - No data collection, no analytics, no tracking, no third-party sharing. Privacy policy in-app (Settings > Privacy Policy) and at https://iulianrobert94.github.io/DocDue/privacy.html
-
+PRIVACY POLICY: https://iulianrobert94.github.io/DocDue/privacy.html
 CONTACT: andreiiulianrobert@gmail.com
